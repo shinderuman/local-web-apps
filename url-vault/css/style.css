@@ -192,6 +192,24 @@ button:hover { background-color: #0062a3; }
     border-color: #007acc;
 }
 
+.sort-btn {
+    background-color: #2a2a2a;
+    color: #ccc;
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 11px;
+    border: 1px solid #3d3d3d;
+}
+.sort-btn.active {
+    background-color: #6a4c93;
+    color: #fff;
+    border-color: #6a4c93;
+}
+.sort-btn .arrow {
+    font-size: 9px;
+    margin-left: 2px;
+}
+
 /* 限界高密度カードグリッド */
 .list-section-wrapper {
     flex: 1;

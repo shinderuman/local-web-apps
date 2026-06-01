@@ -5,6 +5,8 @@ let db = null;
 let currentSelectedWindowId = null;
 let currentSelectedGroupId = null;
 let imageDataBase64 = '';
+let currentSortKey = 'sortOrder';
+let sortAsc = true;
 
 // IndexedDB初期化
 const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -22,6 +24,7 @@ request.onsuccess = (e) => {
 function initApp() {
     loadToggleStates();
     updateSelectBoxes();
+    renderSortButtons();
     renderFilters();
     renderList();
     initDragAndDrop();
@@ -215,6 +218,41 @@ document.getElementById('saveBtn').addEventListener('click', () => {
     };
 });
 
+// --- ソートボタン ---
+const SORT_OPTIONS = [
+    { key: 'sortOrder', label: '手動順' },
+    { key: 'title', label: 'タイトル順' },
+    { key: 'createdAt', label: '登録順' },
+];
+
+function renderSortButtons() {
+    const sortRow = document.getElementById('sortRow');
+    sortRow.innerHTML = '';
+    SORT_OPTIONS.forEach(opt => {
+        const btn = document.createElement('button');
+        const isActive = currentSortKey === opt.key;
+        btn.className = `sort-btn ${isActive ? 'active' : ''}`;
+        btn.textContent = opt.label;
+        if (isActive && opt.key !== 'sortOrder') {
+            const arrow = document.createElement('span');
+            arrow.className = 'arrow';
+            arrow.textContent = sortAsc ? '▲' : '▼';
+            btn.appendChild(arrow);
+        }
+        btn.onclick = () => {
+            if (currentSortKey === opt.key && opt.key !== 'sortOrder') {
+                sortAsc = !sortAsc;
+            } else {
+                currentSortKey = opt.key;
+                sortAsc = true;
+            }
+            renderSortButtons();
+            renderList();
+        };
+        sortRow.appendChild(btn);
+    });
+}
+
 // フィルター周りの描画
 function renderFilters() {
     const winRow = document.getElementById('windowFilterRow'); winRow.innerHTML = '';
@@ -269,12 +307,19 @@ function renderList() {
         if (currentSelectedWindowId !== null) items = items.filter(item => item.windowId === currentSelectedWindowId);
         if (currentSelectedGroupId !== null) items = items.filter(item => item.groupId === currentSelectedGroupId);
 
-        items.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        const isDragEnabled = currentSortKey === 'sortOrder';
+        if (currentSortKey === 'sortOrder') {
+            items.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+        } else if (currentSortKey === 'title') {
+            items.sort((a, b) => sortAsc ? a.title.localeCompare(b.title, 'ja') : b.title.localeCompare(a.title, 'ja'));
+        } else if (currentSortKey === 'createdAt') {
+            items.sort((a, b) => sortAsc ? a.createdAt - b.createdAt : b.createdAt - a.createdAt);
+        }
 
         items.forEach((item) => {
             const card = document.createElement('div');
             card.className = 'card';
-            card.draggable = true;
+            card.draggable = isDragEnabled;
             card.dataset.id = item.id;
 
             card.onclick = (e) => {
