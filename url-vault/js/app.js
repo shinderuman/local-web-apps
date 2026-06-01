@@ -23,6 +23,7 @@ request.onsuccess = (e) => {
 
 function initApp() {
     loadToggleStates();
+    loadUIState();
     updateSelectBoxes();
     renderSortButtons();
     renderFilters();
@@ -41,21 +42,41 @@ function refreshDataView() {
 function loadToggleStates() {
     const leftPanel = document.getElementById('leftPanel');
     const navContainer = document.getElementById('navContainer');
-    if (localStorage.getItem('leftPanelHidden') === 'true') leftPanel.classList.add('hidden');
-    if (localStorage.getItem('navContainerHidden') === 'true') navContainer.classList.add('hidden');
+    if (sessionStorage.getItem('leftPanelHidden') === 'true') leftPanel.classList.add('hidden');
+    if (sessionStorage.getItem('navContainerHidden') === 'true') navContainer.classList.add('hidden');
 }
 
 document.getElementById('toggleLeftBtn').addEventListener('click', () => {
     const leftPanel = document.getElementById('leftPanel');
     leftPanel.classList.toggle('hidden');
-    localStorage.setItem('leftPanelHidden', leftPanel.classList.contains('hidden'));
+    sessionStorage.setItem('leftPanelHidden', leftPanel.classList.contains('hidden'));
 });
 
 document.getElementById('toggleNavBtn').addEventListener('click', () => {
     const navContainer = document.getElementById('navContainer');
     navContainer.classList.toggle('hidden');
-    localStorage.setItem('navContainerHidden', navContainer.classList.contains('hidden'));
+    sessionStorage.setItem('navContainerHidden', navContainer.classList.contains('hidden'));
 });
+
+// --- UI状態の保存と復元 ---
+function saveUIState() {
+    sessionStorage.setItem('uiState', JSON.stringify({
+        windowId: currentSelectedWindowId,
+        groupId: currentSelectedGroupId,
+        sortKey: currentSortKey,
+        sortAsc: sortAsc,
+    }));
+}
+
+function loadUIState() {
+    const saved = sessionStorage.getItem('uiState');
+    if (!saved) return;
+    const state = JSON.parse(saved);
+    currentSelectedWindowId = state.windowId ?? null;
+    currentSelectedGroupId = state.groupId ?? null;
+    currentSortKey = state.sortKey ?? 'sortOrder';
+    sortAsc = state.sortAsc ?? true;
+}
 
 // --- セレクトボックスの同期 ---
 function updateSelectBoxes() {
@@ -246,6 +267,7 @@ function renderSortButtons() {
                 currentSortKey = opt.key;
                 sortAsc = true;
             }
+            saveUIState();
             renderSortButtons();
             renderList();
         };
@@ -261,16 +283,39 @@ function renderFilters() {
         const windows = e.target.result;
         const allBtn = document.createElement('button');
         allBtn.className = `filter-btn ${currentSelectedWindowId === null ? 'active' : ''}`; allBtn.textContent = 'すべて';
-        allBtn.onclick = () => { currentSelectedWindowId = null; currentSelectedGroupId = null; renderFilters(); renderList(); };
+        allBtn.onclick = () => { currentSelectedWindowId = null; currentSelectedGroupId = null; saveUIState(); renderFilters(); renderList(); };
         winRow.appendChild(allBtn);
 
         windows.forEach(w => {
             const btn = document.createElement('button');
             btn.className = `filter-btn ${currentSelectedWindowId === w.id ? 'active' : ''}`; btn.textContent = w.name;
-            btn.onclick = () => { currentSelectedWindowId = w.id; currentSelectedGroupId = null; renderFilters(); renderList(); };
+            btn.onclick = () => { currentSelectedWindowId = w.id; currentSelectedGroupId = null; saveUIState(); renderFilters(); renderList(); };
             winRow.appendChild(btn);
         });
         renderGroupFilters(tx);
+        syncItemSelects();
+    };
+}
+
+// フィルタ選択に合わせてグループ作成・アイテム登録のセレクトボックスを同期
+function syncItemSelects() {
+    const itemWin = document.getElementById('itemWindowSelect');
+    const itemGroup = document.getElementById('itemGroupSelect');
+    const targetWin = document.getElementById('targetWindowSelect');
+    if (currentSelectedWindowId === null) return;
+
+    targetWin.value = currentSelectedWindowId;
+    itemWin.value = currentSelectedWindowId;
+
+    const winId = parseInt(itemWin.value);
+    itemGroup.innerHTML = '';
+    if (isNaN(winId)) return;
+
+    const tx = db.transaction(['groups'], 'readonly');
+    tx.objectStore('groups').getAll().onsuccess = (e) => {
+        const groups = e.target.result.filter(g => g.windowId === winId);
+        groups.forEach(g => itemGroup.add(new Option(g.name, g.id)));
+        if (currentSelectedGroupId !== null) itemGroup.value = currentSelectedGroupId;
     };
 }
 
@@ -283,13 +328,13 @@ function renderGroupFilters(tx) {
         const groups = e.target.result.filter(g => g.windowId === currentSelectedWindowId);
         const allBtn = document.createElement('button');
         allBtn.className = `filter-btn ${currentSelectedGroupId === null ? 'active' : ''}`; allBtn.textContent = 'すべて';
-        allBtn.onclick = () => { currentSelectedGroupId = null; renderFilters(); renderList(); };
+        allBtn.onclick = () => { currentSelectedGroupId = null; saveUIState(); renderFilters(); renderList(); };
         groupRow.appendChild(allBtn);
 
         groups.forEach(g => {
             const btn = document.createElement('button');
             btn.className = `filter-btn ${currentSelectedGroupId === g.id ? 'active' : ''}`; btn.textContent = g.name;
-            btn.onclick = () => { currentSelectedGroupId = g.id; renderFilters(); renderList(); };
+            btn.onclick = () => { currentSelectedGroupId = g.id; saveUIState(); renderFilters(); renderList(); };
             groupRow.appendChild(btn);
         });
     };
@@ -448,6 +493,7 @@ document.getElementById('importBtn').addEventListener('click', () => {
         document.getElementById('ioTextarea').value = '';
         currentSelectedWindowId = null;
         currentSelectedGroupId = null;
+        saveUIState();
         initApp();
     };
 });
