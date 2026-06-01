@@ -188,7 +188,8 @@ document.getElementById('title').addEventListener('paste', (e) => {
 // サムネ画像貼り付け（Canvas リサイズ付き）
 const pasteArea = document.getElementById('pasteArea');
 const preview = document.getElementById('preview');
-pasteArea.addEventListener('paste', (e) => {
+
+function handleImagePaste(e) {
     const items = e.clipboardData.items;
     for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
@@ -218,15 +219,39 @@ pasteArea.addEventListener('paste', (e) => {
                 preview.style.display = 'inline-block';
                 pasteArea.classList.add('has-image');
                 URL.revokeObjectURL(img.src);
+
+                // タイトル・URLが入力済みなら自動保存
+                const titleInput = document.getElementById('title');
+                const urlInput = document.getElementById('url');
+                if (titleInput.value.trim() && urlInput.value.trim()) {
+                    saveItem();
+                }
             };
             img.src = URL.createObjectURL(blob);
             break;
         }
     }
+}
+
+pasteArea.addEventListener('paste', handleImagePaste);
+document.getElementById('title').addEventListener('paste', (e) => {
+    // テキストペースト（2行パース）を優先、画像がない場合のみ処理
+    const hasImage = [...e.clipboardData.items].some(item => item.type.indexOf('image') !== -1);
+    const hasText = [...e.clipboardData.items].some(item => item.type.indexOf('text') !== -1);
+    if (hasImage && !hasText) {
+        handleImagePaste(e);
+    }
+});
+document.getElementById('url').addEventListener('paste', (e) => {
+    const hasImage = [...e.clipboardData.items].some(item => item.type.indexOf('image') !== -1);
+    const hasText = [...e.clipboardData.items].some(item => item.type.indexOf('text') !== -1);
+    if (hasImage && !hasText) {
+        handleImagePaste(e);
+    }
 });
 
 // アイテムの新規保存処理
-document.getElementById('saveBtn').addEventListener('click', () => {
+function saveItem() {
     const winSelect = document.getElementById('itemWindowSelect'); const groupSelect = document.getElementById('itemGroupSelect');
     const titleInput = document.getElementById('title'); const urlInput = document.getElementById('url');
     if (!winSelect.value || !groupSelect.value || !titleInput.value || !urlInput.value) return;
@@ -252,7 +277,9 @@ document.getElementById('saveBtn').addEventListener('click', () => {
             renderList();
         };
     };
-});
+}
+
+document.getElementById('saveBtn').addEventListener('click', saveItem);
 
 // --- ソートボタン ---
 const SORT_OPTIONS = [
