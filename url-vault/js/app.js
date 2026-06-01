@@ -146,18 +146,42 @@ document.getElementById('title').addEventListener('paste', (e) => {
     }
 });
 
-// サムネ画像貼り付け
+// サムネ画像貼り付け（Canvas リサイズ付き）
 const pasteArea = document.getElementById('pasteArea');
 const preview = document.getElementById('preview');
 pasteArea.addEventListener('paste', (e) => {
     const items = e.clipboardData.items;
     for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
-            const blob = items[i].getAsFile(); const reader = new FileReader();
-            reader.onload = (event) => {
-                imageDataBase64 = event.target.result; preview.src = imageDataBase64; preview.style.display = 'inline-block'; pasteArea.classList.add('has-image');
+            e.preventDefault();
+            const blob = items[i].getAsFile();
+            const img = new Image();
+            img.onload = () => {
+                const MAX_W = 220;
+                const MAX_H = 310;
+                let w = img.width;
+                let h = img.height;
+
+                if (w > MAX_W || h > MAX_H) {
+                    const ratio = Math.min(MAX_W / w, MAX_H / h);
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+
+                imageDataBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                preview.src = imageDataBase64;
+                preview.style.display = 'inline-block';
+                pasteArea.classList.add('has-image');
+                URL.revokeObjectURL(img.src);
             };
-            reader.readAsDataURL(blob); break;
+            img.src = URL.createObjectURL(blob);
+            break;
         }
     }
 });
