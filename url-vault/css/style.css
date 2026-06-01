@@ -185,11 +185,37 @@ button:hover { background-color: #0062a3; }
     border-radius: 3px;
     font-size: 11px;
     border: 1px solid #3d3d3d;
+    position: relative;
+}
+.filter-btn.editable-btn {
+    padding-right: 38px;
 }
 .filter-btn.active {
     background-color: #007acc;
     color: #fff;
     border-color: #007acc;
+}
+.filter-btn .icon {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    cursor: pointer;
+    opacity: 0.5;
+    padding: 0 2px;
+}
+.filter-btn .icon:hover { opacity: 1; }
+.filter-btn .edit-icon { right: 16px; }
+.filter-btn .delete-icon { right: 4px; color: #ff5252; }
+.filter-btn .edit-input {
+    width: 100%;
+    padding: 0;
+    background: #1a1a1a;
+    border: 1px solid #007acc;
+    color: #fff;
+    font-size: 11px;
+    border-radius: 2px;
+    box-sizing: border-box;
 }
 
 .sort-btn {

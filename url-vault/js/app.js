@@ -7,6 +7,7 @@ let currentSelectedGroupId = null;
 let imageDataBase64 = '';
 let currentSortKey = 'sortOrder';
 let sortAsc = true;
+let editMode = false;
 
 // IndexedDB初期化
 const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -56,6 +57,14 @@ document.getElementById('toggleNavBtn').addEventListener('click', () => {
     const navContainer = document.getElementById('navContainer');
     navContainer.classList.toggle('hidden');
     sessionStorage.setItem('navContainerHidden', navContainer.classList.contains('hidden'));
+});
+
+document.getElementById('toggleEditModeBtn').addEventListener('click', () => {
+    editMode = !editMode;
+    const btn = document.getElementById('toggleEditModeBtn');
+    btn.style.backgroundColor = editMode ? '#6a4c93' : '';
+    btn.style.color = editMode ? '#fff' : '';
+    renderFilters();
 });
 
 // --- UI状態の保存と復元 ---
@@ -276,10 +285,14 @@ function renderSortButtons() {
 }
 
 // フィルター周りの描画
+let filterRenderId = 0;
 function renderFilters() {
-    const winRow = document.getElementById('windowFilterRow'); winRow.innerHTML = '';
+    const myId = ++filterRenderId;
+    const winRow = document.getElementById('windowFilterRow');
     const tx = db.transaction(['windows', 'groups'], 'readonly');
     tx.objectStore('windows').getAll().onsuccess = (e) => {
+        if (myId !== filterRenderId) return;
+        winRow.innerHTML = '';
         const windows = e.target.result;
         const allBtn = document.createElement('button');
         allBtn.className = `filter-btn ${currentSelectedWindowId === null ? 'active' : ''}`; allBtn.textContent = 'すべて';
@@ -288,8 +301,27 @@ function renderFilters() {
 
         windows.forEach(w => {
             const btn = document.createElement('button');
-            btn.className = `filter-btn ${currentSelectedWindowId === w.id ? 'active' : ''}`; btn.textContent = w.name;
+            const classes = ['filter-btn'];
+            if (currentSelectedWindowId === w.id) classes.push('active');
+            if (editMode) classes.push('editable-btn');
+            btn.className = classes.join(' ');
+            btn.textContent = w.name;
             btn.onclick = () => { currentSelectedWindowId = w.id; currentSelectedGroupId = null; saveUIState(); renderFilters(); renderList(); };
+
+            if (editMode) {
+                const editIcon = document.createElement('span');
+                editIcon.className = 'icon edit-icon';
+                editIcon.textContent = '✏';
+                editIcon.onclick = (e) => { e.stopPropagation(); startEditFilter(w.id, 'windows', w.name, btn); };
+                btn.appendChild(editIcon);
+
+                const delIcon = document.createElement('span');
+                delIcon.className = 'icon delete-icon';
+                delIcon.textContent = '×';
+                delIcon.onclick = (e) => { e.stopPropagation(); deleteWindow(w.id, w.name); };
+                btn.appendChild(delIcon);
+            }
+
             winRow.appendChild(btn);
         });
         renderGroupFilters(tx);
@@ -319,12 +351,102 @@ function syncItemSelects() {
     };
 }
 
+// --- フィルタボタンの名前編集 ---
+function startEditFilter(id, storeName, currentName, btnElement) {
+    let finished = false;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'edit-input';
+    input.value = currentName;
+    btnElement.textContent = '';
+    btnElement.appendChild(input);
+    input.focus();
+
+    const finishEdit = () => {
+        if (finished) return;
+        finished = true;
+        const newName = input.value.trim();
+        if (newName && newName !== currentName) {
+            const tx = db.transaction([storeName], 'readwrite');
+            tx.objectStore(storeName).get(id).onsuccess = (e) => {
+                const data = e.target.result;
+                if (data) { data.name = newName; tx.objectStore(storeName).put(data); }
+            };
+            tx.oncomplete = () => { refreshDataView(); syncItemSelects(); };
+        } else {
+            refreshDataView();
+        }
+    };
+
+    input.onblur = finishEdit;
+    input.onkeydown = (e) => {
+        if (e.key === 'Enter') { input.onblur = null; finishEdit(); }
+        if (e.key === 'Escape') { finished = true; input.onblur = null; refreshDataView(); }
+    };
+}
+
+// --- ウィンドウ削除 ---
+function deleteWindow(id, name) {
+    const tx = db.transaction(['items'], 'readonly');
+    tx.objectStore('items').getAll().onsuccess = (e) => {
+        const count = e.target.result.filter(item => item.windowId === id).length;
+        if (count > 0) {
+            alert(`このウィンドウには${count}件のアイテムが存在します。\n先にアイテムを削除してください。`);
+            return;
+        }
+        if (!confirm(`ウィンドウ「${name}」を削除しますか？`)) return;
+
+        const tx2 = db.transaction(['windows', 'groups'], 'readwrite');
+        tx2.objectStore('windows').delete(id);
+        // 関連グループも削除
+        tx2.objectStore('groups').getAll().onsuccess = (e2) => {
+            e2.target.result.filter(g => g.windowId === id).forEach(g => {
+                tx2.objectStore('groups').delete(g.id);
+            });
+        };
+        tx2.oncomplete = () => {
+            if (currentSelectedWindowId === id) {
+                currentSelectedWindowId = null;
+                currentSelectedGroupId = null;
+                saveUIState();
+            }
+            refreshDataView();
+            syncItemSelects();
+        };
+    };
+}
+
+// --- グループ削除 ---
+function deleteGroup(id, name) {
+    const tx = db.transaction(['items'], 'readonly');
+    tx.objectStore('items').getAll().onsuccess = (e) => {
+        const count = e.target.result.filter(item => item.groupId === id).length;
+        if (count > 0) {
+            alert(`このグループには${count}件のアイテムが存在します。\n先にアイテムを削除してください。`);
+            return;
+        }
+        if (!confirm(`グループ「${name}」を削除しますか？`)) return;
+
+        db.transaction(['groups'], 'readwrite').objectStore('groups').delete(id).onsuccess = () => {
+            if (currentSelectedGroupId === id) {
+                currentSelectedGroupId = null;
+                saveUIState();
+            }
+            refreshDataView();
+            syncItemSelects();
+        };
+    };
+}
+
 function renderGroupFilters(tx) {
-    const groupRow = document.getElementById('groupFilterRow'); groupRow.innerHTML = '';
+    const myId = filterRenderId;
+    const groupRow = document.getElementById('groupFilterRow');
     if (currentSelectedWindowId === null) {
         groupRow.innerHTML = '<span style="font-size:11px; color:#555;">ウィンドウを選択してください</span>'; return;
     }
     tx.objectStore('groups').getAll().onsuccess = (e) => {
+        if (myId !== filterRenderId) return;
+        groupRow.innerHTML = '';
         const groups = e.target.result.filter(g => g.windowId === currentSelectedWindowId);
         const allBtn = document.createElement('button');
         allBtn.className = `filter-btn ${currentSelectedGroupId === null ? 'active' : ''}`; allBtn.textContent = 'すべて';
@@ -333,8 +455,27 @@ function renderGroupFilters(tx) {
 
         groups.forEach(g => {
             const btn = document.createElement('button');
-            btn.className = `filter-btn ${currentSelectedGroupId === g.id ? 'active' : ''}`; btn.textContent = g.name;
+            const classes = ['filter-btn'];
+            if (currentSelectedGroupId === g.id) classes.push('active');
+            if (editMode) classes.push('editable-btn');
+            btn.className = classes.join(' ');
+            btn.textContent = g.name;
             btn.onclick = () => { currentSelectedGroupId = g.id; saveUIState(); renderFilters(); renderList(); };
+
+            if (editMode) {
+                const editIcon = document.createElement('span');
+                editIcon.className = 'icon edit-icon';
+                editIcon.textContent = '✏';
+                editIcon.onclick = (e) => { e.stopPropagation(); startEditFilter(g.id, 'groups', g.name, btn); };
+                btn.appendChild(editIcon);
+
+                const delIcon = document.createElement('span');
+                delIcon.className = 'icon delete-icon';
+                delIcon.textContent = '×';
+                delIcon.onclick = (e) => { e.stopPropagation(); deleteGroup(g.id, g.name); };
+                btn.appendChild(delIcon);
+            }
+
             groupRow.appendChild(btn);
         });
     };
