@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>系統・種牡馬データ管理</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f0f2f5; color: #1c1e21; position: relative; }
+        .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        
+        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .game-year-box { background: #e8f5e9; padding: 10px 20px; border-radius: 8px; border: 1px solid #c8e6c9; display: flex; align-items: center; gap: 10px; }
+        .game-year-box label { font-weight: bold; color: #2e7d32; }
+        .game-year-box input { width: 80px; padding: 8px; border: 1px solid #a5d6a7; border-radius: 4px; font-size: 16px; text-align: center; }
+
+        .btn-group { display: flex; gap: 10px; position: fixed; top: 20px; right: 20px; z-index: 1000; }
+        .toggle-btn { padding: 10px 15px; background: #343a40; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .toggle-btn:hover { background: #23272b; }
+
+        #memoArea, #csvSection, #horseListSection, #scheduleSection { display: none; margin-bottom: 25px; padding: 20px; border-radius: 8px; border: 1px solid #ddd; background: #f9f9f9; }
+        #memoArea { background: #fffde7; border-color: #ffe082; font-size: 14px; line-height: 1.6; color: #5d4037; }
+        #memoArea h3 { margin: 0 0 10px 0; font-size: 16px; border-bottom: 1px solid #ffe082; padding-bottom: 5px; color: #333; }
+        .memo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+        
+        textarea { width: 100%; height: 100px; margin-bottom: 10px; font-family: monospace; padding: 10px; box-sizing: border-box; }
+        
+        .horse-list-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin-top: 10px; }
+        .year-card { background: #fff; padding: 12px; border-radius: 6px; border: 1px solid #e0e0e0; }
+        .year-card h4 { margin: 0 0 8px 0; color: #1a73e8; border-bottom: 2px solid #1a73e8; padding-bottom: 3px; font-size: 15px; }
+        .year-card ul { margin: 0; padding-left: 20px; font-size: 13px; color: #333; line-height: 1.5; }
+
+        /* スケジュールセクション用のスタイル */
+        #scheduleSection { background: #f1f8ff; border-color: #c8e1ff; color: #0366d6; }
+        .schedule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        .schedule-box { background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #b9daff; color: #333; }
+        .schedule-box h3 { margin: 0 0 10px 0; font-size: 15px; border-bottom: 1px solid #b9daff; padding-bottom: 5px; color: #0366d6; }
+        .schedule-box h4 { margin: 10px 0 5px 0; font-size: 13px; color: #555; }
+        .schedule-box ul { list-style: none; padding: 0; margin: 0; font-size: 13px; line-height: 1.6; }
+        .schedule-box li { margin-bottom: 6px; display: flex; align-items: flex-start; gap: 6px; }
+        .schedule-box li input[type="checkbox"] { margin-top: 3px; cursor: pointer; }
+        .schedule-box .sub-list { padding-left: 20px; margin-top: 4px; }
+
+        .controls { margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; background: #fff; padding: 15px; border: 1px solid #eee; border-radius: 8px; align-items: center; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
+        th, td { border: 1px solid #eee; padding: 12px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        th { background-color: #f8f9fa; cursor: pointer; user-select: none; }
+        th:hover { background-color: #e9ecef; }
+        tr.dragging { opacity: 0.4; background: #e9ecef; }
+        .handle { cursor: grab; color: #999; width: 45px; text-align: center; font-size: 20px; user-select: none; }
+        .age-cell { font-weight: bold; color: #d32f2f; text-align: center; background-color: #fff9f9; }
+        .name-cell { color: #333; font-weight: 500; }
+        .editable { cursor: text; background-color: #fffdf0; border-bottom: 1px dashed #ccc; }
+        .editable:hover { background-color: #fff9c4; }
+        .edit-input { width: 100%; box-sizing: border-box; padding: 4px; font-size: inherit; font-family: inherit; }
+        button { cursor: pointer; padding: 8px 16px; border: 1px solid #ccc; background: #fff; border-radius: 6px; font-weight: bold; }
+        .primary-btn { background-color: #007bff; color: white; border: none; }
+        .delete-btn { color: #dc3545; border-color: #dc3545; padding: 4px 8px; }
+    </style>
+</head>
+<body>
+
+<div class="btn-group">
+    <button class="toggle-btn" onclick="toggleElement('scheduleSection')">スケジュール</button>
+    <button class="toggle-btn" onclick="toggleElement('horseListSection')">年代別馬リスト</button>
+    <button class="toggle-btn" onclick="toggleElement('csvSection')">CSV入出力パネル</button>
+    <button class="toggle-btn" onclick="toggleElement('memoArea')">注記メモ</button>
+</div>
+
+<div class="container">
+    <div class="header-flex">
+        <h2>系統・種牡馬データ管理</h2>
+        <div class="game-year-box">
+            <label for="currentGameYear">ゲーム内年:</label>
+            <input type="number" id="currentGameYear" value="1973" oninput="updateGameYear(this.value)">
+        </div>
+    </div>
+
+    <!-- メモエリア -->
+    <div id="memoArea">
+        <div class="memo-grid">
+            <div class="memo-section">
+                <h3>## 競走馬</h3>
+                ☆ お気に入り/大事にしたい馬<br>◎ 強そうな馬<br>○ 滅亡寸前の保護馬<br>△ 繁殖上げ/血統保護
+            </div>
+            <div class="memo-section">
+                <h3>## 種牡馬</h3>
+                ☆ 基準交配馬<br>◎ 自家生産大成馬<br>○ 滅亡寸前の保護馬<br>△ 史実予後不良/せん馬
+            </div>
+            <div class="memo-section">
+                <h3>## 繁殖牝馬</h3>
+                ☆ 流星馬<br>◎ 爆発力40超え<br>○ 白馬<br>△ なし
+            </div>
+            <div class="memo-section">
+                <h3>## 幼駒</h3>
+                ☆ 誕生イベント等<br>◎ 印が強い馬<br>○ 購入、売却予定<br>△ 予後不良/血統保護
+            </div>
+        </div>
+    </div>
+
+    <!-- CSV入出力パネル -->
+    <div id="csvSection">
+        <textarea id="csvIO" placeholder="CSV形式（系統名,生年,種牡馬名）を貼り付け"></textarea>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="importCSV()" class="primary-btn">CSVから読み込み</button>
+            <button onclick="exportCSV()">CSV出力</button>
+        </div>
+    </div>
+
+    <!-- 年代別馬リストパネル -->
+    <div id="horseListSection">
+        <div class="horse-list-grid" id="filteredHorseList"></div>
+    </div>
+
+    <!-- スケジュールパネル -->
+    <div id="scheduleSection">
+        <div class="schedule-grid">
+            <div class="schedule-box">
+                <h3>## 1月1週目にやること</h3>
+                <ul>
+                    <li><input type="checkbox" id="chk_1_1" onchange="saveCheckboxes()"><label for="chk_1_1">年表で念のため滅亡した系統がないかチェックする</label></li>
+                    <li><input type="checkbox" id="chk_1_2" onchange="saveCheckboxes()"><label for="chk_1_2">幼駒→競走馬、競走馬→繁殖入りした馬のマークを変更する</label></li>
+                    <li><input type="checkbox" id="chk_1_3" onchange="saveCheckboxes()"><label for="chk_1_3">海外遠征と三歳三冠のローテを設定</label></li>
+                </ul>
+                <h3>## 4月1週目</h3>
+                <ul>
+                    <li><input type="checkbox" id="chk_4_1" onchange="saveCheckboxes()"><label for="chk_4_1">誕生した馬をルールに則ってマークする</label></li>
+                    <li><input type="checkbox" id="chk_4_2" onchange="saveCheckboxes()"><label for="chk_4_2">滅亡寸前産駒のチェック</label></li>
+                    <li><input type="checkbox" id="chk_4_3" onchange="saveCheckboxes()"><label for="chk_4_3">購入予定史実馬のチェック</label></li>
+                </ul>
+                <h3>## 5月1週目</h3>
+                <ul>
+                    <li><input type="checkbox" id="chk_5_1" onchange="saveCheckboxes()"><label for="chk_5_1">新しく種牡馬入りした馬が基準交配を起こせないかチェック</label></li>
+                    <li><input type="checkbox" id="chk_5_2" onchange="saveCheckboxes()"><label for="chk_5_2">購入予定史実馬を買えるだけ買う</label></li>
+                    <li><input type="checkbox" id="chk_5_3" onchange="saveCheckboxes()"><label for="chk_5_3">史実繁殖牝馬の史実誕生条件で種付</label></li>
+                </ul>
+            </div>
+            <div class="schedule-box">
+                <h3>## 8月1週目</h3>
+                <ul>
+                    <li><input type="checkbox" id="chk_8_1" onchange="saveCheckboxes()"><label for="chk_8_1">幼駒セールで購入予定の史実馬の分だけ売る</label></li>
+                </ul>
+                <h3>## 12月3週目</h3>
+                <ul>
+                    <li>
+                        <div>
+                            <input type="checkbox" id="chk_123_1" onchange="saveCheckboxes()"><label for="chk_123_1">海外トレセンで必要な空きの分だけ売る</label>
+                            <ul class="sub-list">
+                                <li><input type="checkbox" id="chk_123_1_a" onchange="saveCheckboxes()"><label for="chk_123_1_a">購入予定の史実馬を買う</label></li>
+                                <li><input type="checkbox" id="chk_123_1_b" onchange="saveCheckboxes()"><label for="chk_123_1_b">売った馬で印付きのやつは庭先取引で日本に買い戻す</label></li>
+                            </ul>
+                        </div>
+                    </li>
+                </ul>
+                <h3>## 12月4週目</h3>
+                <ul>
+                    <li>
+                        <div>
+                            <input type="checkbox" id="chk_124_1" onchange="saveCheckboxes()"><label for="chk_124_1">滅亡しそうな種牡馬系統のチェックしてセーブ</label>
+                            <ul class="sub-list">
+                                <li><input type="checkbox" id="chk_124_1_a" onchange="saveCheckboxes()"><label for="chk_124_1_a">一度年末の引退種牡馬まで進める</label></li>
+                                <li><input type="checkbox" id="chk_124_1_b" onchange="saveCheckboxes()"><label for="chk_124_1_b">滅亡寸前種牡馬が2頭以上引退していないかチェック</label></li>
+                                <li><input type="checkbox" id="chk_124_1_c" onchange="saveCheckboxes()"><label for="chk_124_1_c">引退していなければロードし直して普通に年末作業をする</label></li>
+                            </ul>
+                        </div>
+                    </li>
+                </ul>
+                <h4>### 滅亡寸前系統が2頭以上引退する場合</h4>
+                <ul>
+                    <li><input type="checkbox" id="chk_ext_1" onchange="saveCheckboxes()"><label for="chk_ext_1">一度オート進行で4月1週目まで進める</label></li>
+                    <li><input type="checkbox" id="chk_ext_2" onchange="saveCheckboxes()"><label for="chk_ext_2">誕生した幼駒に滅亡系統の牡馬がいるかチェックする</label></li>
+                    <li>
+                        <div>
+                            <input type="checkbox" id="chk_ext_3" onchange="saveCheckboxes()"><label for="chk_ext_3">いない場合は12月4周目の段階で牡馬がいるかチェックして購入する、いなければほぼ滅亡確定</label>
+                            <ul class="sub-list">
+                                <li><input type="checkbox" id="chk_ext_3_a" onchange="saveCheckboxes()"><label for="chk_ext_3_a">運が良ければ現役牡馬が種牡馬になるがほぼない</label></li>
+                            </ul>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <input type="text" id="newName" placeholder="系統名">
+        <input type="number" id="newYear" placeholder="生年" style="width: 80px;">
+        <input type="text" id="newHorseName" placeholder="種牡馬名">
+        <button onclick="addData()" class="primary-btn">追加</button>
+    </div>
+
+    <table id="horseTable">
+        <thead>
+            <tr>
+                <th style="width: 45px; cursor: default;">移動</th>
+                <th onclick="sortData('order')" style="width: 60px;">順序</th>
+                <th style="width: 60px; cursor: default;">年齢</th>
+                <th onclick="sortData('name')" style="width: 25%;">系統名</th>
+                <th onclick="sortData('birthYear')" style="width: 80px;">生年</th>
+                <th onclick="sortData('horseName')">種牡馬名</th>
+                <th style="width: 80px; cursor: default;">操作</th>
+            </tr>
+        </thead>
+        <tbody id="horseTableBody"></tbody>
+    </table>
+</div>
+
+<script>
+    let horses = [];
+    let currentGameYear = 1973;
+    let sortState = { key: 'order', asc: true };
+
+    const masterHorseData = {
+        1963: ["スピードシンボリ", "ワカクモ"],
+        1964: ["ヒカルタカイ", "ニットエイト", "リュウズキ", "Damascus", "Dr.Fager", "In Reality"],
+        1965: ["タケシバオー", "マーチス", "アサカオー", "ダテホーライ", "キタノダイオー", "Sir Ivor", "Dark Mirage", "Vaguely Noble", "Petingo", "ゼダーン"],
+        1966: ["メジロアサマ", "トウメイ", "Majestic Prince", "Arts and Letters", "Ack Ack", "Ta Wee", "Cougar", "Habitat", "Gallant Bloom"],
+        1968: ["Mill Reef", "My Swallow", "Brigadier Gerard", "Canonero", "ヒカルイマイ", "ナスノカオリ", "カネヒムロ", "ニホンピロムーテー", "ベルワイド"],
+        1969: ["Riverman", "Riva Ridge", "Key to the Mint", "Lyphard", "Susan's Girl", "ロングエース", "ランドプリンス", "イシノヒカル", "トクザクラ", "アチーブスター", "ハマノパレード", "ストロングエイト", "タニノチカラ", "タイテエム", "Halo", "Roberto"],
+        1970: ["ハイセイコー", "タケホープ", "ニットウチドリ", "ナスノチグサ", "Secretariat", "Forego", "Mr.Prospector", "Allez France", "Dahlia"],
+        1971: ["イットー", "キタノカチドキ", "コーネルランサー", "フジノパーシア", "Northern Taste", "Highclere", "Sagaro"],
+        1972: ["カブラヤオー", "テスコガビー", "Ruffian", "Foolish Pleasure"],
+        1973: ["トウショウボーイ", "テンポイント", "Exceller"],
+        1974: ["マルゼンスキー", "Seattle Slew", "Alleged"],
+        1975: ["John Henry", "Affirmed", "Alydar"],
+        1980: ["ミスターシービー", "ニホンピロウイナー"],
+        1981: ["シンボリルドルフ"],
+        1983: ["メジロラモーヌ", "Dancing Brave"],
+        1984: ["イナリワン", "タマモクロス"],
+        1985: ["オグリキャップ", "バンブーメモリー", "ヤエノムテキ", "スーパークリーク"],
+        1986: ["Sunday Silence", "Easy Goer"],
+        1987: ["イクノディクタス", "アイネスフウジン", "メジロパーマー"],
+        1988: ["トウカイテイオー"],
+        1989: ["ミホノブルボン", "サクラバクシンオー", "A.P.Indy"],
+        1990: ["ビワハヤヒデ", "ナリタタイシン", "ノースフライト", "ホクトベガ", "Cigar"],
+        1991: ["ナリタブライアン", "ヒシアマゾン", "サクラローレル"],
+        1992: ["マヤノトップガン", "フラワーパーク", "フジキセキ", "Lammtarra"],
+        1993: ["エアグルーヴ"],
+        1994: ["サイレンススズカ", "タイキシャトル", "メジロドーベル"],
+        1995: ["スペシャルウィーク", "グラスワンダー", "エルコンドルパサー", "セイウンスカイ"],
+        1996: ["テイエムオペラオー", "アドマイヤベガ", "ナリタトップロード", "メイショウドトウ", "Montjeu", "Dubai Millennium"],
+        1997: ["アグネスデジタル"],
+        1998: ["クロフネ", "アグネスタキオン", "Galileo"],
+        1999: ["デュランダル", "シンボリクリスエス"],
+        2000: ["ゼンノロブロイ", "Ghostzapper"],
+        2001: ["メジロマックイーン", "メジロライアン", "メジロブライト", "キングカメハメハ", "ハーツクライ"],
+        2002: ["ディープインパクト"],
+        2004: ["ドリームジャーニー", "ウオッカ", "ダイワスカーレット"],
+        2005: ["スマートファルコン"],
+        2006: ["ナカヤマフェスタ", "ブエナビスタ"],
+        2007: ["カレンチャン", "ルーラーシップ", "アパパネ"],
+        2008: ["ロードカナロア", "オルフェーヴル", "Frankel"],
+        2009: ["ゴールドシップ", "ホッコータルマエ", "ジェンティルドンナ"],
+        2010: ["コパノリッキー", "エピファネイア"],
+        2011: ["モーリス"],
+        2012: ["キタサンブラック", "サトノクラウン", "ドゥラメンテ", "American Pharoah"],
+        2013: ["サトノダイヤモンド", "Arrogate"],
+        2014: ["ウインブライト", "Enable", "レイデオロ"],
+        2015: ["アーモンドアイ", "Justify", "ゴールデンシックスティ"],
+        2016: ["グランアレグリア", "クロノジェネシス"],
+        2017: ["デアリングタクト", "コントレイル"],
+        2018: ["エフフォーリア", "Baaeed", "Flightline", "ロマンチックウォリアー"],
+        2019: ["イクノックス"],
+        2020: ["リバティアイランド", "Auguste Rodin", "Ka Ying Rising", "カーインライジング"]
+    };
+
+    function toggleElement(id) {
+        const el = document.getElementById(id);
+        const isVisible = el.style.display === 'block';
+        el.style.display = isVisible ? 'none' : 'block';
+        localStorage.setItem(id + '_visible', !isVisible);
+    }
+
+    function saveCheckboxes() {
+        const checkboxes = document.querySelectorAll('#scheduleSection input[type="checkbox"]');
+        const state = {};
+        checkboxes.forEach(cb => {
+            state[cb.id] = cb.checked;
+        });
+        localStorage.setItem('schedule_checkbox_states_v1', JSON.stringify(state));
+    }
+
+    function loadCheckboxes() {
+        const saved = localStorage.getItem('schedule_checkbox_states_v1');
+        if (!saved) return;
+        const state = JSON.parse(saved);
+        Object.keys(state).forEach(id => {
+            const cb = document.getElementById(id);
+            if (cb) cb.checked = state[id];
+        });
+    }
+
+    function updateGameYear(val) {
+        currentGameYear = parseInt(val, 10) || 0;
+        localStorage.setItem('game_year_v3', currentGameYear);
+        render();
+        renderFilteredHorseList();
+    }
+
+    function renderFilteredHorseList() {
+        const targetContainer = document.getElementById('filteredHorseList');
+        targetContainer.innerHTML = "";
+        
+        const filterYear = currentGameYear - 1;
+        const years = Object.keys(masterHorseData).map(Number).filter(y => y >= filterYear).sort((a, b) => a - b);
+        
+        if (years.length === 0) {
+            targetContainer.innerHTML = `<div style="color:#666; font-size:14px; padding:10px;">${filterYear}年以降の該当データはありません。</div>`;
+            return;
+        }
+
+        years.forEach(year => {
+            const card = document.createElement('div');
+            card.className = 'year-card';
+            
+            const title = document.createElement('h4');
+            title.textContent = `${year}年`;
+            card.appendChild(title);
+            
+            const ul = document.createElement('ul');
+            masterHorseData[year].forEach(horse => {
+                const li = document.createElement('li');
+                li.textContent = horse;
+                ul.appendChild(li);
+            });
+            card.appendChild(ul);
+            targetContainer.appendChild(card);
+        });
+    }
+
+    function parseCSVLine(line, index) {
+        let cleanLine = line.replace(/^[*\-\s]+/, "").trim();
+        if (!cleanLine) return null;
+        const parts = cleanLine.split(',');
+        return {
+            id: Date.now() + Math.random(),
+            order: index + 1,
+            name: (parts[0] || "").trim(),
+            birthYear: (parts[1] && !isNaN(parts[1])) ? parseInt(parts[1].trim(), 10) : "",
+            horseName: (parts[2] || "").trim()
+        };
+    }
+
+    function importCSV() {
+        const text = document.getElementById('csvIO').value;
+        if (!text.trim()) return;
+        const lines = text.split(/\n/).filter(l => l.trim() !== "");
+        horses = lines.map((line, i) => parseCSVLine(line, i)).filter(h => h !== null);
+        saveAndRender();
+    }
+
+    function exportCSV() {
+        const exportList = [...horses].sort((a, b) => a.order - b.order);
+        const csvText = exportList.map(h => `${h.name},${h.birthYear},${h.horseName}`).join('\n');
+        document.getElementById('csvIO').value = csvText;
+    }
+
+    function loadData() {
+        const saved = localStorage.getItem('horse_data_ordered_v7');
+        if (saved) horses = JSON.parse(saved);
+
+        const savedYear = localStorage.getItem('game_year_v3');
+        if (savedYear) {
+            currentGameYear = parseInt(savedYear, 10);
+            document.getElementById('currentGameYear').value = currentGameYear;
+        }
+
+        ['memoArea', 'csvSection', 'horseListSection', 'scheduleSection'].forEach(id => {
+            const visible = localStorage.getItem(id + '_visible') === 'true';
+            document.getElementById(id).style.display = visible ? 'block' : 'none';
+        });
+
+        render();
+        renderFilteredHorseList();
+        loadCheckboxes();
+    }
+
+    function saveAndRender() {
+        localStorage.setItem('horse_data_ordered_v7', JSON.stringify(horses));
+        render();
+    }
+
+    function addData() {
+        const name = document.getElementById('newName').value.trim();
+        const year = document.getElementById('newYear').value.trim();
+        const horseName = document.getElementById('newHorseName').value.trim();
+        if (!name) return;
+        const maxOrder = horses.length > 0 ? Math.max(...horses.map(h => h.order)) : 0;
+        horses.push({ id: Date.now(), order: maxOrder + 1, name: name, birthYear: year ? parseInt(year, 10) : "", horseName: horseName });
+        document.getElementById('newName').value = ""; document.getElementById('newYear').value = ""; document.getElementById('newHorseName').value = "";
+        saveAndRender();
+    }
+
+    function deleteData(id) {
+        horses = horses.filter(h => h.id !== id);
+        saveAndRender();
+    }
+
+    function startEdit(id, key, element) {
+        const horse = horses.find(h => h.id === id);
+        if (!horse) return;
+        const originalValue = horse[key];
+        const input = document.createElement('input');
+        input.type = (key === 'birthYear') ? 'number' : 'text';
+        input.value = originalValue;
+        input.className = 'edit-input';
+        element.onclick = null;
+        element.innerHTML = '';
+        element.appendChild(input);
+        input.focus();
+        const finishEdit = () => {
+            let newValue = input.value.trim();
+            if (key === 'birthYear') newValue = newValue !== "" ? parseInt(newValue, 10) : "";
+            horse[key] = newValue;
+            saveAndRender();
+        };
+        input.onblur = finishEdit;
+        input.onkeydown = (e) => { if (e.key === 'Enter') finishEdit(); if (e.key === 'Escape') { input.onblur = null; render(); } };
+    }
+
+    function sortData(key) {
+        if (sortState.key === key) { sortState.asc = !sortState.asc; } else { sortState.key = key; sortState.asc = true; }
+        horses.sort((a, b) => {
+            let valA = (a[key] === "" || a[key] === null) ? (sortState.asc ? Infinity : -Infinity) : a[key];
+            let valB = (b[key] === "" || b[key] === null) ? (sortState.asc ? Infinity : -Infinity) : b[key];
+            if (typeof valA === 'string') return sortState.asc ? valA.localeCompare(valB, 'ja') : valB.localeCompare(valA, 'ja');
+            return sortState.asc ? valA - valB : valB - valA;
+        });
+        render();
+    }
+
+    function render() {
+        const tbody = document.getElementById('horseTableBody');
+        tbody.innerHTML = "";
+        horses.forEach((h) => {
+            const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : "-";
+            const tr = document.createElement('tr');
+            tr.dataset.id = h.id;
+            tr.innerHTML = `
+                <td class="handle" draggable="true">≡</td>
+                <td style="color: #666; font-weight: bold; text-align: center;">${h.order}</td>
+                <td class="age-cell">${age}</td>
+                <td class="name-cell">${h.name}</td>
+                <td class="editable" onclick="startEdit(${h.id}, 'birthYear', this)">${h.birthYear}</td>
+                <td class="editable" onclick="startEdit(${h.id}, 'horseName', this)">${h.horseName}</td>
+                <td><button class="delete-btn" onclick="deleteData(${h.id})">削除</button></td>
+            `;
+            const handle = tr.querySelector('.handle');
+            handle.addEventListener('dragstart', handleDragStart);
+            tr.addEventListener('dragover', handleDragOver);
+            tr.addEventListener('drop', handleDrop);
+            handle.addEventListener('dragend', handleDragEnd);
+            tbody.appendChild(tr);
+        });
+    }
+
+    let dragSrcRow = null;
+    function handleDragStart(e) {
+        dragSrcRow = this.parentElement;
+        dragSrcRow.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setDragImage(dragSrcRow, 0, 0);
+    }
+    function handleDragOver(e) { if (e.preventDefault) e.preventDefault(); return false; }
+    function handleDrop(e) {
+        if (e.stopPropagation) e.stopPropagation();
+        const targetRow = this;
+        if (dragSrcRow !== targetRow) {
+            const allRows = [...document.querySelectorAll('#horseTableBody tr')];
+            const fromIndex = allRows.indexOf(dragSrcRow);
+            const toIndex = allRows.indexOf(targetRow);
+            const [movedItem] = horses.splice(fromIndex, 1);
+            horses.splice(toIndex, 0, movedItem);
+            horses.forEach((h, i) => h.order = i + 1);
+            saveAndRender();
+        }
+        return false;
+    }
+    function handleDragEnd() { if (dragSrcRow) dragSrcRow.classList.remove('dragging'); }
+
+    window.onload = loadData;
+</script>
+
+</body>
+</html>
