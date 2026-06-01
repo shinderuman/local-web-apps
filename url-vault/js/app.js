@@ -8,6 +8,12 @@ let imageDataBase64 = '';
 let currentSortKey = 'sortOrder';
 let sortAsc = true;
 let editMode = false;
+let searchQuery = '';
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+    searchQuery = e.target.value.trim();
+    renderList();
+});
 
 // IndexedDB初期化
 const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -492,6 +498,10 @@ function renderList() {
 
         if (currentSelectedWindowId !== null) items = items.filter(item => item.windowId === currentSelectedWindowId);
         if (currentSelectedGroupId !== null) items = items.filter(item => item.groupId === currentSelectedGroupId);
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            items = items.filter(item => item.title.toLowerCase().includes(q));
+        }
 
         const isDragEnabled = currentSortKey === 'sortOrder';
         if (currentSortKey === 'sortOrder') {
