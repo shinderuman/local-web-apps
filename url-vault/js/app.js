@@ -1,7 +1,16 @@
+// ============================================================
+// 定数・変数
+// ============================================================
+
 const DB_NAME = 'HighDensityTabManagerDB_v2';
 const DB_VERSION = 1;
-let db = null;
+const SORT_OPTIONS = [
+    { key: 'sortOrder', label: '手動順' },
+    { key: 'title', label: 'タイトル順' },
+    { key: 'createdAt', label: '登録順' },
+];
 
+let db = null;
 let currentSelectedWindowId = null;
 let currentSelectedGroupId = null;
 let imageDataBase64 = '';
@@ -9,13 +18,15 @@ let currentSortKey = 'sortOrder';
 let sortAsc = true;
 let editMode = false;
 let searchQuery = '';
+let filterRenderId = 0;
 
-document.getElementById('searchInput').addEventListener('input', (e) => {
-    searchQuery = e.target.value.trim();
-    renderList();
-});
+const pasteArea = document.getElementById('pasteArea');
+const preview = document.getElementById('preview');
 
-// IndexedDB初期化
+// ============================================================
+// IndexedDB 初期化
+// ============================================================
+
 const request = indexedDB.open(DB_NAME, DB_VERSION);
 request.onupgradeneeded = (e) => {
     db = e.target.result;
@@ -28,7 +39,11 @@ request.onsuccess = (e) => {
     initApp();
 };
 
-function initApp() {
+// ============================================================
+// アプリ初期化・データビュー更新
+// ============================================================
+
+const initApp = () => {
     loadToggleStates();
     loadUIState();
     updateSelectBoxes();
@@ -36,54 +51,35 @@ function initApp() {
     renderFilters();
     renderList();
     initDragAndDrop();
-}
+};
 
-// 後からデータを追加した際、画面構成を崩さずにセレクトボックスとフィルター、リストだけを部分更新する関数
-function refreshDataView() {
+const refreshDataView = () => {
     updateSelectBoxes();
     renderFilters();
     renderList();
-}
+};
 
-// --- トグル状態の保存と復元 ---
-function loadToggleStates() {
+// ============================================================
+// UI 状態の保存と復元（sessionStorage）
+// ============================================================
+
+const loadToggleStates = () => {
     const leftPanel = document.getElementById('leftPanel');
     const navContainer = document.getElementById('navContainer');
     if (sessionStorage.getItem('leftPanelHidden') === 'true') leftPanel.classList.add('hidden');
     if (sessionStorage.getItem('navContainerHidden') === 'true') navContainer.classList.add('hidden');
-}
+};
 
-document.getElementById('toggleLeftBtn').addEventListener('click', () => {
-    const leftPanel = document.getElementById('leftPanel');
-    leftPanel.classList.toggle('hidden');
-    sessionStorage.setItem('leftPanelHidden', leftPanel.classList.contains('hidden'));
-});
-
-document.getElementById('toggleNavBtn').addEventListener('click', () => {
-    const navContainer = document.getElementById('navContainer');
-    navContainer.classList.toggle('hidden');
-    sessionStorage.setItem('navContainerHidden', navContainer.classList.contains('hidden'));
-});
-
-document.getElementById('toggleEditModeBtn').addEventListener('click', () => {
-    editMode = !editMode;
-    const btn = document.getElementById('toggleEditModeBtn');
-    btn.style.backgroundColor = editMode ? '#6a4c93' : '';
-    btn.style.color = editMode ? '#fff' : '';
-    renderFilters();
-});
-
-// --- UI状態の保存と復元 ---
-function saveUIState() {
+const saveUIState = () => {
     sessionStorage.setItem('uiState', JSON.stringify({
         windowId: currentSelectedWindowId,
         groupId: currentSelectedGroupId,
         sortKey: currentSortKey,
         sortAsc: sortAsc,
     }));
-}
+};
 
-function loadUIState() {
+const loadUIState = () => {
     const saved = sessionStorage.getItem('uiState');
     if (!saved) return;
     const state = JSON.parse(saved);
@@ -91,17 +87,19 @@ function loadUIState() {
     currentSelectedGroupId = state.groupId ?? null;
     currentSortKey = state.sortKey ?? 'sortOrder';
     sortAsc = state.sortAsc ?? true;
-}
+};
 
-// --- セレクトボックスの同期 ---
-function updateSelectBoxes() {
+// ============================================================
+// セレクトボックス同期
+// ============================================================
+
+const updateSelectBoxes = () => {
     const tx = db.transaction(['windows', 'groups'], 'readonly');
     tx.objectStore('windows').getAll().onsuccess = (e) => {
         const windows = e.target.result;
         const targetWin = document.getElementById('targetWindowSelect');
         const itemWin = document.getElementById('itemWindowSelect');
 
-        // 現在の選択値を退避
         const prevTargetVal = targetWin.value;
         const prevItemVal = itemWin.value;
 
@@ -111,17 +109,14 @@ function updateSelectBoxes() {
             itemWin.add(new Option(w.name, w.id));
         });
 
-        // 選択値を復元（存在すれば）
         if (prevTargetVal) targetWin.value = prevTargetVal;
         if (prevItemVal) itemWin.value = prevItemVal;
 
         updateGroupSelectBox();
     };
-}
+};
 
-document.getElementById('itemWindowSelect').addEventListener('change', updateGroupSelectBox);
-
-function updateGroupSelectBox() {
+const updateGroupSelectBox = () => {
     const winId = parseInt(document.getElementById('itemWindowSelect').value);
     const itemGroupSelect = document.getElementById('itemGroupSelect');
 
@@ -136,10 +131,34 @@ function updateGroupSelectBox() {
 
         if (prevGroupVal) itemGroupSelect.value = prevGroupVal;
     };
-}
+};
 
-// ① ウィンドウ枠のデータ追加
-function executeAddWindow() {
+const syncItemSelects = () => {
+    const itemWin = document.getElementById('itemWindowSelect');
+    const itemGroup = document.getElementById('itemGroupSelect');
+    const targetWin = document.getElementById('targetWindowSelect');
+    if (currentSelectedWindowId === null) return;
+
+    targetWin.value = currentSelectedWindowId;
+    itemWin.value = currentSelectedWindowId;
+
+    const winId = parseInt(itemWin.value);
+    itemGroup.innerHTML = '';
+    if (isNaN(winId)) return;
+
+    const tx = db.transaction(['groups'], 'readonly');
+    tx.objectStore('groups').getAll().onsuccess = (e) => {
+        const groups = e.target.result.filter(g => g.windowId === winId);
+        groups.forEach(g => itemGroup.add(new Option(g.name, g.id)));
+        if (currentSelectedGroupId !== null) itemGroup.value = currentSelectedGroupId;
+    };
+};
+
+// ============================================================
+// データ追加
+// ============================================================
+
+const executeAddWindow = () => {
     const input = document.getElementById('newWindowInput');
     const value = input.value.trim();
     if (!value) return;
@@ -148,14 +167,9 @@ function executeAddWindow() {
         input.value = '';
         refreshDataView();
     };
-}
-document.getElementById('addWindowBtn').addEventListener('click', executeAddWindow);
-document.getElementById('newWindowInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); executeAddWindow(); }
-});
+};
 
-// ② グループ枠のデータ追加
-function executeAddGroup() {
+const executeAddGroup = () => {
     const input = document.getElementById('newGroupInput');
     const winSelect = document.getElementById('targetWindowSelect');
     const value = input.value.trim();
@@ -168,28 +182,45 @@ function executeAddGroup() {
         input.value = '';
         refreshDataView();
     };
-}
-document.getElementById('addGroupBtn').addEventListener('click', executeAddGroup);
-document.getElementById('newGroupInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); executeAddGroup(); }
-});
+};
 
-// 2行テキストのパース
-document.getElementById('title').addEventListener('paste', (e) => {
-    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
-    const lines = pastedText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-    if (lines.length >= 2 && lines[1].startsWith('http')) {
-        e.preventDefault();
-        document.getElementById('title').value = lines[0];
-        document.getElementById('url').value = lines[1];
-    }
-});
+// ============================================================
+// アイテム保存
+// ============================================================
 
-// サムネ画像貼り付け（Canvas リサイズ付き）
-const pasteArea = document.getElementById('pasteArea');
-const preview = document.getElementById('preview');
+const saveItem = () => {
+    const winSelect = document.getElementById('itemWindowSelect'); const groupSelect = document.getElementById('itemGroupSelect');
+    const titleInput = document.getElementById('title'); const urlInput = document.getElementById('url');
+    if (!winSelect.value || !groupSelect.value || !titleInput.value || !urlInput.value) return;
 
-function handleImagePaste(e) {
+    const tx = db.transaction(['items'], 'readwrite');
+    const store = tx.objectStore('items');
+    store.getAll().onsuccess = (e) => {
+        const currentGroupItems = e.target.result.filter(item => item.groupId === parseInt(groupSelect.value));
+        const maxOrder = currentGroupItems.reduce((max, item) => (item.sortOrder > max ? item.sortOrder : max), 0);
+
+        const data = {
+            windowId: parseInt(winSelect.value),
+            groupId: parseInt(groupSelect.value),
+            title: titleInput.value,
+            url: urlInput.value,
+            image: imageDataBase64,
+            sortOrder: maxOrder + 1,
+            createdAt: new Date().getTime()
+        };
+
+        store.add(data).onsuccess = () => {
+            titleInput.value = ''; urlInput.value = ''; imageDataBase64 = ''; preview.style.display = 'none'; pasteArea.classList.remove('has-image');
+            renderList();
+        };
+    };
+};
+
+// ============================================================
+// 画像ペースト（Canvas リサイズ付き）
+// ============================================================
+
+const handleImagePaste = (e) => {
     const items = e.clipboardData.items;
     for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
@@ -220,7 +251,6 @@ function handleImagePaste(e) {
                 pasteArea.classList.add('has-image');
                 URL.revokeObjectURL(img.src);
 
-                // タイトル・URLが入力済みなら自動保存
                 const titleInput = document.getElementById('title');
                 const urlInput = document.getElementById('url');
                 if (titleInput.value.trim() && urlInput.value.trim()) {
@@ -231,64 +261,23 @@ function handleImagePaste(e) {
             break;
         }
     }
-}
+};
 
-pasteArea.addEventListener('paste', handleImagePaste);
-document.getElementById('title').addEventListener('paste', (e) => {
-    // テキストペースト（2行パース）を優先、画像がない場合のみ処理
-    const hasImage = [...e.clipboardData.items].some(item => item.type.indexOf('image') !== -1);
-    const hasText = [...e.clipboardData.items].some(item => item.type.indexOf('text') !== -1);
-    if (hasImage && !hasText) {
-        handleImagePaste(e);
+const handleTwoLinePaste = (e) => {
+    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+    const lines = pastedText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    if (lines.length >= 2 && lines[1].startsWith('http')) {
+        e.preventDefault();
+        document.getElementById('title').value = lines[0];
+        document.getElementById('url').value = lines[1];
     }
-});
-document.getElementById('url').addEventListener('paste', (e) => {
-    const hasImage = [...e.clipboardData.items].some(item => item.type.indexOf('image') !== -1);
-    const hasText = [...e.clipboardData.items].some(item => item.type.indexOf('text') !== -1);
-    if (hasImage && !hasText) {
-        handleImagePaste(e);
-    }
-});
+};
 
-// アイテムの新規保存処理
-function saveItem() {
-    const winSelect = document.getElementById('itemWindowSelect'); const groupSelect = document.getElementById('itemGroupSelect');
-    const titleInput = document.getElementById('title'); const urlInput = document.getElementById('url');
-    if (!winSelect.value || !groupSelect.value || !titleInput.value || !urlInput.value) return;
+// ============================================================
+// ソートボタン
+// ============================================================
 
-    const tx = db.transaction(['items'], 'readwrite');
-    const store = tx.objectStore('items');
-    store.getAll().onsuccess = (e) => {
-        const currentGroupItems = e.target.result.filter(item => item.groupId === parseInt(groupSelect.value));
-        const maxOrder = currentGroupItems.reduce((max, item) => (item.sortOrder > max ? item.sortOrder : max), 0);
-
-        const data = {
-            windowId: parseInt(winSelect.value),
-            groupId: parseInt(groupSelect.value),
-            title: titleInput.value,
-            url: urlInput.value,
-            image: imageDataBase64,
-            sortOrder: maxOrder + 1,
-            createdAt: new Date().getTime()
-        };
-
-        store.add(data).onsuccess = () => {
-            titleInput.value = ''; urlInput.value = ''; imageDataBase64 = ''; preview.style.display = 'none'; pasteArea.classList.remove('has-image');
-            renderList();
-        };
-    };
-}
-
-document.getElementById('saveBtn').addEventListener('click', saveItem);
-
-// --- ソートボタン ---
-const SORT_OPTIONS = [
-    { key: 'sortOrder', label: '手動順' },
-    { key: 'title', label: 'タイトル順' },
-    { key: 'createdAt', label: '登録順' },
-];
-
-function renderSortButtons() {
+const renderSortButtons = () => {
     const sortRow = document.getElementById('sortRow');
     sortRow.innerHTML = '';
     SORT_OPTIONS.forEach(opt => {
@@ -315,11 +304,13 @@ function renderSortButtons() {
         };
         sortRow.appendChild(btn);
     });
-}
+};
 
-// フィルター周りの描画
-let filterRenderId = 0;
-function renderFilters() {
+// ============================================================
+// フィルター描画
+// ============================================================
+
+const renderFilters = () => {
     const myId = ++filterRenderId;
     const winRow = document.getElementById('windowFilterRow');
     const tx = db.transaction(['windows', 'groups'], 'readonly');
@@ -360,118 +351,9 @@ function renderFilters() {
         renderGroupFilters(tx);
         syncItemSelects();
     };
-}
+};
 
-// フィルタ選択に合わせてグループ作成・アイテム登録のセレクトボックスを同期
-function syncItemSelects() {
-    const itemWin = document.getElementById('itemWindowSelect');
-    const itemGroup = document.getElementById('itemGroupSelect');
-    const targetWin = document.getElementById('targetWindowSelect');
-    if (currentSelectedWindowId === null) return;
-
-    targetWin.value = currentSelectedWindowId;
-    itemWin.value = currentSelectedWindowId;
-
-    const winId = parseInt(itemWin.value);
-    itemGroup.innerHTML = '';
-    if (isNaN(winId)) return;
-
-    const tx = db.transaction(['groups'], 'readonly');
-    tx.objectStore('groups').getAll().onsuccess = (e) => {
-        const groups = e.target.result.filter(g => g.windowId === winId);
-        groups.forEach(g => itemGroup.add(new Option(g.name, g.id)));
-        if (currentSelectedGroupId !== null) itemGroup.value = currentSelectedGroupId;
-    };
-}
-
-// --- フィルタボタンの名前編集 ---
-function startEditFilter(id, storeName, currentName, btnElement) {
-    let finished = false;
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'edit-input';
-    input.value = currentName;
-    btnElement.textContent = '';
-    btnElement.appendChild(input);
-    input.focus();
-
-    const finishEdit = () => {
-        if (finished) return;
-        finished = true;
-        const newName = input.value.trim();
-        if (newName && newName !== currentName) {
-            const tx = db.transaction([storeName], 'readwrite');
-            tx.objectStore(storeName).get(id).onsuccess = (e) => {
-                const data = e.target.result;
-                if (data) { data.name = newName; tx.objectStore(storeName).put(data); }
-            };
-            tx.oncomplete = () => { refreshDataView(); syncItemSelects(); };
-        } else {
-            refreshDataView();
-        }
-    };
-
-    input.onblur = finishEdit;
-    input.onkeydown = (e) => {
-        if (e.key === 'Enter') { input.onblur = null; finishEdit(); }
-        if (e.key === 'Escape') { finished = true; input.onblur = null; refreshDataView(); }
-    };
-}
-
-// --- ウィンドウ削除 ---
-function deleteWindow(id, name) {
-    const tx = db.transaction(['items'], 'readonly');
-    tx.objectStore('items').getAll().onsuccess = (e) => {
-        const count = e.target.result.filter(item => item.windowId === id).length;
-        if (count > 0) {
-            alert(`このウィンドウには${count}件のアイテムが存在します。\n先にアイテムを削除してください。`);
-            return;
-        }
-        if (!confirm(`ウィンドウ「${name}」を削除しますか？`)) return;
-
-        const tx2 = db.transaction(['windows', 'groups'], 'readwrite');
-        tx2.objectStore('windows').delete(id);
-        // 関連グループも削除
-        tx2.objectStore('groups').getAll().onsuccess = (e2) => {
-            e2.target.result.filter(g => g.windowId === id).forEach(g => {
-                tx2.objectStore('groups').delete(g.id);
-            });
-        };
-        tx2.oncomplete = () => {
-            if (currentSelectedWindowId === id) {
-                currentSelectedWindowId = null;
-                currentSelectedGroupId = null;
-                saveUIState();
-            }
-            refreshDataView();
-            syncItemSelects();
-        };
-    };
-}
-
-// --- グループ削除 ---
-function deleteGroup(id, name) {
-    const tx = db.transaction(['items'], 'readonly');
-    tx.objectStore('items').getAll().onsuccess = (e) => {
-        const count = e.target.result.filter(item => item.groupId === id).length;
-        if (count > 0) {
-            alert(`このグループには${count}件のアイテムが存在します。\n先にアイテムを削除してください。`);
-            return;
-        }
-        if (!confirm(`グループ「${name}」を削除しますか？`)) return;
-
-        db.transaction(['groups'], 'readwrite').objectStore('groups').delete(id).onsuccess = () => {
-            if (currentSelectedGroupId === id) {
-                currentSelectedGroupId = null;
-                saveUIState();
-            }
-            refreshDataView();
-            syncItemSelects();
-        };
-    };
-}
-
-function renderGroupFilters(tx) {
+const renderGroupFilters = (tx) => {
     const myId = filterRenderId;
     const groupRow = document.getElementById('groupFilterRow');
     if (currentSelectedWindowId === null) {
@@ -512,10 +394,100 @@ function renderGroupFilters(tx) {
             groupRow.appendChild(btn);
         });
     };
-}
+};
 
-// メインカードリストの描画
-function renderList() {
+// ============================================================
+// フィルタボタンの名前編集・削除
+// ============================================================
+
+const startEditFilter = (id, storeName, currentName, btnElement) => {
+    let finished = false;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'edit-input';
+    input.value = currentName;
+    btnElement.textContent = '';
+    btnElement.appendChild(input);
+    input.focus();
+
+    const finishEdit = () => {
+        if (finished) return;
+        finished = true;
+        const newName = input.value.trim();
+        if (newName && newName !== currentName) {
+            const tx = db.transaction([storeName], 'readwrite');
+            tx.objectStore(storeName).get(id).onsuccess = (e) => {
+                const data = e.target.result;
+                if (data) { data.name = newName; tx.objectStore(storeName).put(data); }
+            };
+            tx.oncomplete = () => { refreshDataView(); syncItemSelects(); };
+        } else {
+            refreshDataView();
+        }
+    };
+
+    input.onblur = finishEdit;
+    input.onkeydown = (e) => {
+        if (e.key === 'Enter') { input.onblur = null; finishEdit(); }
+        if (e.key === 'Escape') { finished = true; input.onblur = null; refreshDataView(); }
+    };
+};
+
+const deleteWindow = (id, name) => {
+    const tx = db.transaction(['items'], 'readonly');
+    tx.objectStore('items').getAll().onsuccess = (e) => {
+        const count = e.target.result.filter(item => item.windowId === id).length;
+        if (count > 0) {
+            alert(`このウィンドウには${count}件のアイテムが存在します。\n先にアイテムを削除してください。`);
+            return;
+        }
+        if (!confirm(`ウィンドウ「${name}」を削除しますか？`)) return;
+
+        const tx2 = db.transaction(['windows', 'groups'], 'readwrite');
+        tx2.objectStore('windows').delete(id);
+        tx2.objectStore('groups').getAll().onsuccess = (e2) => {
+            e2.target.result.filter(g => g.windowId === id).forEach(g => {
+                tx2.objectStore('groups').delete(g.id);
+            });
+        };
+        tx2.oncomplete = () => {
+            if (currentSelectedWindowId === id) {
+                currentSelectedWindowId = null;
+                currentSelectedGroupId = null;
+                saveUIState();
+            }
+            refreshDataView();
+            syncItemSelects();
+        };
+    };
+};
+
+const deleteGroup = (id, name) => {
+    const tx = db.transaction(['items'], 'readonly');
+    tx.objectStore('items').getAll().onsuccess = (e) => {
+        const count = e.target.result.filter(item => item.groupId === id).length;
+        if (count > 0) {
+            alert(`このグループには${count}件のアイテムが存在します。\n先にアイテムを削除してください。`);
+            return;
+        }
+        if (!confirm(`グループ「${name}」を削除しますか？`)) return;
+
+        db.transaction(['groups'], 'readwrite').objectStore('groups').delete(id).onsuccess = () => {
+            if (currentSelectedGroupId === id) {
+                currentSelectedGroupId = null;
+                saveUIState();
+            }
+            refreshDataView();
+            syncItemSelects();
+        };
+    };
+};
+
+// ============================================================
+// メインカードリスト描画
+// ============================================================
+
+const renderList = () => {
     const listSection = document.getElementById('listSection');
     listSection.innerHTML = '';
 
@@ -577,10 +549,13 @@ function renderList() {
             listSection.appendChild(card);
         });
     };
-}
+};
 
-// --- ドラッグ＆ドロップ並び替えの処理 ---
-function initDragAndDrop() {
+// ============================================================
+// ドラッグ＆ドロップ並び替え
+// ============================================================
+
+const initDragAndDrop = () => {
     const listSection = document.getElementById('listSection');
     listSection.addEventListener('dragstart', (e) => {
         const targetCard = e.target.closest('.card');
@@ -596,9 +571,9 @@ function initDragAndDrop() {
         const afterElement = getDragAfterElement(listSection, e.clientX, e.clientY);
         if (afterElement == null) { listSection.appendChild(draggingCard); } else { listSection.insertBefore(draggingCard, afterElement); }
     });
-}
+};
 
-function getDragAfterElement(container, x, y) {
+const getDragAfterElement = (container, x, y) => {
     const draggableElements = [...container.querySelectorAll('.card:not(.dragging)')];
     return draggableElements.reduce((closest, child) => {
         const box = child.getBoundingClientRect();
@@ -612,9 +587,9 @@ function getDragAfterElement(container, x, y) {
         }
         return closest;
     }, { distance: Infinity, element: null }).element;
-}
+};
 
-function saveNewOrder() {
+const saveNewOrder = () => {
     const cards = [...document.querySelectorAll('#listSection .card')];
     const tx = db.transaction(['items'], 'readwrite');
     const store = tx.objectStore('items');
@@ -625,10 +600,13 @@ function saveNewOrder() {
             if (data) { data.sortOrder = index; store.put(data); }
         };
     });
-}
+};
 
-// --- インポート・エクスポートロジック ---
-document.getElementById('exportBtn').addEventListener('click', () => {
+// ============================================================
+// インポート・エクスポート
+// ============================================================
+
+const handleExport = () => {
     const backupData = { windows: [], groups: [], items: [] };
     const tx = db.transaction(['windows', 'groups', 'items'], 'readonly');
 
@@ -647,9 +625,9 @@ document.getElementById('exportBtn').addEventListener('click', () => {
             console.error('クリップボードへのコピーに失敗しました', err);
         });
     };
-});
+};
 
-document.getElementById('importBtn').addEventListener('click', () => {
+const handleImport = () => {
     const jsonString = document.getElementById('ioTextarea').value.trim();
     if (!jsonString) return;
 
@@ -674,4 +652,74 @@ document.getElementById('importBtn').addEventListener('click', () => {
         saveUIState();
         initApp();
     };
+};
+
+// ============================================================
+// イベントリスナー登録
+// ============================================================
+
+// トグルボタン
+document.getElementById('toggleLeftBtn').addEventListener('click', () => {
+    const leftPanel = document.getElementById('leftPanel');
+    leftPanel.classList.toggle('hidden');
+    sessionStorage.setItem('leftPanelHidden', leftPanel.classList.contains('hidden'));
 });
+
+document.getElementById('toggleNavBtn').addEventListener('click', () => {
+    const navContainer = document.getElementById('navContainer');
+    navContainer.classList.toggle('hidden');
+    sessionStorage.setItem('navContainerHidden', navContainer.classList.contains('hidden'));
+});
+
+document.getElementById('toggleEditModeBtn').addEventListener('click', () => {
+    editMode = !editMode;
+    const btn = document.getElementById('toggleEditModeBtn');
+    btn.style.backgroundColor = editMode ? '#6a4c93' : '';
+    btn.style.color = editMode ? '#fff' : '';
+    renderFilters();
+});
+
+// 検索
+document.getElementById('searchInput').addEventListener('input', (e) => {
+    searchQuery = e.target.value.trim();
+    renderList();
+});
+
+// セレクトボックス
+document.getElementById('itemWindowSelect').addEventListener('change', updateGroupSelectBox);
+
+// ウィンドウ追加
+document.getElementById('addWindowBtn').addEventListener('click', executeAddWindow);
+document.getElementById('newWindowInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); executeAddWindow(); }
+});
+
+// グループ追加
+document.getElementById('addGroupBtn').addEventListener('click', executeAddGroup);
+document.getElementById('newGroupInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); executeAddGroup(); }
+});
+
+// ペースト
+document.getElementById('title').addEventListener('paste', (e) => {
+    const hasImage = [...e.clipboardData.items].some(item => item.type.indexOf('image') !== -1);
+    const hasText = [...e.clipboardData.items].some(item => item.type.indexOf('text') !== -1);
+    if (hasImage && !hasText) {
+        handleImagePaste(e);
+    } else {
+        handleTwoLinePaste(e);
+    }
+});
+document.getElementById('url').addEventListener('paste', (e) => {
+    const hasImage = [...e.clipboardData.items].some(item => item.type.indexOf('image') !== -1);
+    const hasText = [...e.clipboardData.items].some(item => item.type.indexOf('text') !== -1);
+    if (hasImage && !hasText) handleImagePaste(e);
+});
+pasteArea.addEventListener('paste', handleImagePaste);
+
+// 保存
+document.getElementById('saveBtn').addEventListener('click', saveItem);
+
+// インポート・エクスポート
+document.getElementById('exportBtn').addEventListener('click', handleExport);
+document.getElementById('importBtn').addEventListener('click', handleImport);
