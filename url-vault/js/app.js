@@ -9,6 +9,9 @@ const SORT_OPTIONS = [
     { key: 'title', label: 'タイトル順' },
     { key: 'createdAt', label: '登録順' },
 ];
+const IMAGE_MAX_W = 440;
+const IMAGE_MAX_H = 620;
+const IMAGE_JPEG_QUALITY = 0.7;
 
 let db = null;
 let currentSelectedWindowId = null;
@@ -218,7 +221,62 @@ const saveItem = () => {
 };
 
 // ============================================================
-// 画像ペースト（Canvas リサイズ付き）
+// 画像処理ユーティリティ
+// ============================================================
+
+const sampleColor = (data, width, x, y) => {
+    const i = (y * width + x) * 4;
+    return (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+};
+
+const trimBackground = (img) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+
+    const { data, width } = ctx.getImageData(0, 0, img.width, img.height);
+    const midY = Math.floor(img.height / 2);
+    const margin = Math.max(1, Math.floor(width * 0.01));
+
+    const bgColorLeft = sampleColor(data, width, margin, midY);
+    const bgColorRight = sampleColor(data, width, width - 1 - margin, midY);
+
+    let trimLeft = 0;
+    let trimRight = 0;
+    while (trimLeft < width - 1) {
+        if (sampleColor(data, width, trimLeft, midY) !== bgColorLeft) break;
+        trimLeft++;
+    }
+    while (trimRight < width - trimLeft - 1) {
+        if (sampleColor(data, width, width - 1 - trimRight, midY) !== bgColorRight) break;
+        trimRight++;
+    }
+
+    return { trimLeft, trimmedW: width - trimLeft - trimRight, trimmedH: img.height };
+};
+
+const resizeToJpeg = (img, trimLeft, trimW, trimH) => {
+    let w = trimW;
+    let h = trimH;
+
+    if (w > IMAGE_MAX_W || h > IMAGE_MAX_H) {
+        const ratio = Math.min(IMAGE_MAX_W / w, IMAGE_MAX_H / h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, trimLeft, 0, trimW, trimH, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', IMAGE_JPEG_QUALITY);
+};
+
+// ============================================================
+// 画像ペースト
 // ============================================================
 
 const handleImagePaste = (e) => {
@@ -229,24 +287,9 @@ const handleImagePaste = (e) => {
             const blob = items[i].getAsFile();
             const img = new Image();
             img.onload = () => {
-                const MAX_W = 220;
-                const MAX_H = 310;
-                let w = img.width;
-                let h = img.height;
+                const { trimLeft, trimmedW, trimmedH } = trimBackground(img);
+                imageDataBase64 = resizeToJpeg(img, trimLeft, trimmedW, trimmedH);
 
-                if (w > MAX_W || h > MAX_H) {
-                    const ratio = Math.min(MAX_W / w, MAX_H / h);
-                    w = Math.round(w * ratio);
-                    h = Math.round(h * ratio);
-                }
-
-                const canvas = document.createElement('canvas');
-                canvas.width = w;
-                canvas.height = h;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, w, h);
-
-                imageDataBase64 = canvas.toDataURL('image/jpeg', 0.7);
                 preview.src = imageDataBase64;
                 preview.style.display = 'inline-block';
                 pasteArea.classList.add('has-image');
