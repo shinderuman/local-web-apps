@@ -19,3 +19,7 @@
 | データ保存 | ブラウザ内（IndexedDB / sessionStorage） |
 
 各アプリの詳細は各ディレクトリの README.md を参照してください。
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
