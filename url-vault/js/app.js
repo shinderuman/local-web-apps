@@ -211,6 +211,7 @@ const saveItem = () => {
 
         store.add(data).onsuccess = () => {
             titleInput.value = ''; urlInput.value = ''; imageDataBase64 = ''; preview.style.display = 'none'; pasteArea.classList.remove('has-image');
+            titleInput.focus();
             renderList();
         };
     };
@@ -636,6 +637,8 @@ const handleImport = () => {
 
     if (!parsedData.windows || !parsedData.groups || !parsedData.items) { alert('データ構造が不正です'); return; }
 
+    if (!confirm('インポートを実行しますか？\n既存のデータはすべて置き換えられます。')) return;
+
     const tx = db.transaction(['windows', 'groups', 'items'], 'readwrite');
     tx.objectStore('windows').clear();
     tx.objectStore('groups').clear();
@@ -716,6 +719,14 @@ document.getElementById('url').addEventListener('paste', (e) => {
     if (hasImage && !hasText) handleImagePaste(e);
 });
 pasteArea.addEventListener('paste', handleImagePaste);
+
+// Enter で保存
+document.getElementById('title').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); saveItem(); }
+});
+document.getElementById('url').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); saveItem(); }
+});
 
 // 保存
 document.getElementById('saveBtn').addEventListener('click', saveItem);
