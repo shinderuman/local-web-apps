@@ -251,6 +251,9 @@ button:hover { background-color: #0062a3; }
     font-size: 9px;
     margin-left: 2px;
 }
+.card-img.blurred {
+    filter: blur(20px);
+}
 
 /* 限界高密度カードグリッド */
 .list-section-wrapper {

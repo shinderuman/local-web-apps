@@ -579,6 +579,7 @@ const renderList = () => {
             if (item.image) {
                 const img = document.createElement('img');
                 img.className = 'card-img'; img.src = item.image;
+                if (blurEnabled) img.classList.add('blurred');
                 imgBox.appendChild(img);
             }
             card.appendChild(imgBox);
@@ -723,6 +724,19 @@ document.getElementById('toggleEditModeBtn').addEventListener('click', () => {
     btn.style.backgroundColor = editMode ? '#6a4c93' : '';
     btn.style.color = editMode ? '#fff' : '';
     renderFilters();
+});
+
+// サムネぼかしトグル
+let blurEnabled = false;
+document.getElementById('toggleBlurBtn').addEventListener('click', () => {
+    blurEnabled = !blurEnabled;
+    const btn = document.getElementById('toggleBlurBtn');
+    btn.style.backgroundColor = blurEnabled ? '#c62828' : '';
+    btn.style.color = blurEnabled ? '#fff' : '';
+    btn.textContent = blurEnabled ? '🔓 ぼかし解除' : '🔒 ぼかし';
+    document.querySelectorAll('.card-img').forEach(img => {
+        img.classList.toggle('blurred', blurEnabled);
+    });
 });
 
 // 検索
