@@ -22,6 +22,7 @@ let sortAsc = true;
 let editMode = false;
 let searchQuery = '';
 let filterRenderId = 0;
+let addPositionTop = true;
 
 const pasteArea = document.getElementById('pasteArea');
 const preview = document.getElementById('preview');
@@ -66,11 +67,21 @@ const refreshDataView = () => {
 // UI 状態の保存と復元（sessionStorage）
 // ============================================================
 
+const updateAddPositionBtn = () => {
+    const btn = document.getElementById('toggleAddPositionBtn');
+    btn.textContent = addPositionTop ? '⬆' : '⬇';
+    btn.style.backgroundColor = addPositionTop ? '' : '#2a2a2a';
+    btn.style.color = addPositionTop ? '' : '#ccc';
+    btn.style.borderColor = addPositionTop ? '' : '#444';
+};
+
 const loadToggleStates = () => {
     const leftPanel = document.getElementById('leftPanel');
     const navContainer = document.getElementById('navContainer');
     if (sessionStorage.getItem('leftPanelHidden') === 'true') leftPanel.classList.add('hidden');
     if (sessionStorage.getItem('navContainerHidden') === 'true') navContainer.classList.add('hidden');
+
+    updateAddPositionBtn();
 };
 
 const saveUIState = () => {
@@ -79,6 +90,7 @@ const saveUIState = () => {
         groupId: currentSelectedGroupId,
         sortKey: currentSortKey,
         sortAsc: sortAsc,
+        addPositionTop: addPositionTop,
     }));
 };
 
@@ -90,6 +102,7 @@ const loadUIState = () => {
     currentSelectedGroupId = state.groupId ?? null;
     currentSortKey = state.sortKey ?? 'sortOrder';
     sortAsc = state.sortAsc ?? true;
+    addPositionTop = state.addPositionTop ?? true;
 };
 
 // ============================================================
@@ -200,7 +213,12 @@ const saveItem = () => {
     const store = tx.objectStore('items');
     store.getAll().onsuccess = (e) => {
         const currentGroupItems = e.target.result.filter(item => item.groupId === parseInt(groupSelect.value));
-        const maxOrder = currentGroupItems.reduce((max, item) => (item.sortOrder > max ? item.sortOrder : max), 0);
+        currentGroupItems.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+        if (addPositionTop) {
+            // 先頭に追加: 既存アイテムを 1, 2, 3... にずらして新規を 0 で追加
+            currentGroupItems.forEach((item, i) => { item.sortOrder = i + 1; store.put(item); });
+        }
 
         const data = {
             windowId: parseInt(winSelect.value),
@@ -208,7 +226,7 @@ const saveItem = () => {
             title: titleInput.value,
             url: urlInput.value,
             image: imageDataBase64,
-            sortOrder: maxOrder + 1,
+            sortOrder: addPositionTop ? 0 : currentGroupItems.length,
             createdAt: new Date().getTime()
         };
 
@@ -787,6 +805,12 @@ document.getElementById('url').addEventListener('keydown', (e) => {
 
 // 保存
 document.getElementById('saveBtn').addEventListener('click', saveItem);
+
+document.getElementById('toggleAddPositionBtn').addEventListener('click', () => {
+    addPositionTop = !addPositionTop;
+    updateAddPositionBtn();
+    saveUIState();
+});
 
 // インポート・エクスポート
 document.getElementById('exportBtn').addEventListener('click', handleExport);
