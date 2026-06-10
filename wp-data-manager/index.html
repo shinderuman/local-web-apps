@@ -11,8 +11,8 @@
 <div class="btn-group">
     <button class="toggle-btn" onclick="toggleElement('scheduleSection')">スケジュール</button>
     <button class="toggle-btn" onclick="toggleElement('horseListSection')">年代別馬リスト</button>
-    <button class="toggle-btn" onclick="toggleElement('csvSection')">CSV入出力パネル</button>
     <button class="toggle-btn" onclick="toggleElement('memoArea')">注記メモ</button>
+    <button class="toggle-btn" onclick="toggleElement('csvSection')">CSV入出力パネル</button>
 </div>
 
 <div class="container">
@@ -22,42 +22,6 @@
             <label for="currentGameYear">ゲーム内年:</label>
             <input type="number" id="currentGameYear" value="1973" oninput="updateGameYear(this.value)">
         </div>
-    </div>
-
-    <!-- メモエリア -->
-    <div id="memoArea">
-        <div class="memo-grid">
-            <div class="memo-section">
-                <h3>## 競走馬</h3>
-                ☆ お気に入り/大事にしたい馬<br>◎ 強そうな馬<br>○ 滅亡寸前の保護馬<br>△ 繁殖上げ/血統保護
-            </div>
-            <div class="memo-section">
-                <h3>## 種牡馬</h3>
-                ☆ 基準交配馬<br>◎ 自家生産大成馬<br>○ 滅亡寸前の保護馬<br>△ 史実予後不良/せん馬
-            </div>
-            <div class="memo-section">
-                <h3>## 繁殖牝馬</h3>
-                ☆ 流星馬<br>◎ 爆発力40超え<br>○ 白馬<br>△ なし
-            </div>
-            <div class="memo-section">
-                <h3>## 幼駒</h3>
-                ☆ 誕生イベント等<br>◎ 印が強い馬<br>○ 購入、売却予定<br>△ 予後不良/血統保護
-            </div>
-        </div>
-    </div>
-
-    <!-- CSV入出力パネル -->
-    <div id="csvSection">
-        <textarea id="csvIO" placeholder="CSV形式（系統名,生年,種牡馬名）を貼り付け"></textarea>
-        <div style="display: flex; gap: 10px;">
-            <button onclick="importCSV()" class="primary-btn">CSVから読み込み</button>
-            <button onclick="exportCSV()">CSV出力</button>
-        </div>
-    </div>
-
-    <!-- 年代別馬リストパネル -->
-    <div id="horseListSection">
-        <div class="horse-list-grid" id="filteredHorseList"></div>
     </div>
 
     <!-- スケジュールパネル -->
@@ -127,6 +91,42 @@
                     </li>
                 </ul>
             </div>
+        </div>
+    </div>
+
+    <!-- 年代別馬リストパネル -->
+    <div id="horseListSection">
+        <div class="horse-list-grid" id="filteredHorseList"></div>
+    </div>
+
+    <!-- メモエリア -->
+    <div id="memoArea">
+        <div class="memo-grid">
+            <div class="memo-section">
+                <h3>## 競走馬</h3>
+                ☆ お気に入り/大事にしたい馬<br>◎ 強そうな馬<br>○ 滅亡寸前の保護馬<br>△ 繁殖上げ/血統保護
+            </div>
+            <div class="memo-section">
+                <h3>## 種牡馬</h3>
+                ☆ 基準交配馬<br>◎ 自家生産大成馬<br>○ 滅亡寸前の保護馬<br>△ 史実予後不良/せん馬
+            </div>
+            <div class="memo-section">
+                <h3>## 繁殖牝馬</h3>
+                ☆ 流星馬<br>◎ 爆発力40超え<br>○ 白馬<br>△ なし
+            </div>
+            <div class="memo-section">
+                <h3>## 幼駒</h3>
+                ☆ 誕生イベント等<br>◎ 印が強い馬<br>○ 購入、売却予定<br>△ 予後不良/血統保護
+            </div>
+        </div>
+    </div>
+
+    <!-- CSV入出力パネル -->
+    <div id="csvSection">
+        <textarea id="csvIO" placeholder="CSV形式（系統名,生年,種牡馬名）を貼り付け"></textarea>
+        <div style="display: flex; gap: 10px;">
+            <button onclick="importCSV()" class="primary-btn">CSVから読み込み</button>
+            <button onclick="exportCSV()">CSV出力</button>
         </div>
     </div>
 
