@@ -48,8 +48,8 @@ request.onsuccess = (e) => {
 // ============================================================
 
 const initApp = () => {
-    loadToggleStates();
     loadUIState();
+    loadToggleStates();
     updateSelectBoxes();
     renderSortButtons();
     renderFilters();
