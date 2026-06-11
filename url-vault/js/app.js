@@ -261,8 +261,8 @@ const trimBackground = (img) => {
     const bgColorLeft = sampleColor(data, width, margin, midY);
     const bgColorRight = sampleColor(data, width, width - 1 - margin, midY);
 
-    let trimLeft = 0;
-    let trimRight = 0;
+    let trimLeft = margin;
+    let trimRight = margin;
     while (trimLeft < width - 1) {
         if (sampleColor(data, width, trimLeft, midY) !== bgColorLeft) break;
         trimLeft++;
