@@ -23,6 +23,7 @@ let editMode = false;
 let searchQuery = '';
 let filterRenderId = 0;
 let addPositionTop = true;
+let editingImageId = null; // 画像上書き待ち中のアイテムID
 
 const pasteArea = document.getElementById('pasteArea');
 const preview = document.getElementById('preview');
@@ -335,6 +336,38 @@ const handleTwoLinePaste = (e) => {
     }
 };
 
+// 編集モード中の画像上書きペースト（document単位）
+const handleEditImagePaste = (e) => {
+    if (!editMode || editingImageId === null) return;
+    const active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            e.preventDefault();
+            const blob = items[i].getAsFile();
+            const img = new Image();
+            const targetId = editingImageId;
+            img.onload = () => {
+                const { trimLeft, trimmedW, trimmedH } = trimBackground(img);
+                const newImage = resizeToJpeg(img, trimLeft, trimmedW, trimmedH);
+                URL.revokeObjectURL(img.src);
+
+                const tx = db.transaction(['items'], 'readwrite');
+                const store = tx.objectStore('items');
+                store.get(targetId).onsuccess = (ev) => {
+                    const data = ev.target.result;
+                    if (data) { data.image = newImage; store.put(data); }
+                };
+                tx.oncomplete = () => { editingImageId = null; renderList(); };
+            };
+            img.src = URL.createObjectURL(blob);
+            break;
+        }
+    }
+};
+
 // ============================================================
 // ソートボタン
 // ============================================================
@@ -576,11 +609,18 @@ const renderList = () => {
         items.forEach((item) => {
             const card = document.createElement('div');
             card.className = 'card';
+            if (editingImageId === item.id) card.classList.add('editing-image');
             card.draggable = isDragEnabled;
             card.dataset.id = item.id;
+            card.tabIndex = 0;
 
             card.onclick = (e) => {
                 if (e.target.closest('.delete-icon-btn')) return;
+                if (editMode) {
+                    editingImageId = item.id;
+                    renderList();
+                    return;
+                }
                 window.open(item.url, '_blank', 'noopener,noreferrer');
             };
 
@@ -738,10 +778,12 @@ document.getElementById('toggleNavBtn').addEventListener('click', () => {
 
 document.getElementById('toggleEditModeBtn').addEventListener('click', () => {
     editMode = !editMode;
+    if (!editMode) editingImageId = null;
     const btn = document.getElementById('toggleEditModeBtn');
     btn.style.backgroundColor = editMode ? '#6a4c93' : '';
     btn.style.color = editMode ? '#fff' : '';
     renderFilters();
+    renderList();
 });
 
 // サムネぼかしトグル
@@ -794,6 +836,7 @@ document.getElementById('url').addEventListener('paste', (e) => {
     if (hasImage && !hasText) handleImagePaste(e);
 });
 pasteArea.addEventListener('paste', handleImagePaste);
+document.addEventListener('paste', handleEditImagePaste);
 
 // Enter で保存
 document.getElementById('title').addEventListener('keydown', (e) => {

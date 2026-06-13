@@ -346,3 +346,10 @@ button:hover { background-color: #0062a3; }
     color: #fff;
     border-color: #ff5252;
 }
+.card.editing-image {
+    border: 2px dashed #007acc;
+    box-shadow: 0 0 8px rgba(0, 122, 204, 0.5);
+}
+.card:focus {
+    outline: none;
+}
