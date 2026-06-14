@@ -133,18 +133,50 @@ function parseCSVLine(line, index) {
     };
 }
 
-function importCSV() {
-    const text = document.getElementById('csvIO').value;
+function parseCSVText(text) {
     if (!text.trim()) return;
     const lines = text.split(/\n/).filter(l => l.trim() !== "");
     horses = lines.map((line, i) => parseCSVLine(line, i)).filter(h => h !== null);
     saveAndRender();
 }
 
-function exportCSV() {
+function importCSV() {
+    parseCSVText(document.getElementById('csvIO').value);
+}
+
+async function loadFile() {
+    try {
+        const [handle] = await window.showOpenFilePicker({
+            types: [{ description: 'CSV', accept: { 'text/csv': ['.csv'] } }],
+        });
+        const file = await handle.getFile();
+        parseCSVText(await file.text());
+    } catch (e) {
+        if (e.name !== 'AbortError') console.error('ファイルの読み込みに失敗しました', e);
+    }
+}
+
+function buildCSVText() {
     const exportList = [...horses].sort((a, b) => a.order - b.order);
-    const csvText = exportList.map(h => `${h.name},${h.birthYear},${h.horseName}`).join('\n');
-    document.getElementById('csvIO').value = csvText;
+    return exportList.map(h => `${h.name},${h.birthYear},${h.horseName}`).join('\n');
+}
+
+function exportCSV() {
+    document.getElementById('csvIO').value = buildCSVText();
+}
+
+async function saveFile() {
+    try {
+        const handle = await window.showSaveFilePicker({
+            suggestedName: 'horse-data.csv',
+            types: [{ description: 'CSV', accept: { 'text/csv': ['.csv'] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(buildCSVText());
+        await writable.close();
+    } catch (e) {
+        if (e.name !== 'AbortError') console.error('ファイルの保存に失敗しました', e);
+    }
 }
 
 function loadData() {
