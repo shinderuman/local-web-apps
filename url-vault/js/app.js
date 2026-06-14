@@ -706,40 +706,52 @@ const saveNewOrder = () => {
 };
 
 // ============================================================
-// インポート・エクスポート
+// エクスポート
 // ============================================================
 
-const handleExport = () => {
+const fetchAllData = (callback) => {
     const backupData = { windows: [], groups: [], items: [] };
     const tx = db.transaction(['windows', 'groups', 'items'], 'readonly');
-
     tx.objectStore('windows').getAll().onsuccess = (e) => backupData.windows = e.target.result;
     tx.objectStore('groups').getAll().onsuccess = (e) => backupData.groups = e.target.result;
     tx.objectStore('items').getAll().onsuccess = (e) => backupData.items = e.target.result;
+    tx.oncomplete = () => callback(backupData);
+};
 
-    tx.oncomplete = () => {
+const handleExport = () => {
+    fetchAllData((backupData) => {
         const jsonString = JSON.stringify(backupData);
         const textarea = document.getElementById('ioTextarea');
         textarea.value = jsonString;
-
-        navigator.clipboard.writeText(jsonString).then(() => {
-            textarea.select();
-        }).catch(err => {
+        navigator.clipboard.writeText(jsonString).then(() => textarea.select()).catch(err => {
             console.error('クリップボードへのコピーに失敗しました', err);
         });
-    };
+    });
 };
 
-const handleImport = () => {
-    const jsonString = document.getElementById('ioTextarea').value.trim();
-    if (!jsonString) return;
+const handleSaveFile = () => {
+    fetchAllData(async (backupData) => {
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: 'url-vault-backup.json',
+                types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+            });
+            const writable = await handle.createWritable();
+            await writable.write(JSON.stringify(backupData));
+            await writable.close();
+        } catch (e) {
+            if (e.name !== 'AbortError') console.error('ファイルの保存に失敗しました', e);
+        }
+    });
+};
 
-    let parsedData;
-    try { parsedData = JSON.parse(jsonString); } catch (e) { alert('JSONのパースに失敗しました。'); return; }
+// ============================================================
+// インポート
+// ============================================================
 
-    if (!parsedData.windows || !parsedData.groups || !parsedData.items) { alert('データ構造が不正です'); return; }
-
-    if (!confirm('インポートを実行しますか？\n既存のデータはすべて置き換えられます。')) return;
+const importData = (parsedData) => {
+    if (!parsedData.windows || !parsedData.groups || !parsedData.items) { alert('データ構造が不正です'); return false; }
+    if (!confirm('インポートを実行しますか？\n既存のデータはすべて置き換えられます。')) return false;
 
     const tx = db.transaction(['windows', 'groups', 'items'], 'readwrite');
     tx.objectStore('windows').clear();
@@ -751,12 +763,35 @@ const handleImport = () => {
     parsedData.items.forEach(i => tx.objectStore('items').put(i));
 
     tx.oncomplete = () => {
-        document.getElementById('ioTextarea').value = '';
         currentSelectedWindowId = null;
         currentSelectedGroupId = null;
         saveUIState();
         initApp();
     };
+    return true;
+};
+
+const handleImport = () => {
+    const jsonString = document.getElementById('ioTextarea').value.trim();
+    if (!jsonString) return;
+    let parsedData;
+    try { parsedData = JSON.parse(jsonString); } catch (e) { alert('JSONのパースに失敗しました。'); return; }
+    importData(parsedData);
+};
+
+const handleLoadFile = async () => {
+    try {
+        const [handle] = await window.showOpenFilePicker({
+            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+        });
+        const file = await handle.getFile();
+        const jsonString = await file.text();
+        let parsedData;
+        try { parsedData = JSON.parse(jsonString); } catch (e) { alert('JSONのパースに失敗しました。'); return; }
+        importData(parsedData);
+    } catch (e) {
+        if (e.name !== 'AbortError') console.error('ファイルの読み込みに失敗しました', e);
+    }
 };
 
 // ============================================================
@@ -858,3 +893,5 @@ document.getElementById('toggleAddPositionBtn').addEventListener('click', () => 
 // インポート・エクスポート
 document.getElementById('exportBtn').addEventListener('click', handleExport);
 document.getElementById('importBtn').addEventListener('click', handleImport);
+document.getElementById('exportFileBtn').addEventListener('click', handleSaveFile);
+document.getElementById('importFileBtn').addEventListener('click', handleLoadFile);

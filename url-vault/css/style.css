@@ -134,6 +134,7 @@ button:hover { background-color: #0062a3; }
 }
 .io-btn-group button {
     flex: 1;
+    white-space: nowrap;
 }
 
 /* コントロールバー（各種トグルボタン配置） */
