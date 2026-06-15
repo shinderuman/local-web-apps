@@ -160,14 +160,20 @@ const syncItemSelects = () => {
     itemWin.value = currentSelectedWindowId;
 
     const winId = parseInt(itemWin.value);
-    itemGroup.innerHTML = '';
     if (isNaN(winId)) return;
+
+    const prevGroupVal = itemGroup.value;
+    itemGroup.innerHTML = '';
 
     const tx = db.transaction(['groups'], 'readonly');
     tx.objectStore('groups').getAll().onsuccess = (e) => {
         const groups = e.target.result.filter(g => g.windowId === winId);
         groups.forEach(g => itemGroup.add(new Option(g.name, g.id)));
-        if (currentSelectedGroupId !== null) itemGroup.value = currentSelectedGroupId;
+        if (currentSelectedGroupId !== null) {
+            itemGroup.value = currentSelectedGroupId;
+        } else if (prevGroupVal) {
+            itemGroup.value = prevGroupVal;
+        }
     };
 };
 
@@ -209,6 +215,7 @@ const saveItem = () => {
     const winSelect = document.getElementById('itemWindowSelect'); const groupSelect = document.getElementById('itemGroupSelect');
     const titleInput = document.getElementById('title'); const urlInput = document.getElementById('url');
     if (!winSelect.value || !groupSelect.value || !titleInput.value || !urlInput.value) return;
+    if (isNaN(parseInt(winSelect.value)) || isNaN(parseInt(groupSelect.value))) return;
 
     const tx = db.transaction(['items'], 'readwrite');
     const store = tx.objectStore('items');
