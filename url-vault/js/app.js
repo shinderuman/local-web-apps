@@ -858,8 +858,8 @@ document.getElementById('newGroupInput').addEventListener('keydown', (e) => {
 // ペースト
 document.getElementById('title').addEventListener('paste', (e) => {
     const hasImage = [...e.clipboardData.items].some(item => item.type.indexOf('image') !== -1);
-    const hasText = [...e.clipboardData.items].some(item => item.type.indexOf('text') !== -1);
-    if (hasImage && !hasText) {
+    const hasPlainText = [...e.clipboardData.items].some(item => item.type === 'text/plain');
+    if (hasImage && !hasPlainText) {
         handleImagePaste(e);
     } else {
         handleTwoLinePaste(e);
@@ -867,8 +867,8 @@ document.getElementById('title').addEventListener('paste', (e) => {
 });
 document.getElementById('url').addEventListener('paste', (e) => {
     const hasImage = [...e.clipboardData.items].some(item => item.type.indexOf('image') !== -1);
-    const hasText = [...e.clipboardData.items].some(item => item.type.indexOf('text') !== -1);
-    if (hasImage && !hasText) handleImagePaste(e);
+    const hasPlainText = [...e.clipboardData.items].some(item => item.type === 'text/plain');
+    if (hasImage && !hasPlainText) handleImagePaste(e);
 });
 pasteArea.addEventListener('paste', handleImagePaste);
 document.addEventListener('paste', handleEditImagePaste);
