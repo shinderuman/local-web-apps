@@ -120,7 +120,8 @@ const updateSelectBoxes = () => {
         const prevTargetVal = targetWin.value;
         const prevItemVal = itemWin.value;
 
-        targetWin.innerHTML = ''; itemWin.innerHTML = '';
+        targetWin.innerHTML = '';
+        itemWin.innerHTML = '';
         windows.forEach(w => {
             targetWin.add(new Option(w.name, w.id));
             itemWin.add(new Option(w.name, w.id));
@@ -212,8 +213,10 @@ const executeAddGroup = () => {
 // ============================================================
 
 const saveItem = () => {
-    const winSelect = document.getElementById('itemWindowSelect'); const groupSelect = document.getElementById('itemGroupSelect');
-    const titleInput = document.getElementById('title'); const urlInput = document.getElementById('url');
+    const winSelect = document.getElementById('itemWindowSelect');
+    const groupSelect = document.getElementById('itemGroupSelect');
+    const titleInput = document.getElementById('title');
+    const urlInput = document.getElementById('url');
     if (!winSelect.value || !groupSelect.value || !titleInput.value || !urlInput.value) return;
     if (isNaN(parseInt(winSelect.value)) || isNaN(parseInt(groupSelect.value))) return;
 
@@ -262,7 +265,11 @@ const saveItem = () => {
         };
 
         store.add(data).onsuccess = () => {
-            titleInput.value = ''; urlInput.value = ''; imageDataBase64 = ''; preview.style.display = 'none'; pasteArea.classList.remove('has-image');
+            titleInput.value = '';
+            urlInput.value = '';
+            imageDataBase64 = '';
+            preview.style.display = 'none';
+            pasteArea.classList.remove('has-image');
             titleInput.focus();
             renderList();
         };
@@ -672,7 +679,8 @@ const renderList = () => {
             imgBox.className = 'card-img-box';
             if (item.image) {
                 const img = document.createElement('img');
-                img.className = 'card-img'; img.src = item.image;
+                img.className = 'card-img';
+                img.src = item.image;
                 if (blurEnabled) img.classList.add('blurred');
                 imgBox.appendChild(img);
             }
@@ -681,7 +689,8 @@ const renderList = () => {
             const content = document.createElement('div');
             content.className = 'card-content';
             const title = document.createElement('p');
-            title.className = 'card-title'; title.textContent = item.title;
+            title.className = 'card-title';
+            title.textContent = item.title;
             content.appendChild(title);
             card.appendChild(content);
 
