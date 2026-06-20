@@ -691,6 +691,7 @@ const renderList = () => {
             const title = document.createElement('p');
             title.className = 'card-title';
             title.textContent = item.title;
+            card.title = item.title;
             content.appendChild(title);
             card.appendChild(content);
 
