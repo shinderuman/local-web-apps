@@ -23,7 +23,7 @@ let editMode = false;
 let searchQuery = '';
 let filterRenderId = 0;
 let addPositionTop = true;
-let editingImageId = null; // 画像上書き待ち中のアイテムID
+let editingItemId = null; // 編集中のアイテムID（null=新規作成モード）
 
 const pasteArea = document.getElementById('pasteArea');
 const preview = document.getElementById('preview');
@@ -217,6 +217,29 @@ const saveItem = () => {
     if (!winSelect.value || !groupSelect.value || !titleInput.value || !urlInput.value) return;
     if (isNaN(parseInt(winSelect.value)) || isNaN(parseInt(groupSelect.value))) return;
 
+    // 編集モード: 既存アイテムを上書き（sortOrder/createdAtは保持）
+    if (editingItemId !== null) {
+        const tx = db.transaction(['items'], 'readwrite');
+        const store = tx.objectStore('items');
+        store.get(editingItemId).onsuccess = (e) => {
+            const data = e.target.result;
+            if (!data) { endItemEdit(); return; }
+            data.windowId = parseInt(winSelect.value);
+            data.groupId = parseInt(groupSelect.value);
+            data.title = titleInput.value;
+            data.url = urlInput.value;
+            // 画像は新しくペーストされた場合のみ上書き
+            if (imageDataBase64) data.image = imageDataBase64;
+            store.put(data);
+        };
+        tx.oncomplete = () => {
+            endItemEdit();
+            renderList();
+        };
+        return;
+    }
+
+    // 新規作成モード
     const tx = db.transaction(['items'], 'readwrite');
     const store = tx.objectStore('items');
     store.getAll().onsuccess = (e) => {
@@ -244,6 +267,45 @@ const saveItem = () => {
             renderList();
         };
     };
+};
+
+// 編集モード開始: カードの内容を左パネルへセット
+const startItemEdit = (item) => {
+    editingItemId = item.id;
+    document.getElementById('itemWindowSelect').value = item.windowId;
+    updateGroupSelectBox();
+    document.getElementById('itemGroupSelect').value = item.groupId;
+    document.getElementById('title').value = item.title;
+    document.getElementById('url').value = item.url;
+    imageDataBase64 = '';
+    if (item.image) {
+        preview.src = item.image;
+        preview.style.display = 'inline-block';
+        pasteArea.classList.add('has-image');
+    } else {
+        preview.style.display = 'none';
+        pasteArea.classList.remove('has-image');
+    }
+    renderSaveBtn();
+    renderList();
+    document.getElementById('title').focus();
+};
+
+// 編集モード終了: 入力欄クリア
+const endItemEdit = () => {
+    editingItemId = null;
+    document.getElementById('title').value = '';
+    document.getElementById('url').value = '';
+    imageDataBase64 = '';
+    preview.style.display = 'none';
+    pasteArea.classList.remove('has-image');
+    renderSaveBtn();
+};
+
+// 保存ボタン表示切替（新規作成 / 更新）
+const renderSaveBtn = () => {
+    const btn = document.getElementById('saveBtn');
+    btn.textContent = editingItemId !== null ? 'アイテムを更新' : 'アイテムを保存';
 };
 
 // ============================================================
@@ -340,38 +402,6 @@ const handleTwoLinePaste = (e) => {
         e.preventDefault();
         document.getElementById('title').value = lines[0];
         document.getElementById('url').value = lines[1];
-    }
-};
-
-// 編集モード中の画像上書きペースト（document単位）
-const handleEditImagePaste = (e) => {
-    if (!editMode || editingImageId === null) return;
-    const active = document.activeElement;
-    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
-
-    const items = e.clipboardData.items;
-    for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') !== -1) {
-            e.preventDefault();
-            const blob = items[i].getAsFile();
-            const img = new Image();
-            const targetId = editingImageId;
-            img.onload = () => {
-                const { trimLeft, trimmedW, trimmedH } = trimBackground(img);
-                const newImage = resizeToJpeg(img, trimLeft, trimmedW, trimmedH);
-                URL.revokeObjectURL(img.src);
-
-                const tx = db.transaction(['items'], 'readwrite');
-                const store = tx.objectStore('items');
-                store.get(targetId).onsuccess = (ev) => {
-                    const data = ev.target.result;
-                    if (data) { data.image = newImage; store.put(data); }
-                };
-                tx.oncomplete = () => { editingImageId = null; renderList(); };
-            };
-            img.src = URL.createObjectURL(blob);
-            break;
-        }
     }
 };
 
@@ -616,7 +646,7 @@ const renderList = () => {
         items.forEach((item) => {
             const card = document.createElement('div');
             card.className = 'card';
-            if (editingImageId === item.id) card.classList.add('editing-image');
+            if (editingItemId === item.id) card.classList.add('editing-image');
             card.draggable = isDragEnabled;
             card.dataset.id = item.id;
             card.tabIndex = 0;
@@ -624,8 +654,7 @@ const renderList = () => {
             card.onclick = (e) => {
                 if (e.target.closest('.delete-icon-btn')) return;
                 if (editMode) {
-                    editingImageId = item.id;
-                    renderList();
+                    startItemEdit(item);
                     return;
                 }
                 window.open(item.url, '_blank', 'noopener,noreferrer');
@@ -820,7 +849,7 @@ document.getElementById('toggleNavBtn').addEventListener('click', () => {
 
 document.getElementById('toggleEditModeBtn').addEventListener('click', () => {
     editMode = !editMode;
-    if (!editMode) editingImageId = null;
+    if (!editMode) endItemEdit();
     const btn = document.getElementById('toggleEditModeBtn');
     btn.style.backgroundColor = editMode ? '#6a4c93' : '';
     btn.style.color = editMode ? '#fff' : '';
@@ -878,7 +907,6 @@ document.getElementById('url').addEventListener('paste', (e) => {
     if (hasImage && !hasPlainText) handleImagePaste(e);
 });
 pasteArea.addEventListener('paste', handleImagePaste);
-document.addEventListener('paste', handleEditImagePaste);
 
 // Enter で保存
 document.getElementById('title').addEventListener('keydown', (e) => {
