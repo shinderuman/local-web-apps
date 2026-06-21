@@ -667,13 +667,15 @@ const renderList = () => {
                 window.open(item.url, '_blank', 'noopener,noreferrer');
             };
 
-            const delBtn = document.createElement('button');
-            delBtn.className = 'delete-icon-btn';
-            delBtn.textContent = '×';
-            delBtn.onclick = () => {
-                db.transaction(['items'], 'readwrite').objectStore('items').delete(item.id).onsuccess = () => renderList();
-            };
-            card.appendChild(delBtn);
+            if (editMode) {
+                const delBtn = document.createElement('button');
+                delBtn.className = 'delete-icon-btn';
+                delBtn.textContent = '×';
+                delBtn.onclick = () => {
+                    db.transaction(['items'], 'readwrite').objectStore('items').delete(item.id).onsuccess = () => renderList();
+                };
+                card.appendChild(delBtn);
+            }
 
             const imgBox = document.createElement('div');
             imgBox.className = 'card-img-box';
