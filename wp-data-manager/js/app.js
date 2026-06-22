@@ -56,6 +56,10 @@ const masterHorseData = {
     2020: ["リバティアイランド", "Auguste Rodin", "Ka Ying Rising", "カーインライジング"]
 };
 
+function escapeHtml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function toggleElement(id) {
     const el = document.getElementById(id);
     const isVisible = el.style.display === 'block';
@@ -120,59 +124,49 @@ function renderFilteredHorseList() {
     });
 }
 
-function parseCSVLine(line, index) {
-    let cleanLine = line.replace(/^[*\-\s]+/, "").trim();
-    if (!cleanLine) return null;
-    const parts = cleanLine.split(',');
-    return {
-        id: Date.now() + Math.random(),
-        order: index + 1,
-        name: (parts[0] || "").trim(),
-        birthYear: (parts[1] && !isNaN(parts[1])) ? parseInt(parts[1].trim(), 10) : "",
-        horseName: (parts[2] || "").trim()
-    };
+// JSON形式のインポート（テキストエリア）
+function importJSON() {
+    const text = document.getElementById('ioTextarea').value.trim();
+    if (!text) return;
+    try {
+        const parsed = JSON.parse(text);
+        if (!Array.isArray(parsed)) { alert('データ構造が不正です'); return; }
+        horses = parsed;
+        saveAndRender();
+    } catch (e) {
+        alert('JSONのパースに失敗しました');
+    }
 }
 
-function parseCSVText(text) {
-    if (!text.trim()) return;
-    const lines = text.split(/\n/).filter(l => l.trim() !== "");
-    horses = lines.map((line, i) => parseCSVLine(line, i)).filter(h => h !== null);
-    saveAndRender();
-}
-
-function importCSV() {
-    parseCSVText(document.getElementById('csvIO').value);
+// JSON形式のエクスポート（テキストエリア）
+function exportJSON() {
+    const exportList = [...horses].sort((a, b) => a.order - b.order);
+    document.getElementById('ioTextarea').value = JSON.stringify(exportList, null, 2);
 }
 
 async function loadFile() {
     try {
         const [handle] = await window.showOpenFilePicker({
-            types: [{ description: 'CSV', accept: { 'text/csv': ['.csv'] } }],
+            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
         });
         const file = await handle.getFile();
-        parseCSVText(await file.text());
+        const text = await file.text();
+        horses = JSON.parse(text);
+        saveAndRender();
     } catch (e) {
         if (e.name !== 'AbortError') console.error('ファイルの読み込みに失敗しました', e);
     }
 }
 
-function buildCSVText() {
-    const exportList = [...horses].sort((a, b) => a.order - b.order);
-    return exportList.map(h => `${h.name},${h.birthYear},${h.horseName}`).join('\n');
-}
-
-function exportCSV() {
-    document.getElementById('csvIO').value = buildCSVText();
-}
-
 async function saveFile() {
     try {
         const handle = await window.showSaveFilePicker({
-            suggestedName: 'horse-data.csv',
-            types: [{ description: 'CSV', accept: { 'text/csv': ['.csv'] } }],
+            suggestedName: 'horse-data.json',
+            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
         });
+        const exportList = [...horses].sort((a, b) => a.order - b.order);
         const writable = await handle.createWritable();
-        await writable.write(buildCSVText());
+        await writable.write(JSON.stringify(exportList, null, 2));
         await writable.close();
     } catch (e) {
         if (e.name !== 'AbortError') console.error('ファイルの保存に失敗しました', e);
@@ -210,8 +204,18 @@ function addData() {
     const horseName = document.getElementById('newHorseName').value.trim();
     if (!name) return;
     const maxOrder = horses.length > 0 ? Math.max(...horses.map(h => h.order)) : 0;
-    horses.push({ id: Date.now(), order: maxOrder + 1, name: name, birthYear: year ? parseInt(year, 10) : "", horseName: horseName });
-    document.getElementById('newName').value = ""; document.getElementById('newYear').value = ""; document.getElementById('newHorseName').value = "";
+    horses.push({
+        id: Date.now(),
+        order: maxOrder + 1,
+        name: name,
+        birthYear: year ? parseInt(year, 10) : "",
+        horseName: horseName === "" ? "種牡馬" : horseName,
+        otherHorseNames: [],
+        isRunner: true
+    });
+    document.getElementById('newName').value = "";
+    document.getElementById('newYear').value = "";
+    document.getElementById('newHorseName').value = "";
     saveAndRender();
 }
 
@@ -223,9 +227,9 @@ function deleteData(id) {
 function startEdit(id, key, element) {
     const horse = horses.find(h => h.id === id);
     if (!horse) return;
-    const originalValue = horse[key];
-    const input = document.createElement('input');
-    input.type = (key === 'birthYear') ? 'number' : 'text';
+    const originalValue = (key === 'otherHorseNames') ? (horse.otherHorseNames || []).join('\n') : horse[key];
+    const input = document.createElement(key === 'otherHorseNames' ? 'textarea' : 'input');
+    if (key !== 'otherHorseNames') input.type = (key === 'birthYear') ? 'number' : 'text';
     input.value = originalValue;
     input.className = 'edit-input';
     element.onclick = null;
@@ -233,13 +237,38 @@ function startEdit(id, key, element) {
     element.appendChild(input);
     input.focus();
     const finishEdit = () => {
-        let newValue = input.value.trim();
-        if (key === 'birthYear') newValue = newValue !== "" ? parseInt(newValue, 10) : "";
-        horse[key] = newValue;
+        const newValue = input.value.trim();
+        if (key === 'birthYear') {
+            horse[key] = newValue !== "" ? parseInt(newValue, 10) : "";
+        } else if (key === 'otherHorseNames') {
+            horse.otherHorseNames = newValue ? newValue.split(/\n/).map(s => s.trim()).filter(s => s !== "") : [];
+        } else {
+            horse[key] = newValue;
+        }
         saveAndRender();
     };
     input.onblur = finishEdit;
-    input.onkeydown = (e) => { if (e.key === 'Enter') finishEdit(); if (e.key === 'Escape') { input.onblur = null; render(); } };
+    input.onkeydown = (e) => {
+        if (e.key === 'Enter' && key !== 'otherHorseNames') finishEdit();
+        if (e.key === 'Escape') { input.onblur = null; render(); }
+    };
+}
+
+// 種牡馬かどうかの判定: 10歳以上は強制種牡馬、それ以外は isRunner フラグ
+function isStallion(h) {
+    const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : null;
+    if (age !== null && age >= 10) return true;
+    return !h.isRunner;
+}
+
+// 現役/種牡馬のトグル（10歳以上は固定でトグル不可）
+function toggleRunner(id) {
+    const h = horses.find(h => h.id === id);
+    if (!h) return;
+    const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : null;
+    if (age !== null && age >= 10) return;
+    h.isRunner = !h.isRunner;
+    saveAndRender();
 }
 
 function sortData(key) {
@@ -258,15 +287,19 @@ function render() {
     tbody.innerHTML = "";
     horses.forEach((h) => {
         const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : "-";
+        const stallion = isStallion(h);
+        const otherText = (h.otherHorseNames || []).join('\n');
         const tr = document.createElement('tr');
         tr.dataset.id = h.id;
+        if (!stallion) tr.classList.add('runner-row');
         tr.innerHTML = `
             <td class="handle" draggable="true">≡</td>
             <td style="color: #666; font-weight: bold; text-align: center;">${h.order}</td>
+            <td class="name-cell">${escapeHtml(h.name)}</td>
             <td class="age-cell">${age}</td>
-            <td class="name-cell">${h.name}</td>
             <td class="editable" onclick="startEdit(${h.id}, 'birthYear', this)">${h.birthYear}</td>
-            <td class="editable" onclick="startEdit(${h.id}, 'horseName', this)">${h.horseName}</td>
+            <td class="editable" onclick="startEdit(${h.id}, 'horseName', this)">${escapeHtml(h.horseName)}</td>
+            <td class="editable other-cell" onclick="startEdit(${h.id}, 'otherHorseNames', this)">${escapeHtml(otherText).replace(/\n/g, '<br>')}</td>
             <td><button class="delete-btn" onclick="deleteData(${h.id})">削除</button></td>
         `;
         const handle = tr.querySelector('.handle');
@@ -274,6 +307,12 @@ function render() {
         tr.addEventListener('dragover', handleDragOver);
         tr.addEventListener('drop', handleDrop);
         handle.addEventListener('dragend', handleDragEnd);
+        // 編集セル以外のクリックで現役/種牡馬トグル
+        tr.querySelectorAll('td:not(.editable)').forEach(td => {
+            if (td.querySelector('button')) return;
+            td.style.cursor = 'pointer';
+            td.addEventListener('click', () => toggleRunner(h.id));
+        });
         tbody.appendChild(tr);
     });
 }

@@ -45,6 +45,10 @@ tr.dragging { opacity: 0.4; background: #e9ecef; }
 .name-cell { color: #333; font-weight: 500; }
 .editable { cursor: text; background-color: #fffdf0; border-bottom: 1px dashed #ccc; }
 .editable:hover { background-color: #fff9c4; }
+/* 現役競走馬行の背景色（種牡馬は白のまま） */
+tr.runner-row { background-color: #f0f7ff; }
+tr.runner-row .editable { background-color: #eaf2fb; }
+.other-cell { white-space: normal; color: #666; line-height: 1.4; }
 .edit-input { width: 100%; box-sizing: border-box; padding: 4px; font-size: inherit; font-family: inherit; }
 button { cursor: pointer; padding: 8px 16px; border: 1px solid #ccc; background: #fff; border-radius: 6px; font-weight: bold; }
 .primary-btn { background-color: #007bff; color: white; border: none; }

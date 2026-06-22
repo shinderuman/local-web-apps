@@ -12,7 +12,7 @@
     <button class="toggle-btn" onclick="toggleElement('scheduleSection')">スケジュール</button>
     <button class="toggle-btn" onclick="toggleElement('horseListSection')">年代別馬リスト</button>
     <button class="toggle-btn" onclick="toggleElement('memoArea')">注記メモ</button>
-    <button class="toggle-btn" onclick="toggleElement('csvSection')">CSV入出力パネル</button>
+    <button class="toggle-btn" onclick="toggleElement('csvSection')">JSON入出力パネル</button>
 </div>
 
 <div class="container">
@@ -121,12 +121,12 @@
         </div>
     </div>
 
-    <!-- CSV入出力パネル -->
+    <!-- JSON入出力パネル -->
     <div id="csvSection">
-        <textarea id="csvIO" placeholder="CSV形式（系統名,生年,種牡馬名）を貼り付け"></textarea>
+        <textarea id="ioTextarea" placeholder="JSONデータを出力・入力"></textarea>
         <div style="display: flex; gap: 10px;">
-            <button onclick="importCSV()" class="primary-btn">CSVから読み込み</button>
-            <button onclick="exportCSV()">CSV出力</button>
+            <button onclick="importJSON()" class="primary-btn">JSONから読み込み</button>
+            <button onclick="exportJSON()">JSON出力</button>
             <button onclick="loadFile()" class="primary-btn">ファイルから読込</button>
             <button onclick="saveFile()">ファイルに保存</button>
         </div>
@@ -135,20 +135,21 @@
     <div class="controls">
         <input type="text" id="newName" placeholder="系統名">
         <input type="number" id="newYear" placeholder="生年" style="width: 80px;">
-        <input type="text" id="newHorseName" placeholder="種牡馬名">
+        <input type="text" id="newHorseName" placeholder="所有種牡馬名（空なら種牡馬）">
         <button onclick="addData()" class="primary-btn">追加</button>
     </div>
 
     <table id="horseTable">
         <thead>
             <tr>
-                <th style="width: 45px; cursor: default;">移動</th>
-                <th onclick="sortData('order')" style="width: 60px;">順序</th>
-                <th style="width: 60px; cursor: default;">年齢</th>
-                <th onclick="sortData('name')" style="width: 25%;">系統名</th>
-                <th onclick="sortData('birthYear')" style="width: 80px;">生年</th>
-                <th onclick="sortData('horseName')">種牡馬名</th>
-                <th style="width: 80px; cursor: default;">操作</th>
+                <th style="width: 40px; cursor: default;">移動</th>
+                <th onclick="sortData('order')" style="width: 50px;">順序</th>
+                <th onclick="sortData('name')">系統名</th>
+                <th style="width: 50px; cursor: default;">年齢</th>
+                <th onclick="sortData('birthYear')" style="width: 60px;">生年</th>
+                <th onclick="sortData('horseName')">所有種牡馬名</th>
+                <th>他牧場の種牡馬</th>
+                <th style="width: 70px; cursor: default;">操作</th>
             </tr>
         </thead>
         <tbody id="horseTableBody"></tbody>
