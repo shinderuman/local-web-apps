@@ -2,16 +2,25 @@
 // 定数・変数
 // ============================================================
 
-const DB_NAME = 'HighDensityTabManagerDB_v2';
-const DB_VERSION = 1;
+// IndexedDB設定
+const DB = {
+    NAME: 'HighDensityTabManagerDB_v2',
+    VERSION: 1,
+};
+
+// ソート設定
 const SORT_OPTIONS = [
     { key: 'sortOrder', label: '手動順' },
     { key: 'title', label: 'タイトル順' },
     { key: 'createdAt', label: '登録順' },
 ];
-const IMAGE_MAX_W = 440;
-const IMAGE_MAX_H = 620;
-const IMAGE_JPEG_QUALITY = 0.7;
+
+// 画像処理設定
+const IMAGE = {
+    MAX_W: 440,
+    MAX_H: 620,
+    JPEG_QUALITY: 0.7,
+};
 
 // 楽天ブックスAPI設定
 const RAKUTEN = {
@@ -54,7 +63,7 @@ const preview = document.getElementById('preview');
 // IndexedDB 初期化
 // ============================================================
 
-const request = indexedDB.open(DB_NAME, DB_VERSION);
+const request = indexedDB.open(DB.NAME, DB.VERSION);
 request.onupgradeneeded = (e) => {
     db = e.target.result;
     db.createObjectStore('windows', { keyPath: 'id', autoIncrement: true });
@@ -393,8 +402,8 @@ const resizeToJpeg = (img, trimLeft, trimW, trimH) => {
     let w = trimW;
     let h = trimH;
 
-    if (w > IMAGE_MAX_W || h > IMAGE_MAX_H) {
-        const ratio = Math.min(IMAGE_MAX_W / w, IMAGE_MAX_H / h);
+    if (w > IMAGE.MAX_W || h > IMAGE.MAX_H) {
+        const ratio = Math.min(IMAGE.MAX_W / w, IMAGE.MAX_H / h);
         w = Math.round(w * ratio);
         h = Math.round(h * ratio);
     }
@@ -404,7 +413,7 @@ const resizeToJpeg = (img, trimLeft, trimW, trimH) => {
     canvas.height = h;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img, trimLeft, 0, trimW, trimH, 0, 0, w, h);
-    return canvas.toDataURL('image/jpeg', IMAGE_JPEG_QUALITY);
+    return canvas.toDataURL('image/jpeg', IMAGE.JPEG_QUALITY);
 };
 
 // ============================================================
