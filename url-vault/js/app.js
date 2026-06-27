@@ -13,6 +13,27 @@ const IMAGE_MAX_W = 440;
 const IMAGE_MAX_H = 620;
 const IMAGE_JPEG_QUALITY = 0.7;
 
+// 楽天ブックスAPI設定
+const RAKUTEN = {
+    API_URL: 'https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404',
+    GENRE_COMIC: '001001',
+    HITS: 30,
+};
+
+// Kindleドメイン判定
+const KINDLE_URL_PATTERN = /^https?:\/\/read\.amazon\.co\.jp\//;
+
+// タイムアウト・間隔（ミリ秒）
+const TIMING = {
+    TOAST_DURATION: 3000,
+    TOAST_HIDE_ANIM: 200,
+    PANEL_ANIM: 180,
+    SYNOPSIS_FETCH_INTERVAL: 1200,
+};
+
+// 表示閾値
+const TOAST_TITLE_MAX_LEN = 20;
+
 let db = null;
 let currentSelectedWindowId = null;
 let currentSelectedGroupId = null;
@@ -24,6 +45,7 @@ let searchQuery = '';
 let filterRenderId = 0;
 let addPositionTop = true;
 let editingItemId = null; // 編集中のアイテムID（null=新規作成モード）
+let synopsisPanelItemId = null; // 右ペイン表示中のアイテムID（トグル用）
 
 const pasteArea = document.getElementById('pasteArea');
 const preview = document.getElementById('preview');
@@ -236,8 +258,17 @@ const saveItem = () => {
             store.put(data);
         };
         tx.oncomplete = () => {
+            const savedId = editingItemId;
+            const savedTitle = titleInput.value;
+            const savedUrl = urlInput.value;
             endItemEdit();
             renderList();
+            // Kindleドメインかつあらすじ未取得なら取得
+            const tx2 = db.transaction(['items'], 'readonly');
+            tx2.objectStore('items').get(savedId).onsuccess = (ev) => {
+                const d = ev.target.result;
+                if (d && !d.synopsis) updateSynopsis(savedId, savedTitle, savedUrl);
+            };
         };
         return;
     }
@@ -251,7 +282,10 @@ const saveItem = () => {
 
         if (addPositionTop) {
             // 先頭に追加: 既存アイテムを 1, 2, 3... にずらして新規を 0 で追加
-            currentGroupItems.forEach((item, i) => { item.sortOrder = i + 1; store.put(item); });
+            currentGroupItems.forEach((item, i) => {
+                item.sortOrder = i + 1;
+                store.put(item);
+            });
         }
 
         const data = {
@@ -264,7 +298,8 @@ const saveItem = () => {
             createdAt: new Date().getTime()
         };
 
-        store.add(data).onsuccess = () => {
+        store.add(data).onsuccess = (e) => {
+            const newId = e.target.result;
             titleInput.value = '';
             urlInput.value = '';
             imageDataBase64 = '';
@@ -272,6 +307,8 @@ const saveItem = () => {
             pasteArea.classList.remove('has-image');
             titleInput.focus();
             renderList();
+            // Kindleドメインならあらすじを自動取得
+            updateSynopsis(newId, data.title, data.url);
         };
     };
 };
@@ -371,6 +408,319 @@ const resizeToJpeg = (img, trimLeft, trimW, trimH) => {
 };
 
 // ============================================================
+// あらすじ取得（楽天ブックスAPI）
+// ============================================================
+
+// 全角数字を半角に正規化
+const { normalizeDigits, parseVolume, parseBaseTitle } = window.TITLE_PARSER;
+
+// 楽天APIでタイトル検索し、該当巻の前後2巻（最大3巻）のあらすじを取得
+// 楽天APIでタイトル検索。0件なら段階的にクエリを短くして再検索（フォールバック）
+const searchItemsByTitle = async (applicationId, accessKey, query) => {
+    const searchOnce = async (q) => {
+        const url = `${RAKUTEN.API_URL}?applicationId=${applicationId}&accessKey=${accessKey}&booksGenreId=${RAKUTEN.GENRE_COMIC}&title=${encodeURIComponent(q)}&hits=${RAKUTEN.HITS}`;
+        console.log('[synopsis] リクエストURL:', url);
+        let data;
+        try {
+            const res = await fetch(url);
+            if (!res.ok) { console.error('[synopsis] HTTPエラー:', res.status); return null; }
+            data = await res.json();
+        } catch (e) {
+            console.error('[synopsis] fetch例外:', e);
+            return null;
+        }
+        if (data.error || data.errors) { console.error('[synopsis] APIエラー:', data); return null; }
+        return data;
+    };
+
+    let result = await searchOnce(query);
+    if (result && result.Items && result.Items.length > 0) return result;
+    console.warn('[synopsis] 検索結果0件、クエリ短縮で再検索:', query);
+
+    // フォールバック: 記号・空白で区切り、後ろから削って再検索
+    const tokens = query.split(/[\s　：:、，,]+/).filter(t => t);
+    for (let len = tokens.length - 1; len >= 1; len--) {
+        const shorter = tokens.slice(0, len).join(' ');
+        result = await searchOnce(shorter);
+        if (result && result.Items && result.Items.length > 0) return result;
+        console.warn('[synopsis] 検索結果0件、更に短縮:', shorter);
+    }
+    return null;
+};
+
+const fetchSynopsis = async (title, explicitVolume, skipParse) => {
+    if (!window.RAKUTEN_CONFIG || !window.RAKUTEN_CONFIG.applicationId) {
+        console.warn('[synopsis] config.js に楽天APIの認証情報が未設定');
+        alert('config.js に楽天APIの認証情報が設定されていません');
+        return null;
+    }
+    const { applicationId, accessKey } = window.RAKUTEN_CONFIG;
+    // skipParse=true（フォーム値修正時）はパースせずそのまま使用
+    const baseTitle = skipParse ? title : parseBaseTitle(title);
+    const currentVolume = explicitVolume ? parseInt(explicitVolume, 10) : parseVolume(title);
+    console.log('[synopsis] 検索タイトル:', baseTitle, '(巻数:', currentVolume + ')');
+
+    const data = await searchItemsByTitle(applicationId, accessKey, baseTitle);
+    if (!data) {
+        console.warn('[synopsis] 最終的に検索結果0件:', baseTitle);
+        return null;
+    }
+
+    // タイトル→巻数→あらすじ に整理
+    const volumeMap = {};
+    data.Items.forEach(it => {
+        const v = parseVolume(it.Item.title);
+        if (!volumeMap[v] && it.Item.itemCaption) {
+            volumeMap[v] = { volume: v, title: it.Item.title, caption: it.Item.itemCaption };
+        }
+    });
+
+    // 起点巻で終わる3巻の窓を作る（前が足りなければ後ろで埋める）
+    // 例: 1巻→1,2,3 / 3巻→1,2,3 / 5巻→3,4,5
+    const startVolume = Math.max(1, currentVolume - 2);
+    const targetVolumes = [startVolume, startVolume + 1, startVolume + 2]
+        .map(v => volumeMap[v])
+        .filter(Boolean);
+
+    if (targetVolumes.length === 0) {
+        console.warn('[synopsis] あらすじデータなし（APIレスポンスにitemCaptionが無い）:', baseTitle);
+        return null;
+    }
+    console.log('[synopsis] 取得巻:', targetVolumes.map(t => t.volume).join(','));
+
+    return targetVolumes;
+};
+
+// URLがKindleドメインか判定
+const isKindleUrl = (url) => {
+    return KINDLE_URL_PATTERN.test(url);
+};
+
+// 指定アイテムのあらすじを取得して保存
+const updateSynopsis = async (itemId, title, url, explicitVolume, skipParse) => {
+    if (!isKindleUrl(url)) return;
+    const synopsis = await fetchSynopsis(title, explicitVolume, skipParse);
+    if (!synopsis) return;
+    const tx = db.transaction(['items'], 'readwrite');
+    const store = tx.objectStore('items');
+    store.get(itemId).onsuccess = (e) => {
+        const data = e.target.result;
+        if (data) { data.synopsis = synopsis; store.put(data); }
+    };
+    tx.oncomplete = () => renderList();
+};
+
+// あらすじモーダル表示
+// 右ペインにあらすじ表示。editedStateがあればその値を入力欄に引き継ぐ
+const showSynopsisPanel = (item, editedState) => {
+    const panel = document.getElementById('synopsisPanel');
+    const titleEl = document.getElementById('synopsisPanelTitle');
+    const bodyEl = document.getElementById('synopsisPanelBody');
+
+    // 同一アイテムを再度指定したらトグルで閉じる（editedState再描画時は除く）
+    if (!editedState && synopsisPanelItemId === item.id) {
+        hideSynopsisPanel();
+        return;
+    }
+    synopsisPanelItemId = item.id;
+
+    titleEl.textContent = item.title;
+    bodyEl.innerHTML = '';
+
+    if (!item.synopsis || item.synopsis.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'synopsis-empty';
+        if (isKindleUrl(item.url)) {
+            empty.textContent = 'あらすじが取得されていません';
+        } else {
+            empty.textContent = 'あらすじが取得されていません（Kindleドメインのみ取得可能）';
+        }
+        bodyEl.appendChild(empty);
+    } else {
+        item.synopsis.forEach(s => {
+            const wrap = document.createElement('div');
+            wrap.className = 'synopsis-volume';
+
+            const t = document.createElement('p');
+            t.className = 'synopsis-volume-title';
+            t.textContent = `${s.volume}巻`;
+            wrap.appendChild(t);
+
+            const text = document.createElement('p');
+            text.className = 'synopsis-volume-text';
+            text.textContent = s.caption;
+            wrap.appendChild(text);
+
+            bodyEl.appendChild(wrap);
+        });
+    }
+
+    // タイトル・巻数の編集フォームと再取得ボタン（Kindleドメインのみ）
+    if (isKindleUrl(item.url)) {
+        const formWrap = document.createElement('div');
+        formWrap.className = 'synopsis-form';
+
+        const titleLabel = document.createElement('label');
+        titleLabel.textContent = 'タイトル（取得に使う作品名）';
+        titleLabel.htmlFor = 'synopsisTitleInput';
+        formWrap.appendChild(titleLabel);
+
+        const titleInput = document.createElement('input');
+        titleInput.type = 'text';
+        titleInput.id = 'synopsisTitleInput';
+        titleInput.className = 'synopsis-input';
+        titleInput.value = editedState ? editedState.title : item.title;
+        formWrap.appendChild(titleInput);
+
+        const volLabel = document.createElement('label');
+        volLabel.textContent = '巻数';
+        volLabel.htmlFor = 'synopsisVolumeInput';
+
+        const volInput = document.createElement('input');
+        volInput.type = 'number';
+        volInput.id = 'synopsisVolumeInput';
+        volInput.className = 'synopsis-input synopsis-volume-input';
+        volInput.value = editedState ? editedState.volume : parseVolume(item.title);
+
+        const refetchBtn = document.createElement('button');
+        refetchBtn.textContent = item.synopsis && item.synopsis.length > 0 ? '再取得' : '取得';
+        refetchBtn.className = 'synopsis-fetch-btn';
+        refetchBtn.onclick = async () => {
+            const editedTitle = titleInput.value.trim();
+            const editedVolume = volInput.value.trim();
+            if (!editedTitle) return;
+            refetchBtn.disabled = true;
+            refetchBtn.textContent = '取得中...';
+            await updateSynopsis(item.id, editedTitle, item.url, editedVolume, true);
+            // 再取得したデータでパネル再描画（編集値を引き継ぐ）
+            db.transaction(['items'], 'readonly').objectStore('items').get(item.id).onsuccess = (ev) => {
+                if (ev.target.result) {
+                    showSynopsisPanel(ev.target.result, { title: editedTitle, volume: editedVolume });
+                }
+            };
+        };
+
+        // 巻数入力と再取得ボタンを同じ行に並べる
+        const volRow = document.createElement('div');
+        volRow.className = 'synopsis-vol-row';
+        volRow.appendChild(volLabel);
+        volRow.appendChild(volInput);
+        volRow.appendChild(refetchBtn);
+        formWrap.appendChild(volRow);
+
+        bodyEl.appendChild(formWrap);
+    }
+
+    panel.style.display = 'flex';
+    // アニメーション再実行のため一度外して付与
+    panel.classList.remove('synopsis-panel-open');
+    void panel.offsetWidth;
+    panel.classList.add('synopsis-panel-open');
+};
+
+const hideSynopsisPanel = () => {
+    const panel = document.getElementById('synopsisPanel');
+    const bodyEl = document.getElementById('synopsisPanelBody');
+    const titleEl = document.getElementById('synopsisPanelTitle');
+    // 非表示中は再侵入を防ぐためIDをnull化
+    synopsisPanelItemId = null;
+    // 閉じるアニメーション後に非表示
+    panel.classList.remove('synopsis-panel-open');
+    panel.classList.add('synopsis-panel-close');
+    setTimeout(() => {
+        panel.classList.remove('synopsis-panel-close');
+        panel.style.display = 'none';
+        titleEl.textContent = 'あらすじ';
+        bodyEl.innerHTML = '<p class="synopsis-empty">カードを右クリックするとあらすじを表示します</p>';
+    }, TIMING.PANEL_ANIM);
+};
+
+// 共通トースト（右上・アニメーション付き）
+// opts: { persistent: 進行中表示（手動で消すまで残す）, error: エラー扱い（赤） }
+// 既に表示中の更新はテキストのみ書き換え（登場/消去アニメーションは最初と最後の1回だけ）
+let toastTimer = null;
+let toastVisible = false;
+const showToast = (msg, opts = {}) => {
+    const toast = document.getElementById('synopsisToast');
+    toast.textContent = msg;
+    toast.classList.toggle('error', !!opts.error);
+
+    if (toastVisible) {
+        // 表示中: テキスト更新のみ（アニメーションしない）
+        if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+        if (!opts.persistent) {
+            toastTimer = setTimeout(() => hideToast(), TIMING.TOAST_DURATION);
+        }
+        return;
+    }
+
+    // 新規表示: 登場アニメーション
+    toastVisible = true;
+    toast.classList.remove('synopsis-toast-hide');
+    toast.style.display = 'block';
+    toast.classList.remove('synopsis-toast-show');
+    void toast.offsetWidth;
+    toast.classList.add('synopsis-toast-show');
+
+    if (!opts.persistent) {
+        toastTimer = setTimeout(() => hideToast(), TIMING.TOAST_DURATION);
+    }
+};
+
+const hideToast = () => {
+    const toast = document.getElementById('synopsisToast');
+    if (!toastVisible) return;
+    toastVisible = false;
+    toast.classList.remove('synopsis-toast-show');
+    toast.classList.add('synopsis-toast-hide');
+    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+    setTimeout(() => { toast.style.display = 'none'; }, TIMING.TOAST_HIDE_ANIM);
+};
+
+
+
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const fetchAllSynopsis = async (force) => {
+    const message = force
+        ? '表示中のKindleアイテムのあらすじを全件再取得（上書き）しますか？'
+        : '表示中のKindleアイテムのうち、あらすじ未取得のものを取得しますか？';
+    if (!confirm(message)) return;
+
+    const tx = db.transaction(['items'], 'readonly');
+    tx.objectStore('items').getAll().onsuccess = async (e) => {
+        let items = e.target.result;
+        // 表示中のウィンドウ・グループ絞り込みを適用
+        if (currentSelectedWindowId !== null) items = items.filter(item => item.windowId === currentSelectedWindowId);
+        if (currentSelectedGroupId !== null) items = items.filter(item => item.groupId === currentSelectedGroupId);
+        // force=true: Kindleドメイン全件 / force=false: Kindleドメインかつ未取得
+        const targets = items.filter(item =>
+            isKindleUrl(item.url) && (force || !item.synopsis)
+        );
+        if (targets.length === 0) {
+            showToast('取得対象のアイテムはありません', { error: true });
+            return;
+        }
+        const btn = document.getElementById('fetchAllSynopsisBtn');
+        const btnForce = document.getElementById('fetchAllSynopsisForceBtn');
+        btn.disabled = true;
+        btnForce.disabled = true;
+        showToast(`あらすじ取得中... (0/${targets.length})`, { persistent: true });
+        let done = 0;
+        for (const item of targets) {
+            showToast(`あらすじ取得中... (${done}/${targets.length}) ${item.title.slice(0, TOAST_TITLE_MAX_LEN)}`, { persistent: true });
+            await updateSynopsis(item.id, item.title, item.url);
+            done++;
+            // レートリミット対策: 1.2秒間隔に間引く（最後は待たない）
+            if (done < targets.length) await sleep(TIMING.SYNOPSIS_FETCH_INTERVAL);
+        }
+        showToast(`あらすじ取得完了 (${done}/${targets.length})`);
+        btn.disabled = false;
+        btnForce.disabled = false;
+    };
+};
+
+// ============================================================
 // 画像ペースト
 // ============================================================
 
@@ -449,6 +799,23 @@ const renderSortButtons = () => {
 // フィルター描画
 // ============================================================
 
+// フィルタ選択切替の共通処理（右ペイン閉じる→保存→再描画）
+const applyFilterChange = (windowId, groupId) => {
+    currentSelectedWindowId = windowId;
+    currentSelectedGroupId = groupId;
+    hideSynopsisPanel();
+    saveUIState();
+    renderFilters();
+    renderList();
+};
+
+// フィルタ編集/削除アイコンのクリック共通処理
+const onFilterIconClick = (e, handler) => {
+    e.stopPropagation();
+    handler();
+};
+
+
 const renderFilters = () => {
     const myId = ++filterRenderId;
     const winRow = document.getElementById('windowFilterRow');
@@ -458,8 +825,9 @@ const renderFilters = () => {
         winRow.innerHTML = '';
         const windows = e.target.result;
         const allBtn = document.createElement('button');
-        allBtn.className = `filter-btn ${currentSelectedWindowId === null ? 'active' : ''}`; allBtn.textContent = 'すべて';
-        allBtn.onclick = () => { currentSelectedWindowId = null; currentSelectedGroupId = null; saveUIState(); renderFilters(); renderList(); };
+        allBtn.className = `filter-btn ${currentSelectedWindowId === null ? 'active' : ''}`;
+        allBtn.textContent = 'すべて';
+        allBtn.onclick = () => applyFilterChange(null, null);
         winRow.appendChild(allBtn);
 
         windows.forEach(w => {
@@ -469,19 +837,19 @@ const renderFilters = () => {
             if (editMode) classes.push('editable-btn');
             btn.className = classes.join(' ');
             btn.textContent = w.name;
-            btn.onclick = () => { currentSelectedWindowId = w.id; currentSelectedGroupId = null; saveUIState(); renderFilters(); renderList(); };
+            btn.onclick = () => applyFilterChange(w.id, null);
 
             if (editMode) {
                 const editIcon = document.createElement('span');
                 editIcon.className = 'icon edit-icon';
                 editIcon.textContent = '✏';
-                editIcon.onclick = (e) => { e.stopPropagation(); startEditFilter(w.id, 'windows', w.name, btn); };
+                editIcon.onclick = (e) => onFilterIconClick(e, () => startEditFilter(w.id, 'windows', w.name, btn));
                 btn.appendChild(editIcon);
 
                 const delIcon = document.createElement('span');
                 delIcon.className = 'icon delete-icon';
                 delIcon.textContent = '×';
-                delIcon.onclick = (e) => { e.stopPropagation(); deleteWindow(w.id, w.name); };
+                delIcon.onclick = (e) => onFilterIconClick(e, () => deleteWindow(w.id, w.name));
                 btn.appendChild(delIcon);
             }
 
@@ -503,8 +871,9 @@ const renderGroupFilters = (tx) => {
         groupRow.innerHTML = '';
         const groups = e.target.result.filter(g => g.windowId === currentSelectedWindowId);
         const allBtn = document.createElement('button');
-        allBtn.className = `filter-btn ${currentSelectedGroupId === null ? 'active' : ''}`; allBtn.textContent = 'すべて';
-        allBtn.onclick = () => { currentSelectedGroupId = null; saveUIState(); renderFilters(); renderList(); };
+        allBtn.className = `filter-btn ${currentSelectedGroupId === null ? 'active' : ''}`;
+        allBtn.textContent = 'すべて';
+        allBtn.onclick = () => applyFilterChange(currentSelectedWindowId, null);
         groupRow.appendChild(allBtn);
 
         groups.forEach(g => {
@@ -514,19 +883,19 @@ const renderGroupFilters = (tx) => {
             if (editMode) classes.push('editable-btn');
             btn.className = classes.join(' ');
             btn.textContent = g.name;
-            btn.onclick = () => { currentSelectedGroupId = g.id; saveUIState(); renderFilters(); renderList(); };
+            btn.onclick = () => applyFilterChange(currentSelectedWindowId, g.id);
 
             if (editMode) {
                 const editIcon = document.createElement('span');
                 editIcon.className = 'icon edit-icon';
                 editIcon.textContent = '✏';
-                editIcon.onclick = (e) => { e.stopPropagation(); startEditFilter(g.id, 'groups', g.name, btn); };
+                editIcon.onclick = (e) => onFilterIconClick(e, () => startEditFilter(g.id, 'groups', g.name, btn));
                 btn.appendChild(editIcon);
 
                 const delIcon = document.createElement('span');
                 delIcon.className = 'icon delete-icon';
                 delIcon.textContent = '×';
-                delIcon.onclick = (e) => { e.stopPropagation(); deleteGroup(g.id, g.name); };
+                delIcon.onclick = (e) => onFilterIconClick(e, () => deleteGroup(g.id, g.name));
                 btn.appendChild(delIcon);
             }
 
@@ -559,7 +928,10 @@ const startEditFilter = (id, storeName, currentName, btnElement) => {
                 const data = e.target.result;
                 if (data) { data.name = newName; tx.objectStore(storeName).put(data); }
             };
-            tx.oncomplete = () => { refreshDataView(); syncItemSelects(); };
+            tx.oncomplete = () => {
+                refreshDataView();
+                syncItemSelects();
+            };
         } else {
             refreshDataView();
         }
@@ -654,17 +1026,30 @@ const renderList = () => {
             const card = document.createElement('div');
             card.className = 'card';
             if (editingItemId === item.id) card.classList.add('editing-image');
+            if (item.synopsis && item.synopsis.length > 0) {
+                card.classList.add('has-synopsis');
+            } else if (isKindleUrl(item.url)) {
+                card.classList.add('no-synopsis');
+            }
             card.draggable = isDragEnabled;
             card.dataset.id = item.id;
             card.tabIndex = 0;
 
+            // 長押しであらすじ表示（右ペイン）。短押しでリンクオープン。
+            // シングルクリックでリンクオープン、右クリックであらすじ表示（右ペイン）
             card.onclick = (e) => {
                 if (e.target.closest('.delete-icon-btn')) return;
-                if (editMode) {
-                    startItemEdit(item);
+                if (editMode) { startItemEdit(item); return; }
+                window.open(item.url, '_blank', 'noopener,noreferrer');
+            };
+            card.oncontextmenu = (e) => {
+                if (editMode) return;
+                e.preventDefault();
+                if (!isKindleUrl(item.url)) {
+                    showToast('このカードはあらすじ非対応（Kindleドメインのみ）', { error: true });
                     return;
                 }
-                window.open(item.url, '_blank', 'noopener,noreferrer');
+                showSynopsisPanel(item);
             };
 
             if (editMode) {
@@ -762,7 +1147,13 @@ const fetchAllData = (callback) => {
     const tx = db.transaction(['windows', 'groups', 'items'], 'readonly');
     tx.objectStore('windows').getAll().onsuccess = (e) => backupData.windows = e.target.result;
     tx.objectStore('groups').getAll().onsuccess = (e) => backupData.groups = e.target.result;
-    tx.objectStore('items').getAll().onsuccess = (e) => backupData.items = e.target.result;
+    tx.objectStore('items').getAll().onsuccess = (e) => {
+        // あらすじは容量肥大化を避けるためバックアップ対象外
+        backupData.items = e.target.result.map(item => {
+            const { synopsis, ...rest } = item;
+            return rest;
+        });
+    };
     tx.oncomplete = () => callback(backupData);
 };
 
@@ -930,6 +1321,15 @@ document.getElementById('url').addEventListener('keydown', (e) => {
 
 // 保存
 document.getElementById('saveBtn').addEventListener('click', saveItem);
+
+document.getElementById('fetchAllSynopsisBtn').addEventListener('click', () => fetchAllSynopsis(false));
+document.getElementById('fetchAllSynopsisForceBtn').addEventListener('click', () => fetchAllSynopsis(true));
+
+// あらすじパネル
+document.getElementById('synopsisPanelClose').addEventListener('click', hideSynopsisPanel);
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') hideSynopsisPanel();
+});
 
 document.getElementById('toggleAddPositionBtn').addEventListener('click', () => {
     addPositionTop = !addPositionTop;

@@ -1,0 +1,6 @@
+# 認証情報（ローカル専用・git管理外）
+url-vault/config.js
+
+# OS・ツールメタデータ
+.DS_Store
+.claude/

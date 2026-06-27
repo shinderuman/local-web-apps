@@ -354,3 +354,214 @@ button:hover { background-color: #0062a3; }
 .card:focus {
     outline: none;
 }
+/* あらすじ未取得インジケータ */
+.card.has-synopsis::after {
+    content: '📖';
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    font-size: 11px;
+    z-index: 5;
+    opacity: 0.8;
+}
+/* 編集モード時: あらすじ未取得カード */
+.card.no-synopsis {
+    border: 2px dashed #c62828;
+}
+.card.no-synopsis::after {
+    content: '!?';
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    font-size: 11px;
+    z-index: 5;
+    color: #c62828;
+    font-weight: bold;
+}
+
+/* あらすじ表示モーダル */
+/* 右ペインあらすじ表示 */
+.main-content {
+    flex: 1;
+    display: flex;
+    gap: 10px;
+    overflow: hidden;
+}
+.main-content .list-section-wrapper {
+    flex: 1;
+}
+.synopsis-panel {
+    width: 360px;
+    min-width: 360px;
+    background-color: #1e1e1e;
+    border: 1px solid #2d2d2d;
+    border-radius: 6px;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+}
+.synopsis-panel[style*="display: flex"] {
+    /* 表示時 */
+}
+.synopsis-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid #333;
+    flex-shrink: 0;
+}
+.synopsis-panel-header h3 {
+    margin: 0;
+    font-size: 13px;
+    color: #007acc;
+    word-break: break-all;
+}
+.synopsis-panel-close {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 4px;
+    flex-shrink: 0;
+}
+.synopsis-panel-close:hover {
+    color: #fff;
+}
+.synopsis-panel-body {
+    padding: 12px;
+    overflow-y: auto;
+    flex: 1;
+}
+.synopsis-volume {
+    margin-bottom: 16px;
+}
+.synopsis-volume-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #ccc;
+    margin: 0 0 6px 0;
+    border-left: 3px solid #007acc;
+    padding-left: 8px;
+}
+.synopsis-volume-text {
+    font-size: 13px;
+    line-height: 1.7;
+    color: #ddd;
+    white-space: pre-wrap;
+}
+.synopsis-empty {
+    color: #666;
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+}
+.synopsis-form {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.synopsis-form label {
+    font-size: 11px;
+    color: #888;
+    margin-top: 6px;
+}
+.synopsis-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px;
+    background-color: #2d2d2d;
+    border: 1px solid #444;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 12px;
+}
+.synopsis-vol-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+.synopsis-vol-row label {
+    margin: 0;
+    white-space: nowrap;
+}
+.synopsis-volume-input {
+    width: 70px;
+    flex-shrink: 0;
+}
+.synopsis-vol-row .synopsis-fetch-btn {
+    margin: 0;
+    flex: 1;
+}
+.synopsis-fetch-btn {
+    background-color: #007acc;
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+.synopsis-fetch-btn:hover:not(:disabled) {
+    background-color: #0062a3;
+}
+.synopsis-fetch-btn:disabled {
+    background-color: #444;
+    color: #888;
+    cursor: default;
+}
+
+/* 共通トースト（右上・アニメーション付き） */
+.synopsis-toast {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    background-color: #007acc;
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 6px;
+    z-index: 2100;
+    font-size: 13px;
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    max-width: 340px;
+}
+.synopsis-toast.error {
+    background-color: #c62828;
+}
+.synopsis-toast-show {
+    animation: toast-in 0.2s ease-out;
+}
+.synopsis-toast-hide {
+    animation: toast-out 0.2s ease-in forwards;
+}
+@keyframes toast-in {
+    from { transform: translateX(40px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+@keyframes toast-out {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(40px); opacity: 0; }
+}
+
+/* 右ペイン表示アニメーション */
+.synopsis-panel-open {
+    animation: synopsis-slide-in 0.18s ease-out;
+}
+@keyframes synopsis-slide-in {
+    from { transform: translateX(20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+/* 右ペイン非表示アニメーション */
+.synopsis-panel-close {
+    animation: synopsis-slide-out 0.18s ease-in forwards;
+}
+@keyframes synopsis-slide-out {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(20px); opacity: 0; }
+}
