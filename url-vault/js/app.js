@@ -536,7 +536,7 @@ const showSynopsisPanel = (item, editedState) => {
     titleEl.textContent = item.title;
     bodyEl.innerHTML = '';
 
-    if (!item.synopsis || item.synopsis.length === 0) {
+    if (!Array.isArray(item.synopsis) || item.synopsis.length === 0) {
         const empty = document.createElement('p');
         empty.className = 'synopsis-empty';
         if (isKindleUrl(item.url)) {
@@ -592,7 +592,7 @@ const showSynopsisPanel = (item, editedState) => {
         volInput.value = editedState ? editedState.volume : parseVolume(item.title);
 
         const refetchBtn = document.createElement('button');
-        refetchBtn.textContent = item.synopsis && item.synopsis.length > 0 ? '再取得' : '取得';
+        refetchBtn.textContent = Array.isArray(item.synopsis) && item.synopsis.length > 0 ? '再取得' : '取得';
         refetchBtn.className = 'synopsis-fetch-btn';
         refetchBtn.onclick = async () => {
             const editedTitle = titleInput.value.trim();
@@ -1035,7 +1035,7 @@ const renderList = () => {
             const card = document.createElement('div');
             card.className = 'card';
             if (editingItemId === item.id) card.classList.add('editing-image');
-            if (item.synopsis && item.synopsis.length > 0) {
+            if (Array.isArray(item.synopsis) && item.synopsis.length > 0) {
                 card.classList.add('has-synopsis');
             } else if (isKindleUrl(item.url)) {
                 card.classList.add('no-synopsis');
