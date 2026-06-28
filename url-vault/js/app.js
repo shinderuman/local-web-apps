@@ -37,7 +37,17 @@ const TIMING = {
     TOAST_DURATION: 3000,
     TOAST_HIDE_ANIM: 200,
     PANEL_ANIM: 180,
-    SYNOPSIS_FETCH_INTERVAL: 1200,
+    SYNOPSIS: {
+        FETCH_INTERVAL: 1200,    // 全取得の1件ごとの間隔
+        RETRY_INTERVAL: 500,     // 短縮再リクエストの間隔
+    },
+};
+
+// あらすじ取得エラーメッセージ
+const SYNOPSIS_ERROR_MESSAGES = {
+    http: 'API通信エラーが発生しました（HTTPエラー）',
+    api: 'APIエラーが発生しました',
+    network: 'ネットワークエラーが発生しました',
 };
 
 // 表示閾値
@@ -426,51 +436,62 @@ const { normalizeDigits, parseVolume, parseBaseTitle } = window.TITLE_PARSER;
 // 楽天APIでタイトル検索し、該当巻の前後2巻（最大3巻）のあらすじを取得
 // 楽天APIでタイトル検索。0件なら段階的にクエリを短くして再検索（フォールバック）
 const searchItemsByTitle = async (applicationId, accessKey, query) => {
+    // 戻り値: { data } | { error } （dataは楽天レスポンス、errorは'http'|'api'|'network'）
     const searchOnce = async (q) => {
         const url = `${RAKUTEN.API_URL}?applicationId=${applicationId}&accessKey=${accessKey}&booksGenreId=${RAKUTEN.GENRE_COMIC}&title=${encodeURIComponent(q)}&hits=${RAKUTEN.HITS}`;
         console.log('[synopsis] リクエストURL:', url);
-        let data;
+        let res;
         try {
-            const res = await fetch(url);
-            if (!res.ok) { console.error('[synopsis] HTTPエラー:', res.status); return null; }
-            data = await res.json();
+            res = await fetch(url);
         } catch (e) {
             console.error('[synopsis] fetch例外:', e);
-            return null;
+            return { error: 'network' };
         }
-        if (data.error || data.errors) { console.error('[synopsis] APIエラー:', data); return null; }
-        return data;
+        if (!res.ok) { console.error('[synopsis] HTTPエラー:', res.status); return { error: 'http' }; }
+        let data;
+        try {
+            data = await res.json();
+        } catch (e) {
+            console.error('[synopsis] JSONパース例外:', e);
+            return { error: 'network' };
+        }
+        if (data.error || data.errors) { console.error('[synopsis] APIエラー:', data); return { error: 'api' }; }
+        return { data };
     };
 
-    let result = await searchOnce(query);
-    if (result && result.Items && result.Items.length > 0) return result;
-    console.warn('[synopsis] 検索結果0件、クエリ短縮で再検索:', query);
+    const first = await searchOnce(query);
+    if (first.error) return first;
+    if (first.data && first.data.Items && first.data.Items.length > 0) return { data: first.data };
 
-    // フォールバック: 記号・空白で区切り、後ろから削って再検索
+    console.warn('[synopsis] 検索結果0件、クエリ短縮で再検索:', query);
+    // フォールバック: 記号・空白で区切り、後ろから削って再検索（0.5秒間隔）
     const tokens = query.split(/[\s　：:、，,]+/).filter(t => t);
     for (let len = tokens.length - 1; len >= 1; len--) {
+        await sleep(TIMING.SYNOPSIS.RETRY_INTERVAL);
         const shorter = tokens.slice(0, len).join(' ');
-        result = await searchOnce(shorter);
-        if (result && result.Items && result.Items.length > 0) return result;
+        const r = await searchOnce(shorter);
+        if (r.error) return r;
+        if (r.data && r.data.Items && r.data.Items.length > 0) return { data: r.data };
         console.warn('[synopsis] 検索結果0件、更に短縮:', shorter);
     }
-    return null;
+    return { data: { Items: [] } };
 };
 
-const fetchSynopsis = async (title, explicitVolume, skipParse) => {
+const fetchSynopsis = async (title, explicitVolume) => {
     if (!window.RAKUTEN_CONFIG || !window.RAKUTEN_CONFIG.applicationId) {
         console.warn('[synopsis] config.js に楽天APIの認証情報が未設定');
         alert('config.js に楽天APIの認証情報が設定されていません');
         return null;
     }
     const { applicationId, accessKey } = window.RAKUTEN_CONFIG;
-    // skipParse=true（フォーム値修正時）はパースせずそのまま使用
-    const baseTitle = skipParse ? title : parseBaseTitle(title);
+    const baseTitle = parseBaseTitle(title);
     const currentVolume = explicitVolume ? parseInt(explicitVolume, 10) : parseVolume(title);
     console.log('[synopsis] 検索タイトル:', baseTitle, '(巻数:', currentVolume + ')');
 
-    const data = await searchItemsByTitle(applicationId, accessKey, baseTitle);
-    if (!data) {
+    const result = await searchItemsByTitle(applicationId, accessKey, baseTitle);
+    if (result.error) return { error: result.error };
+    const data = result.data;
+    if (!data.Items || data.Items.length === 0) {
         console.warn('[synopsis] 最終的に検索結果0件:', baseTitle);
         return null;
     }
@@ -505,11 +526,17 @@ const isKindleUrl = (url) => {
     return KINDLE_URL_PATTERN.test(url);
 };
 
-// 指定アイテムのあらすじを取得して保存
-const updateSynopsis = async (itemId, title, url, explicitVolume, skipParse) => {
-    if (!isKindleUrl(url)) return;
-    const synopsis = await fetchSynopsis(title, explicitVolume, skipParse);
-    if (!synopsis) return;
+// 指定アイテムのあらすじを取得して保存。エラー時はトースト表示して { error } を返す
+const updateSynopsis = async (itemId, title, url, explicitVolume) => {
+    if (!isKindleUrl(url)) return { skipped: true };
+    const result = await fetchSynopsis(title, explicitVolume);
+    if (result && result.error) {
+        const msg = SYNOPSIS_ERROR_MESSAGES[result.error] || 'あらすじ取得に失敗しました';
+        showToast(`${msg}: ${title.slice(0, TOAST_TITLE_MAX_LEN)}`, { error: true });
+        return { error: result.error };
+    }
+    const synopsis = result;
+    if (!synopsis) return { empty: true };
     const tx = db.transaction(['items'], 'readwrite');
     const store = tx.objectStore('items');
     store.get(itemId).onsuccess = (e) => {
@@ -517,6 +544,7 @@ const updateSynopsis = async (itemId, title, url, explicitVolume, skipParse) => 
         if (data) { data.synopsis = synopsis; store.put(data); }
     };
     tx.oncomplete = () => renderList();
+    return { ok: true };
 };
 
 // あらすじモーダル表示
@@ -600,7 +628,7 @@ const showSynopsisPanel = (item, editedState) => {
             if (!editedTitle) return;
             refetchBtn.disabled = true;
             refetchBtn.textContent = '取得中...';
-            await updateSynopsis(item.id, editedTitle, item.url, editedVolume, true);
+            await updateSynopsis(item.id, editedTitle, item.url, editedVolume);
             // 再取得したデータでパネル再描画（編集値を引き継ぐ）
             db.transaction(['items'], 'readonly').objectStore('items').get(item.id).onsuccess = (ev) => {
                 if (ev.target.result) {
@@ -716,14 +744,17 @@ const fetchAllSynopsis = async (force) => {
         btnForce.disabled = true;
         showToast(`あらすじ取得中... (0/${targets.length})`, { persistent: true });
         let done = 0;
+        let errorCount = 0;
         for (const item of targets) {
             showToast(`あらすじ取得中... (${done}/${targets.length}) ${item.title.slice(0, TOAST_TITLE_MAX_LEN)}`, { persistent: true });
-            await updateSynopsis(item.id, item.title, item.url);
+            const r = await updateSynopsis(item.id, item.title, item.url);
             done++;
+            if (r && r.error) errorCount++;
             // レートリミット対策: 1.2秒間隔に間引く（最後は待たない）
-            if (done < targets.length) await sleep(TIMING.SYNOPSIS_FETCH_INTERVAL);
+            if (done < targets.length) await sleep(TIMING.SYNOPSIS.FETCH_INTERVAL);
         }
-        showToast(`あらすじ取得完了 (${done}/${targets.length})`);
+        const summary = `あらすじ取得完了 (${done}/${targets.length}${errorCount > 0 ? `, エラー${errorCount}件` : ''})`;
+        showToast(summary, { error: errorCount > 0 });
         btn.disabled = false;
         btnForce.disabled = false;
     };
