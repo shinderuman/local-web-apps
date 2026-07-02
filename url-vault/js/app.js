@@ -1127,6 +1127,9 @@ const renderList = () => {
 
             listSection.appendChild(card);
         });
+
+        // 表示中のカード数を更新
+        document.getElementById('cardCount').textContent = `${items.length}件`;
     };
 };
 

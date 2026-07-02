@@ -234,6 +234,12 @@ button:hover { background-color: #0062a3; }
     border-radius: 3px;
     font-size: 11px;
 }
+.card-count {
+    font-size: 11px;
+    color: #888;
+    white-space: nowrap;
+    margin-left: auto;
+}
 
 .sort-btn {
     background-color: #2a2a2a;
