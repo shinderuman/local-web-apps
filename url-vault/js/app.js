@@ -53,6 +53,14 @@ const SYNOPSIS_ERROR_MESSAGES = {
 // 表示閾値
 const TOAST_TITLE_MAX_LEN = 20;
 
+// ゴミ箱（予約ID）。削除は物理削除せずゴミ箱への移動とする
+const TRASH = {
+    WINDOW_ID: 99999,
+    GROUP_ID: 99999,
+    WINDOW_NAME: '🗑 ゴミ箱',
+    GROUP_NAME: 'ゴミ箱',
+};
+
 let db = null;
 let currentSelectedWindowId = null;
 let currentSelectedGroupId = null;
@@ -92,6 +100,7 @@ request.onsuccess = (e) => {
 const initApp = () => {
     loadUIState();
     loadToggleStates();
+    ensureTrashExists();
     updateSelectBoxes();
     renderSortButtons();
     renderFilters();
@@ -147,6 +156,19 @@ const loadUIState = () => {
     addPositionTop = state.addPositionTop ?? true;
 };
 
+// ゴミ箱ウィンドウ/グループが存在しなければ作成
+const ensureTrashExists = () => {
+    const tx = db.transaction(['windows', 'groups'], 'readwrite');
+    const winStore = tx.objectStore('windows');
+    const groupStore = tx.objectStore('groups');
+    winStore.get(TRASH.WINDOW_ID).onsuccess = (e) => {
+        if (!e.target.result) winStore.put({ id: TRASH.WINDOW_ID, name: TRASH.WINDOW_NAME });
+    };
+    groupStore.get(TRASH.GROUP_ID).onsuccess = (e) => {
+        if (!e.target.result) groupStore.put({ id: TRASH.GROUP_ID, windowId: TRASH.WINDOW_ID, name: TRASH.GROUP_NAME });
+    };
+};
+
 // ============================================================
 // セレクトボックス同期
 // ============================================================
@@ -164,6 +186,8 @@ const updateSelectBoxes = () => {
         targetWin.innerHTML = '';
         itemWin.innerHTML = '';
         windows.forEach(w => {
+            // ゴミ箱ウィンドウは新規作成/グループ作成の選択肢から除外
+            if (w.id === TRASH.WINDOW_ID) return;
             targetWin.add(new Option(w.name, w.id));
             itemWin.add(new Option(w.name, w.id));
         });
@@ -729,10 +753,7 @@ const fetchAllSynopsis = async (force) => {
 
     const tx = db.transaction(['items'], 'readonly');
     tx.objectStore('items').getAll().onsuccess = async (e) => {
-        let items = e.target.result;
-        // 表示中のウィンドウ・グループ絞り込みを適用
-        if (currentSelectedWindowId !== null) items = items.filter(item => item.windowId === currentSelectedWindowId);
-        if (currentSelectedGroupId !== null) items = items.filter(item => item.groupId === currentSelectedGroupId);
+        let items = filterVisibleItems(e.target.result);
         // force=true: Kindleドメイン全件 / force=false: Kindleドメインかつ未取得
         const targets = items.filter(item =>
             isKindleUrl(item.url) && (force || !hasSynopsis(item))
@@ -874,6 +895,8 @@ const renderFilters = () => {
         winRow.appendChild(allBtn);
 
         windows.forEach(w => {
+            // ゴミ箱ウィンドウは末尾に専用ボタンで出すためここではスキップ
+            if (w.id === TRASH.WINDOW_ID) return;
             const btn = document.createElement('button');
             const classes = ['filter-btn'];
             if (currentSelectedWindowId === w.id) classes.push('active');
@@ -898,6 +921,18 @@ const renderFilters = () => {
 
             winRow.appendChild(btn);
         });
+
+        // ゴミ箱ウィンドウは末尾に専用ボタン（編集/削除不可）
+        const trashWindow = windows.find(w => w.id === TRASH.WINDOW_ID);
+        if (trashWindow) {
+            const trashBtn = document.createElement('button');
+            const classes = ['filter-btn', 'trash-btn'];
+            if (currentSelectedWindowId === TRASH.WINDOW_ID) classes.push('active');
+            trashBtn.className = classes.join(' ');
+            trashBtn.textContent = trashWindow.name;
+            trashBtn.onclick = () => applyFilterChange(TRASH.WINDOW_ID, null);
+            winRow.appendChild(trashBtn);
+        }
         renderGroupFilters(tx);
         syncItemSelects();
     };
@@ -988,6 +1023,7 @@ const startEditFilter = (id, storeName, currentName, btnElement) => {
 };
 
 const deleteWindow = (id, name) => {
+    if (id === TRASH.WINDOW_ID) return;
     const tx = db.transaction(['items'], 'readonly');
     tx.objectStore('items').getAll().onsuccess = (e) => {
         const count = e.target.result.filter(item => item.windowId === id).length;
@@ -1017,6 +1053,7 @@ const deleteWindow = (id, name) => {
 };
 
 const deleteGroup = (id, name) => {
+    if (id === TRASH.GROUP_ID) return;
     const tx = db.transaction(['items'], 'readonly');
     tx.objectStore('items').getAll().onsuccess = (e) => {
         const count = e.target.result.filter(item => item.groupId === id).length;
@@ -1037,9 +1074,48 @@ const deleteGroup = (id, name) => {
     };
 };
 
+// ゴミ箱を空にする（ゴミ箱内のアイテムを物理削除）
+const emptyTrash = () => {
+    const tx = db.transaction(['items'], 'readonly');
+    tx.objectStore('items').getAll().onsuccess = (e) => {
+        const trashItems = e.target.result.filter(item => item.windowId === TRASH.WINDOW_ID);
+        if (trashItems.length === 0) {
+            showToast('ゴミ箱は空です');
+            return;
+        }
+        if (!confirm(`ゴミ箱内の${trashItems.length}件のアイテムを完全に削除しますか？\nこの操作は取り消せません。`)) return;
+
+        const tx2 = db.transaction(['items'], 'readwrite');
+        const store = tx2.objectStore('items');
+        trashItems.forEach(item => store.delete(item.id));
+        tx2.oncomplete = () => {
+            renderList();
+            showToast(`ゴミ箱を空にしました（${trashItems.length}件削除）`);
+        };
+    };
+};
+
 // ============================================================
 // メインカードリスト描画
 // ============================================================
+
+// 現在のフィルタ条件（ウィンドウ・グループ・ゴミ箱・検索）に一致するアイテムを抽出
+const filterVisibleItems = (allItems) => {
+    let items = allItems;
+    // ゴミ箱選択時のみゴミ箱を表示。それ以外はゴミ箱を除外
+    if (currentSelectedWindowId === TRASH.WINDOW_ID) {
+        items = items.filter(item => item.windowId === TRASH.WINDOW_ID);
+    } else {
+        items = items.filter(item => item.windowId !== TRASH.WINDOW_ID);
+        if (currentSelectedWindowId !== null) items = items.filter(item => item.windowId === currentSelectedWindowId);
+    }
+    if (currentSelectedGroupId !== null) items = items.filter(item => item.groupId === currentSelectedGroupId);
+    if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        items = items.filter(item => item.title.toLowerCase().includes(q));
+    }
+    return items;
+};
 
 const renderList = () => {
     const listSection = document.getElementById('listSection');
@@ -1047,14 +1123,7 @@ const renderList = () => {
 
     const tx = db.transaction(['items'], 'readonly');
     tx.objectStore('items').getAll().onsuccess = (e) => {
-        let items = e.target.result;
-
-        if (currentSelectedWindowId !== null) items = items.filter(item => item.windowId === currentSelectedWindowId);
-        if (currentSelectedGroupId !== null) items = items.filter(item => item.groupId === currentSelectedGroupId);
-        if (searchQuery) {
-            const q = searchQuery.toLowerCase();
-            items = items.filter(item => item.title.toLowerCase().includes(q));
-        }
+        let items = filterVisibleItems(e.target.result);
 
         const isDragEnabled = currentSortKey === 'sortOrder';
         if (currentSortKey === 'sortOrder') {
@@ -1100,7 +1169,18 @@ const renderList = () => {
                 delBtn.className = 'delete-icon-btn';
                 delBtn.textContent = '×';
                 delBtn.onclick = () => {
-                    db.transaction(['items'], 'readwrite').objectStore('items').delete(item.id).onsuccess = () => renderList();
+                    // 物理削除せずゴミ箱へ移動
+                    const tx = db.transaction(['items'], 'readwrite');
+                    const store = tx.objectStore('items');
+                    store.get(item.id).onsuccess = (e) => {
+                        const data = e.target.result;
+                        if (data) {
+                            data.windowId = TRASH.WINDOW_ID;
+                            data.groupId = TRASH.GROUP_ID;
+                            store.put(data);
+                        }
+                    };
+                    tx.oncomplete = () => renderList();
                 };
                 card.appendChild(delBtn);
             }
@@ -1370,6 +1450,8 @@ document.getElementById('saveBtn').addEventListener('click', saveItem);
 
 document.getElementById('fetchAllSynopsisBtn').addEventListener('click', () => fetchAllSynopsis(false));
 document.getElementById('fetchAllSynopsisForceBtn').addEventListener('click', () => fetchAllSynopsis(true));
+
+document.getElementById('emptyTrashBtn').addEventListener('click', emptyTrash);
 
 // あらすじパネル
 document.getElementById('synopsisPanelClose').addEventListener('click', hideSynopsisPanel);

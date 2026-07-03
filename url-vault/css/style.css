@@ -154,6 +154,14 @@ button:hover { background-color: #0062a3; }
     padding: 4px 8px;
     font-size: 11px;
 }
+.warning-btn {
+    background-color: #4a3a00;
+    color: #ffc107;
+    border-color: #5a4a00;
+}
+.warning-btn:hover {
+    background-color: #5a4a00;
+}
 
 /* 上部ナビゲーションエリア（トグル非表示対応） */
 .nav-container {
@@ -200,6 +208,20 @@ button:hover { background-color: #0062a3; }
     background-color: #007acc;
     color: #fff;
     border-color: #007acc;
+}
+/* ゴミ箱ウィンドウボタン */
+.filter-btn.trash-btn {
+    background-color: #3d2828;
+    color: #d4a373;
+    border-color: #5a3a3a;
+}
+.filter-btn.trash-btn:hover {
+    background-color: #4a3030;
+}
+.filter-btn.trash-btn.active {
+    background-color: #8b5a2b;
+    color: #fff;
+    border-color: #8b5a2b;
 }
 .filter-btn .icon {
     position: absolute;
