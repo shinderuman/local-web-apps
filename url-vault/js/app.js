@@ -73,6 +73,7 @@ let filterRenderId = 0;
 let addPositionTop = true;
 let editingItemId = null; // 編集中のアイテムID（null=新規作成モード）
 let synopsisPanelItemId = null; // 右ペイン表示中のアイテムID（トグル用）
+let selectedGroupByWindow = {}; // ウィンドウごとの最終選択グループID { windowId: groupId }
 
 const pasteArea = document.getElementById('pasteArea');
 const preview = document.getElementById('preview');
@@ -142,6 +143,7 @@ const saveUIState = () => {
         sortKey: currentSortKey,
         sortAsc: sortAsc,
         addPositionTop: addPositionTop,
+        selectedGroupByWindow: selectedGroupByWindow,
     }));
 };
 
@@ -154,6 +156,7 @@ const loadUIState = () => {
     currentSortKey = state.sortKey ?? 'sortOrder';
     sortAsc = state.sortAsc ?? true;
     addPositionTop = state.addPositionTop ?? true;
+    selectedGroupByWindow = state.selectedGroupByWindow ?? {};
 };
 
 // ゴミ箱ウィンドウ/グループが存在しなければ作成
@@ -867,10 +870,20 @@ const renderSortButtons = () => {
 const applyFilterChange = (windowId, groupId) => {
     currentSelectedWindowId = windowId;
     currentSelectedGroupId = groupId;
+    // グループを選んだ場合はウィンドウごとの記憶を更新
+    if (groupId !== null && windowId !== null) {
+        selectedGroupByWindow[windowId] = groupId;
+    }
     hideSynopsisPanel();
     saveUIState();
     renderFilters();
     renderList();
+};
+
+// ウィンドウ切替: 最後に選んだグループを復元（無効ならnull）
+const changeWindow = (windowId) => {
+    const remembered = windowId !== null ? selectedGroupByWindow[windowId] : null;
+    applyFilterChange(windowId, remembered ?? null);
 };
 
 // フィルタ編集/削除アイコンのクリック共通処理
@@ -891,7 +904,7 @@ const renderFilters = () => {
         const allBtn = document.createElement('button');
         allBtn.className = `filter-btn ${currentSelectedWindowId === null ? 'active' : ''}`;
         allBtn.textContent = 'すべて';
-        allBtn.onclick = () => applyFilterChange(null, null);
+        allBtn.onclick = () => changeWindow(null);
         winRow.appendChild(allBtn);
 
         windows.forEach(w => {
@@ -903,7 +916,7 @@ const renderFilters = () => {
             if (editMode) classes.push('editable-btn');
             btn.className = classes.join(' ');
             btn.textContent = w.name;
-            btn.onclick = () => applyFilterChange(w.id, null);
+            btn.onclick = () => changeWindow(w.id);
 
             if (editMode) {
                 const editIcon = document.createElement('span');
@@ -930,7 +943,7 @@ const renderFilters = () => {
             if (currentSelectedWindowId === TRASH.WINDOW_ID) classes.push('active');
             trashBtn.className = classes.join(' ');
             trashBtn.textContent = trashWindow.name;
-            trashBtn.onclick = () => applyFilterChange(TRASH.WINDOW_ID, null);
+            trashBtn.onclick = () => changeWindow(TRASH.WINDOW_ID);
             winRow.appendChild(trashBtn);
         }
         renderGroupFilters(tx);
@@ -948,6 +961,10 @@ const renderGroupFilters = (tx) => {
         if (myId !== filterRenderId) return;
         groupRow.innerHTML = '';
         const groups = e.target.result.filter(g => g.windowId === currentSelectedWindowId);
+        // 記憶したグループが現存しなければnullにフォールバック
+        if (currentSelectedGroupId !== null && !groups.some(g => g.id === currentSelectedGroupId)) {
+            currentSelectedGroupId = null;
+        }
         const allBtn = document.createElement('button');
         allBtn.className = `filter-btn ${currentSelectedGroupId === null ? 'active' : ''}`;
         allBtn.textContent = 'すべて';
