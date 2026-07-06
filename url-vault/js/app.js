@@ -1181,26 +1181,24 @@ const renderList = () => {
                 showSynopsisPanel(item);
             };
 
-            if (editMode) {
-                const delBtn = document.createElement('button');
-                delBtn.className = 'delete-icon-btn';
-                delBtn.textContent = '×';
-                delBtn.onclick = () => {
-                    // 物理削除せずゴミ箱へ移動
-                    const tx = db.transaction(['items'], 'readwrite');
-                    const store = tx.objectStore('items');
-                    store.get(item.id).onsuccess = (e) => {
-                        const data = e.target.result;
-                        if (data) {
-                            data.windowId = TRASH.WINDOW_ID;
-                            data.groupId = TRASH.GROUP_ID;
-                            store.put(data);
-                        }
-                    };
-                    tx.oncomplete = () => renderList();
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-icon-btn';
+            delBtn.textContent = '×';
+            delBtn.onclick = () => {
+                // 物理削除せずゴミ箱へ移動
+                const tx = db.transaction(['items'], 'readwrite');
+                const store = tx.objectStore('items');
+                store.get(item.id).onsuccess = (e) => {
+                    const data = e.target.result;
+                    if (data) {
+                        data.windowId = TRASH.WINDOW_ID;
+                        data.groupId = TRASH.GROUP_ID;
+                        store.put(data);
+                    }
                 };
-                card.appendChild(delBtn);
-            }
+                tx.oncomplete = () => renderList();
+            };
+            card.appendChild(delBtn);
 
             const imgBox = document.createElement('div');
             imgBox.className = 'card-img-box';
