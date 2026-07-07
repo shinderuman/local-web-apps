@@ -2,13 +2,19 @@ const STORAGE_KEY = 'storage_smart_assets';
 const rawDb = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
 let db = Array.isArray(rawDb) ? rawDb : Object.values(rawDb);
 
-let currentFilter = 'all';
+const FILTER_KEY = 'smart_vault_filter';
+let currentFilter = sessionStorage.getItem(FILTER_KEY) || 'all';
 let currentSortField = '';
 let currentSortOrder = 'asc';
 let toastTimeout = null;
 
 window.onload = () => {
     setupPasteEvents();
+    // 保存済みフィルタをボタンに反映
+    const buttons = document.querySelectorAll('.filter-btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.querySelector(`.filter-btn[onclick*="'${currentFilter}'"]`);
+    if (activeBtn) activeBtn.classList.add('active');
     renderTable();
 };
 
@@ -358,7 +364,7 @@ const enableVendorEdit = (serial, containerId) => {
     if (idx === -1) return;
 
     const currentVendor = db[idx].vendor || '不明';
-    const coreVendors = ['Apple', 'Samsung', 'Crucial', 'Intel', 'Western Digital', 'Seagate', 'Toshiba', 'Kioxia', 'SanDisk', 'Kingston'];
+    const coreVendors = ['Apple', 'Samsung', 'Crucial', 'Intel', 'Western Digital', 'Seagate', 'Toshiba', 'HGST', 'Kioxia', 'SanDisk', 'Kingston', 'Silicon Power'];
     const isCustom = !coreVendors.includes(currentVendor) && currentVendor !== '不明';
 
     let html = `<select class="select-inline-input" id="select-${containerId}">`;
@@ -376,7 +382,10 @@ const enableVendorEdit = (serial, containerId) => {
     const select = document.getElementById(`select-${containerId}`);
     select.focus();
 
+    let committed = false;
     const commitVendor = (val) => {
+        if (committed) return;
+        committed = true;
         if (val === 'custom_input') {
             const userInput = prompt('メーカー名を手動自由入力してください:', isCustom ? currentVendor : '');
             val = (userInput && userInput.trim()) ? userInput.trim() : currentVendor;
@@ -410,7 +419,10 @@ const enableTypeEdit = (serial, containerId) => {
     const select = document.getElementById(`select-${containerId}`);
     select.focus();
 
+    let committed = false;
     const commitType = (val) => {
+        if (committed) return;
+        committed = true;
         db[idx].customType = val;
         saveDb();
         container.setAttribute('onclick', `enableTypeEdit('${serial}', '${containerId}')`);
@@ -447,7 +459,13 @@ const enableMemoEdit = (serial, containerId) => {
 
 const sortTable = (field) => {
     if (currentSortField === field) {
-        currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+        // 昇順 → 降順 → 解除（手動順）の3状態トグル
+        if (currentSortOrder === 'asc') {
+            currentSortOrder = 'desc';
+        } else {
+            currentSortField = '';
+            currentSortOrder = 'asc';
+        }
     } else {
         currentSortField = field;
         currentSortOrder = 'asc';
@@ -457,6 +475,7 @@ const sortTable = (field) => {
 
 const filterType = (type, event) => {
     currentFilter = type;
+    sessionStorage.setItem(FILTER_KEY, type);
     const buttons = document.querySelectorAll('.filter-btn');
     buttons.forEach(btn => btn.classList.remove('active'));
     if (event) event.target.classList.add('active');
