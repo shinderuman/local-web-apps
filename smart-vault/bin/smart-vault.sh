@@ -116,15 +116,15 @@ while true; do
             smartctl -a -d "$type" --json "$target_device" > "$tmp_file" 2>&1
         fi
 
-        # ファイルが空でなく、エラーメッセージが含まれていないか判定
-        if [ -s "$tmp_file" ] && ! grep -q '"severity"[[:space:]]*:[[:space:]]*"error"' "$tmp_file"; then
+        # serial_number または user_capacity が取得できていれば成功と判定
+        if [ -s "$tmp_file" ] && grep -qE '"serial_number"|"user_capacity"' "$tmp_file"; then
             cat "$tmp_file" | pbcopy
             success=true
             echo "  ✓ $type での取得に成功しました。"
             break
         fi
 
-        # エラーJSONが取得できていれば標準出力に表示
+        # JSONが取得できていれば標準出力に表示（デバッグ用）
         if [ -s "$tmp_file" ] && grep -q "{" "$tmp_file"; then
             echo "--- $type ---"
             jq -c < "$tmp_file"
