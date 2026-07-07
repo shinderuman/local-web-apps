@@ -7,17 +7,17 @@ let currentSortField = '';
 let currentSortOrder = 'asc';
 let toastTimeout = null;
 
-window.onload = function() {
+window.onload = () => {
     setupPasteEvents();
     renderTable();
 };
 
-function saveDb() {
+const saveDb = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-}
+};
 
 // トースト通知を表示する汎用関数
-function showToast(message) {
+const showToast = (message) => {
     const toast = document.getElementById('toastNotification');
     toast.innerText = message;
     toast.classList.add('show');
@@ -27,13 +27,13 @@ function showToast(message) {
     toastTimeout = setTimeout(() => {
         toast.classList.remove('show');
     }, 2500);
-}
+};
 
-function setupPasteEvents() {
+const setupPasteEvents = () => {
     const zone = document.getElementById('pasteZone');
     zone.addEventListener('click', () => zone.focus());
 
-    zone.addEventListener('paste', function(e) {
+    zone.addEventListener('paste', (e) => {
         e.preventDefault();
         const rawText = (e.clipboardData || window.clipboardData).getData('text').trim();
         if (!rawText) return;
@@ -60,9 +60,9 @@ function setupPasteEvents() {
             showToast('エラー: パース失敗');
         }
     });
-}
+};
 
-function toggleAccordion(id) {
+const toggleAccordion = (id) => {
     const el = document.getElementById(id);
     const icon = document.getElementById('accordionIcon');
     if (el.classList.contains('hidden')) {
@@ -72,16 +72,16 @@ function toggleAccordion(id) {
         el.classList.add('hidden');
         icon.innerText = '▼';
     }
-}
+};
 
-function copyCommandText(codeElement) {
+const copyCommandText = (codeElement) => {
     const text = codeElement.innerText;
     navigator.clipboard.writeText(text).then(() => {
         showToast('コマンドをクリップボードにコピーしました');
     });
-}
+};
 
-function detectVendor(data, modelName) {
+const detectVendor = (data, modelName) => {
     const vId = data.nvme_pci_vendor?.id;
     if (vId === 4203 || modelName.toUpperCase().includes('APPLE')) return 'Apple';
     if (vId === 5197 || modelName.toUpperCase().includes('SAMSUNG')) return 'Samsung';
@@ -99,9 +99,9 @@ function detectVendor(data, modelName) {
         if (firstWord && firstWord.length > 1) return firstWord;
     }
     return '不明';
-}
+};
 
-function parseSmartJson(rawText, existingRecord = null) {
+const parseSmartJson = (rawText, existingRecord = null) => {
     const data = JSON.parse(rawText);
     const serial = data.serial_number || (data.device && data.device.serial_number) || '';
     if (!serial) throw new Error('S/N無し');
@@ -190,9 +190,9 @@ function parseSmartJson(rawText, existingRecord = null) {
         tbw: tbwVal === 0 ? '--' : tbwVal.toFixed(1) + ' TBW', tbw_val: tbwVal, lifeOrSector,
         updatedAt: new Date().toLocaleString(), memo, customType, raw: rawText
     };
-}
+};
 
-function rebuildDatabaseFromRaw() {
+const rebuildDatabaseFromRaw = () => {
     if (db.length === 0) return;
     if (!confirm('蓄積された生JSONデータから台帳を再構築します。\n手動入力した項目（分類・メーカー・メモ）はそのまま維持されます。実行しますか？')) return;
 
@@ -210,22 +210,22 @@ function rebuildDatabaseFromRaw() {
     saveDb();
     renderTable();
     showToast('データベースを再構築しました');
-}
+};
 
-function deleteItem(serial) {
+const deleteItem = (serial) => {
     if (!confirm('このストレージの記録を完全に削除しますか？')) return;
     db = db.filter(item => item.serial !== serial);
     saveDb();
     renderTable();
     showToast('記録を削除しました');
-}
+};
 
-function importBackup(event) {
+const importBackup = (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = (e) => {
         try {
             const importedData = JSON.parse(e.target.result);
             const importedArr = Array.isArray(importedData) ? importedData : Object.values(importedData);
@@ -245,9 +245,9 @@ function importBackup(event) {
         document.getElementById('fileInput').value = '';
     };
     reader.readAsText(file);
-}
+};
 
-function enableVendorEdit(serial, containerId) {
+const enableVendorEdit = (serial, containerId) => {
     const container = document.getElementById(containerId);
     const idx = db.findIndex(item => item.serial === serial);
     if (idx === -1) return;
@@ -284,9 +284,9 @@ function enableVendorEdit(serial, containerId) {
 
     select.onchange = () => commitVendor(select.value);
     select.onblur = () => commitVendor(select.value);
-}
+};
 
-function enableTypeEdit(serial, containerId) {
+const enableTypeEdit = (serial, containerId) => {
     const container = document.getElementById(containerId);
     const idx = db.findIndex(item => item.serial === serial);
     if (idx === -1) return;
@@ -314,9 +314,9 @@ function enableTypeEdit(serial, containerId) {
 
     select.onchange = () => commitType(select.value);
     select.onblur = () => commitType(select.value);
-}
+};
 
-function enableMemoEdit(serial, containerId) {
+const enableMemoEdit = (serial, containerId) => {
     const container = document.getElementById(containerId);
     const idx = db.findIndex(item => item.serial === serial);
     if (idx === -1) return;
@@ -338,9 +338,9 @@ function enableMemoEdit(serial, containerId) {
 
     input.onblur = saveBlur;
     input.onkeydown = (e) => { if (e.key === 'Enter') saveBlur(); };
-}
+};
 
-function sortTable(field) {
+const sortTable = (field) => {
     if (currentSortField === field) {
         currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
     } else {
@@ -348,21 +348,21 @@ function sortTable(field) {
         currentSortOrder = 'asc';
     }
     renderTable();
-}
+};
 
-function filterType(type, event) {
+const filterType = (type, event) => {
     currentFilter = type;
     const buttons = document.querySelectorAll('.filter-btn');
     buttons.forEach(btn => btn.classList.remove('active'));
     if (event) event.target.classList.add('active');
     renderTable();
-}
+};
 
-function escapeHtml(str) {
+const escapeHtml = (str) => {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+};
 
-function updateCounters() {
+const updateCounters = () => {
     const counts = { 'all': 0, 'nvme': 0, 'sata-ssd': 0, 'sshd': 0, 'hdd-25': 0, 'hdd-35': 0, 'emmc': 0, 'unknown': 0 };
     db.forEach(item => {
         counts['all']++;
@@ -373,14 +373,14 @@ function updateCounters() {
         const el = document.getElementById(`count-${key}`);
         if (el) el.innerText = counts[key];
     }
-}
+};
 
-function toggleDetails(id) {
+const toggleDetails = (id) => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('hidden');
-}
+};
 
-function renderTable() {
+const renderTable = () => {
     const tbody = document.getElementById('storageTbody');
     tbody.innerHTML = '';
     updateCounters();
@@ -485,41 +485,41 @@ function renderTable() {
     } else {
         setupDragAndDrop();
     }
-}
+};
 
-function setupDragAndDrop() {
+const setupDragAndDrop = () => {
     const tbody = document.getElementById('storageTbody');
     let dragSrcEl = null;
 
     tbody.querySelectorAll('.item-row').forEach(row => {
-        row.addEventListener('dragstart', function(e) {
-            dragSrcEl = this;
-            this.classList.add('dragging');
+        row.addEventListener('dragstart', (e) => {
+            dragSrcEl = e.currentTarget;
+            e.currentTarget.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
         });
 
-        row.addEventListener('dragover', function(e) {
+        row.addEventListener('dragover', (e) => {
             e.preventDefault();
             return false;
         });
 
-        row.addEventListener('dragenter', function(e) {
-            if (this !== dragSrcEl) {
-                this.style.borderTop = '2px solid #3182ce';
+        row.addEventListener('dragenter', (e) => {
+            if (e.currentTarget !== dragSrcEl) {
+                e.currentTarget.style.borderTop = '2px solid #3182ce';
             }
         });
 
-        row.addEventListener('dragleave', function(e) {
-            this.style.borderTop = '';
+        row.addEventListener('dragleave', (e) => {
+            e.currentTarget.style.borderTop = '';
         });
 
-        row.addEventListener('drop', function(e) {
+        row.addEventListener('drop', (e) => {
             e.stopPropagation();
-            this.style.borderTop = '';
+            e.currentTarget.style.borderTop = '';
 
-            if (dragSrcEl !== this) {
+            if (dragSrcEl !== e.currentTarget) {
                 const srcSerial = dragSrcEl.getAttribute('data-serial');
-                const targetSerial = this.getAttribute('data-serial');
+                const targetSerial = e.currentTarget.getAttribute('data-serial');
 
                 const srcIdx = db.findIndex(item => item.serial === srcSerial);
                 const targetIdx = db.findIndex(item => item.serial === targetSerial);
@@ -535,14 +535,14 @@ function setupDragAndDrop() {
             return false;
         });
 
-        row.addEventListener('dragend', function() {
-            this.classList.remove('dragging');
+        row.addEventListener('dragend', (e) => {
+            e.currentTarget.classList.remove('dragging');
             tbody.querySelectorAll('.item-row').forEach(r => r.style.borderTop = '');
         });
     });
-}
+};
 
-async function exportBackup() {
+const exportBackup = async () => {
     if (db.length === 0) return;
     try {
         const handle = await window.showSaveFilePicker({
@@ -562,4 +562,18 @@ async function exportBackup() {
             showToast('エラー: 保存に失敗しました');
         }
     }
-}
+};
+
+// onclick属性・innerHTML文字列からグローバル参照される関数をwindowに公開
+window.toggleAccordion = toggleAccordion;
+window.copyCommandText = copyCommandText;
+window.rebuildDatabaseFromRaw = rebuildDatabaseFromRaw;
+window.exportBackup = exportBackup;
+window.importBackup = importBackup;
+window.sortTable = sortTable;
+window.filterType = filterType;
+window.toggleDetails = toggleDetails;
+window.deleteItem = deleteItem;
+window.enableVendorEdit = enableVendorEdit;
+window.enableTypeEdit = enableTypeEdit;
+window.enableMemoEdit = enableMemoEdit;
