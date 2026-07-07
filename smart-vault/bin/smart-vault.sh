@@ -123,6 +123,12 @@ while true; do
             echo "  ✓ $type での取得に成功しました。"
             break
         fi
+
+        # エラーJSONが取得できていれば標準出力に表示
+        if [ -s "$tmp_file" ] && grep -q "{" "$tmp_file"; then
+            echo "--- $type ---"
+            jq -c < "$tmp_file"
+        fi
     done
 
     # 一時ファイルの削除
