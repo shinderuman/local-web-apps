@@ -116,8 +116,8 @@ while true; do
             smartctl -a -d "$type" --json "$target_device" > "$tmp_file" 2>&1
         fi
 
-        # ファイルが空でなく、かつJSONの開始文字「{」が含まれているか判定
-        if [ -s "$tmp_file" ] && grep -q "{" "$tmp_file"; then
+        # ファイルが空でなく、エラーメッセージが含まれていないか判定
+        if [ -s "$tmp_file" ] && ! grep -q '"severity"[[:space:]]*:[[:space:]]*"error"' "$tmp_file"; then
             cat "$tmp_file" | pbcopy
             success=true
             echo "  ✓ $type での取得に成功しました。"
