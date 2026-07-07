@@ -52,17 +52,15 @@
         <table>
             <thead>
                 <tr>
-                    <th style="width: 140px;" onclick="sortTable('id')">操作/登録順</th>
                     <th style="width: 160px;" onclick="sortTable('vendor')">メーカー</th>
                     <th style="width: 120px;" onclick="sortTable('size_bytes')">容量</th>
                     <th onclick="sortTable('model')">モデル名</th>
                     <th style="width: 140px;" onclick="sortTable('customType')">分類</th>
-                    <th style="width: 110px;" onclick="sortTable('health')">健康状態</th>
-                    <th style="width: 200px;">残り寿命 / 不良セクタ</th>
+                    <th style="width: 110px;" onclick="sortTable('healthLevel')">状態レベル</th>
+                    <th style="width: 100px;" onclick="sortTable('lifePercent')">残り寿命</th>
                     <th style="width: 140px;" onclick="sortTable('tbw_val')">総書込量</th>
-                    <th style="width: 220px;" onclick="sortTable('hours_val')">通電時間 / 電源回数</th>
-                    <th style="width: 100px;" onclick="sortTable('temp_val')">温度</th>
-                    <th>メモ欄 (クリックして編集)</th>
+                    <th style="width: 200px;" onclick="sortTable('hours_val')">通電時間 / 電源回数</th>
+                    <th>メモ欄 / 消去</th>
                 </tr>
             </thead>
             <tbody id="storageTbody">
