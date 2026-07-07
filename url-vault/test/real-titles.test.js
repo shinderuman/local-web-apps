@@ -1,6 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { parseVolume, parseBaseTitle, normalizeDigits } = require('../js/title-parser.js');
+const {
+    parseVolume,
+    parseBaseTitle,
+    normalizeDigits,
+} = require('../js/title-parser.js');
 const titles = require('./real-titles.json');
 const expected = require('./real-titles.expected.json');
 

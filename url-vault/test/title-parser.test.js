@@ -1,6 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { normalizeDigits, parseVolume, parseBaseTitle } = require('../js/title-parser.js');
+const {
+    normalizeDigits,
+    parseVolume,
+    parseBaseTitle,
+} = require('../js/title-parser.js');
 
 // ============================================================
 // normalizeDigits

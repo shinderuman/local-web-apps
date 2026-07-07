@@ -1,5 +1,5 @@
 // ============================================================
-// 定数・変数
+// 定数
 // ============================================================
 
 // IndexedDB設定
@@ -21,16 +21,6 @@ const IMAGE = {
     MAX_H: 620,
     JPEG_QUALITY: 0.7,
 };
-
-// 楽天ブックスAPI設定
-const RAKUTEN = {
-    API_URL: 'https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404',
-    GENRE_COMIC: '001001',
-    HITS: 30,
-};
-
-// Kindleドメイン判定
-const KINDLE_URL_PATTERN = /^https?:\/\/read\.amazon\.co\.jp\//;
 
 // タイムアウト・間隔（ミリ秒）
 const TIMING = {
@@ -61,38 +51,75 @@ const TRASH = {
     GROUP_NAME: 'ゴミ箱',
 };
 
+// ============================================================
+// 状態変数（ミュータブル）
+// ============================================================
+
 let db = null;
-let currentSelectedWindowId = null;
-let currentSelectedGroupId = null;
-let imageDataBase64 = '';
-let currentSortKey = 'sortOrder';
-let sortAsc = true;
-let editMode = false;
-let searchQuery = '';
-let filterRenderId = 0;
-let addPositionTop = true;
-let editingItemId = null; // 編集中のアイテムID（null=新規作成モード）
-let synopsisPanelItemId = null; // 右ペイン表示中のアイテムID（トグル用）
-let selectedGroupByWindow = {}; // ウィンドウごとの最終選択グループID { windowId: groupId }
 
-const pasteArea = document.getElementById('pasteArea');
-const preview = document.getElementById('preview');
+// フィルタ・ソート状態
+const filterState = {
+    selectedWindowId: null,
+    selectedGroupId: null,
+    sortKey: 'sortOrder',
+    sortAsc: true,
+    searchQuery: '',
+    renderId: 0,
+    selectedGroupByWindow: {}, // ウィンドウごとの最終選択グループID { windowId: groupId }
+};
+
+// アイテム編集状態
+const editState = {
+    imageDataBase64: '',
+    addPositionTop: true,
+    editingItemId: null, // 編集中のアイテムID（null=新規作成モード）
+    isEditMode: false, // ✏ 編集モード（ウィンドウ・グループ・アイテム編集のトグル）
+};
+
+// UI状態
+const uiState = {
+    synopsisPanelItemId: null, // 右ペイン表示中のアイテムID（トグル用）
+    toastTimer: null, // トーストの自動消滅タイマー
+    toastVisible: false, // トースト表示中フラグ
+    blurEnabled: false, // サムネぼかし有効フラグ
+};
 
 // ============================================================
-// IndexedDB 初期化
+// モジュール関数のインポート
 // ============================================================
 
-const request = indexedDB.open(DB.NAME, DB.VERSION);
-request.onupgradeneeded = (e) => {
-    db = e.target.result;
-    db.createObjectStore('windows', { keyPath: 'id', autoIncrement: true });
-    db.createObjectStore('groups', { keyPath: 'id', autoIncrement: true });
-    db.createObjectStore('items', { keyPath: 'id', autoIncrement: true });
-};
-request.onsuccess = (e) => {
-    db = e.target.result;
-    initApp();
-};
+const {
+    normalizeDigits,
+    parseVolume,
+    parseBaseTitle,
+} = window.TITLE_PARSER;
+const {
+    calcNextSortOrder,
+    shiftSortOrders,
+    buildNewItem,
+    sortItems,
+    isValidItemInput,
+    stripSynopsisForExport,
+} = window.ITEM_LOGIC;
+const {
+    isKindleUrl,
+    hasSynopsis,
+    filterVisibleItems,
+    updateGroupMemory,
+    getRememberedGroup,
+    validateRememberedGroup,
+} = window.FILTER_LOGIC;
+const {
+    buildRakutenUrl,
+    buildVolumeMap,
+    selectTargetVolumes,
+    tokenizeQuery,
+    shortenQuery,
+} = window.SYNOPSIS_LOGIC;
+const {
+    serializeUIState,
+    deserializeUIState,
+} = window.UI_LOGIC;
 
 // ============================================================
 // アプリ初期化・データビュー更新
@@ -121,10 +148,10 @@ const refreshDataView = () => {
 
 const updateAddPositionBtn = () => {
     const btn = document.getElementById('toggleAddPositionBtn');
-    btn.textContent = addPositionTop ? '⬆' : '⬇';
-    btn.style.backgroundColor = addPositionTop ? '' : '#2a2a2a';
-    btn.style.color = addPositionTop ? '' : '#ccc';
-    btn.style.borderColor = addPositionTop ? '' : '#444';
+    btn.textContent = editState.addPositionTop ? '⬆' : '⬇';
+    btn.style.backgroundColor = editState.addPositionTop ? '' : '#2a2a2a';
+    btn.style.color = editState.addPositionTop ? '' : '#ccc';
+    btn.style.borderColor = editState.addPositionTop ? '' : '#444';
 };
 
 const loadToggleStates = () => {
@@ -137,26 +164,25 @@ const loadToggleStates = () => {
 };
 
 const saveUIState = () => {
-    sessionStorage.setItem('uiState', JSON.stringify({
-        windowId: currentSelectedWindowId,
-        groupId: currentSelectedGroupId,
-        sortKey: currentSortKey,
-        sortAsc: sortAsc,
-        addPositionTop: addPositionTop,
-        selectedGroupByWindow: selectedGroupByWindow,
+    sessionStorage.setItem('uiState', serializeUIState({
+        windowId: filterState.selectedWindowId,
+        groupId: filterState.selectedGroupId,
+        sortKey: filterState.sortKey,
+        sortAsc: filterState.sortAsc,
+        addPositionTop: editState.addPositionTop,
+        selectedGroupByWindow: filterState.selectedGroupByWindow,
     }));
 };
 
 const loadUIState = () => {
-    const saved = sessionStorage.getItem('uiState');
-    if (!saved) return;
-    const state = JSON.parse(saved);
-    currentSelectedWindowId = state.windowId ?? null;
-    currentSelectedGroupId = state.groupId ?? null;
-    currentSortKey = state.sortKey ?? 'sortOrder';
-    sortAsc = state.sortAsc ?? true;
-    addPositionTop = state.addPositionTop ?? true;
-    selectedGroupByWindow = state.selectedGroupByWindow ?? {};
+    const state = deserializeUIState(sessionStorage.getItem('uiState'));
+    if (!state) return;
+    filterState.selectedWindowId = state.windowId;
+    filterState.selectedGroupId = state.groupId;
+    filterState.sortKey = state.sortKey;
+    filterState.sortAsc = state.sortAsc;
+    editState.addPositionTop = state.addPositionTop;
+    filterState.selectedGroupByWindow = state.selectedGroupByWindow;
 };
 
 // ゴミ箱ウィンドウ/グループが存在しなければ作成
@@ -223,10 +249,10 @@ const syncItemSelects = () => {
     const itemWin = document.getElementById('itemWindowSelect');
     const itemGroup = document.getElementById('itemGroupSelect');
     const targetWin = document.getElementById('targetWindowSelect');
-    if (currentSelectedWindowId === null) return;
+    if (filterState.selectedWindowId === null) return;
 
-    targetWin.value = currentSelectedWindowId;
-    itemWin.value = currentSelectedWindowId;
+    targetWin.value = filterState.selectedWindowId;
+    itemWin.value = filterState.selectedWindowId;
 
     const winId = parseInt(itemWin.value);
     if (isNaN(winId)) return;
@@ -238,8 +264,8 @@ const syncItemSelects = () => {
     tx.objectStore('groups').getAll().onsuccess = (e) => {
         const groups = e.target.result.filter(g => g.windowId === winId);
         groups.forEach(g => itemGroup.add(new Option(g.name, g.id)));
-        if (currentSelectedGroupId !== null) {
-            itemGroup.value = currentSelectedGroupId;
+        if (filterState.selectedGroupId !== null) {
+            itemGroup.value = filterState.selectedGroupId;
         } else if (prevGroupVal) {
             itemGroup.value = prevGroupVal;
         }
@@ -280,94 +306,105 @@ const executeAddGroup = () => {
 // アイテム保存
 // ============================================================
 
-const saveItem = () => {
-    const winSelect = document.getElementById('itemWindowSelect');
-    const groupSelect = document.getElementById('itemGroupSelect');
-    const titleInput = document.getElementById('title');
-    const urlInput = document.getElementById('url');
-    if (!winSelect.value || !groupSelect.value || !titleInput.value || !urlInput.value) return;
-    if (isNaN(parseInt(winSelect.value)) || isNaN(parseInt(groupSelect.value))) return;
+// 入力フォームをクリア
+const clearItemForm = () => {
+    document.getElementById('title').value = '';
+    document.getElementById('url').value = '';
+    editState.imageDataBase64 = '';
+    preview.style.display = 'none';
+    pasteArea.classList.remove('has-image');
+};
 
-    // 編集モード: 既存アイテムを上書き（sortOrder/createdAtは保持）
-    if (editingItemId !== null) {
-        const tx = db.transaction(['items'], 'readwrite');
-        const store = tx.objectStore('items');
-        store.get(editingItemId).onsuccess = (e) => {
-            const data = e.target.result;
-            if (!data) { endItemEdit(); return; }
-            data.windowId = parseInt(winSelect.value);
-            data.groupId = parseInt(groupSelect.value);
-            data.title = titleInput.value;
-            data.url = urlInput.value;
-            // 画像は新しくペーストされた場合のみ上書き
-            if (imageDataBase64) data.image = imageDataBase64;
-            store.put(data);
-        };
-        tx.oncomplete = () => {
-            const savedId = editingItemId;
-            const savedTitle = titleInput.value;
-            const savedUrl = urlInput.value;
+// 既存アイテムを上書き保存（編集モード）
+const saveItemEdit = (winSelect, groupSelect, titleInput, urlInput) => {
+    const tx = db.transaction(['items'], 'readwrite');
+    const store = tx.objectStore('items');
+    store.get(editState.editingItemId).onsuccess = (e) => {
+        const data = e.target.result;
+        if (!data) {
             endItemEdit();
-            renderList();
-            // Kindleドメインかつあらすじ未取得なら取得
-            const tx2 = db.transaction(['items'], 'readonly');
-            tx2.objectStore('items').get(savedId).onsuccess = (ev) => {
-                const d = ev.target.result;
-                if (d && !hasSynopsis(d)) updateSynopsis(savedId, savedTitle, savedUrl);
-            };
+            return;
+        }
+        data.windowId = parseInt(winSelect.value);
+        data.groupId = parseInt(groupSelect.value);
+        data.title = titleInput.value;
+        data.url = urlInput.value;
+        if (editState.imageDataBase64) {
+            data.image = editState.imageDataBase64;
+        }
+        store.put(data);
+    };
+    tx.oncomplete = () => {
+        const savedId = editState.editingItemId;
+        const savedTitle = titleInput.value;
+        const savedUrl = urlInput.value;
+        endItemEdit();
+        renderList();
+        // Kindleドメインかつあらすじ未取得なら取得
+        const tx2 = db.transaction(['items'], 'readonly');
+        tx2.objectStore('items').get(savedId).onsuccess = (ev) => {
+            const d = ev.target.result;
+            if (d && !hasSynopsis(d)) {
+                updateSynopsis(savedId, savedTitle, savedUrl);
+            }
         };
-        return;
-    }
+    };
+};
 
-    // 新規作成モード
+// 新規アイテムを保存
+const saveItemNew = (winSelect, groupSelect, titleInput, urlInput) => {
     const tx = db.transaction(['items'], 'readwrite');
     const store = tx.objectStore('items');
     store.getAll().onsuccess = (e) => {
         const currentGroupItems = e.target.result.filter(item => item.groupId === parseInt(groupSelect.value));
-        currentGroupItems.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
-        if (addPositionTop) {
-            // 先頭に追加: 既存アイテムを 1, 2, 3... にずらして新規を 0 で追加
-            currentGroupItems.forEach((item, i) => {
-                item.sortOrder = i + 1;
-                store.put(item);
-            });
+        if (editState.addPositionTop) {
+            shiftSortOrders(currentGroupItems).forEach(item => store.put(item));
         }
 
-        const data = {
+        const sortOrder = calcNextSortOrder(currentGroupItems, editState.addPositionTop);
+        const data = buildNewItem({
             windowId: parseInt(winSelect.value),
             groupId: parseInt(groupSelect.value),
             title: titleInput.value,
             url: urlInput.value,
-            image: imageDataBase64,
-            sortOrder: addPositionTop ? 0 : currentGroupItems.length,
-            createdAt: new Date().getTime()
-        };
+            image: editState.imageDataBase64,
+            sortOrder: sortOrder,
+        }, new Date().getTime());
 
-        store.add(data).onsuccess = (e) => {
-            const newId = e.target.result;
-            titleInput.value = '';
-            urlInput.value = '';
-            imageDataBase64 = '';
-            preview.style.display = 'none';
-            pasteArea.classList.remove('has-image');
+        store.add(data).onsuccess = (ev) => {
+            const newId = ev.target.result;
+            clearItemForm();
             titleInput.focus();
             renderList();
-            // Kindleドメインならあらすじを自動取得
             updateSynopsis(newId, data.title, data.url);
         };
     };
 };
 
+const saveItem = () => {
+    const winSelect = document.getElementById('itemWindowSelect');
+    const groupSelect = document.getElementById('itemGroupSelect');
+    const titleInput = document.getElementById('title');
+    const urlInput = document.getElementById('url');
+    if (!isValidItemInput(winSelect.value, groupSelect.value, titleInput.value, urlInput.value)) return;
+
+    if (editState.editingItemId !== null) {
+        saveItemEdit(winSelect, groupSelect, titleInput, urlInput);
+        return;
+    }
+    saveItemNew(winSelect, groupSelect, titleInput, urlInput);
+};
+
 // 編集モード開始: カードの内容を左パネルへセット
 const startItemEdit = (item) => {
-    editingItemId = item.id;
+    editState.editingItemId = item.id;
     document.getElementById('itemWindowSelect').value = item.windowId;
     updateGroupSelectBox();
     document.getElementById('itemGroupSelect').value = item.groupId;
     document.getElementById('title').value = item.title;
     document.getElementById('url').value = item.url;
-    imageDataBase64 = '';
+    editState.imageDataBase64 = '';
     if (item.image) {
         preview.src = item.image;
         preview.style.display = 'inline-block';
@@ -383,10 +420,10 @@ const startItemEdit = (item) => {
 
 // 編集モード終了: 入力欄クリア
 const endItemEdit = () => {
-    editingItemId = null;
+    editState.editingItemId = null;
     document.getElementById('title').value = '';
     document.getElementById('url').value = '';
-    imageDataBase64 = '';
+    editState.imageDataBase64 = '';
     preview.style.display = 'none';
     pasteArea.classList.remove('has-image');
     renderSaveBtn();
@@ -395,7 +432,7 @@ const endItemEdit = () => {
 // 保存ボタン表示切替（新規作成 / 更新）
 const renderSaveBtn = () => {
     const btn = document.getElementById('saveBtn');
-    btn.textContent = editingItemId !== null ? 'アイテムを更新' : 'アイテムを保存';
+    btn.textContent = editState.editingItemId !== null ? 'アイテムを更新' : 'アイテムを保存';
 };
 
 // ============================================================
@@ -457,15 +494,12 @@ const resizeToJpeg = (img, trimLeft, trimW, trimH) => {
 // あらすじ取得（楽天ブックスAPI）
 // ============================================================
 
-// 全角数字を半角に正規化
-const { normalizeDigits, parseVolume, parseBaseTitle } = window.TITLE_PARSER;
-
 // 楽天APIでタイトル検索し、該当巻の前後2巻（最大3巻）のあらすじを取得
 // 楽天APIでタイトル検索。0件なら段階的にクエリを短くして再検索（フォールバック）
 const searchItemsByTitle = async (applicationId, accessKey, query) => {
     // 戻り値: { data } | { error } （dataは楽天レスポンス、errorは'http'|'api'|'network'）
     const searchOnce = async (q) => {
-        const url = `${RAKUTEN.API_URL}?applicationId=${applicationId}&accessKey=${accessKey}&booksGenreId=${RAKUTEN.GENRE_COMIC}&title=${encodeURIComponent(q)}&hits=${RAKUTEN.HITS}`;
+        const url = buildRakutenUrl(applicationId, accessKey, q);
         console.log('[synopsis] リクエストURL:', url);
         let res;
         try {
@@ -474,7 +508,10 @@ const searchItemsByTitle = async (applicationId, accessKey, query) => {
             console.error('[synopsis] fetch例外:', e);
             return { error: 'network' };
         }
-        if (!res.ok) { console.error('[synopsis] HTTPエラー:', res.status); return { error: 'http' }; }
+        if (!res.ok) {
+            console.error('[synopsis] HTTPエラー:', res.status);
+            return { error: 'http' };
+        }
         let data;
         try {
             data = await res.json();
@@ -482,7 +519,10 @@ const searchItemsByTitle = async (applicationId, accessKey, query) => {
             console.error('[synopsis] JSONパース例外:', e);
             return { error: 'network' };
         }
-        if (data.error || data.errors) { console.error('[synopsis] APIエラー:', data); return { error: 'api' }; }
+        if (data.error || data.errors) {
+            console.error('[synopsis] APIエラー:', data);
+            return { error: 'api' };
+        }
         return { data };
     };
 
@@ -492,10 +532,10 @@ const searchItemsByTitle = async (applicationId, accessKey, query) => {
 
     console.warn('[synopsis] 検索結果0件、クエリ短縮で再検索:', query);
     // フォールバック: 記号・空白で区切り、後ろから削って再検索（0.5秒間隔）
-    const tokens = query.split(/[\s　：:、，,]+/).filter(t => t);
+    const tokens = tokenizeQuery(query);
     for (let len = tokens.length - 1; len >= 1; len--) {
         await sleep(TIMING.SYNOPSIS.RETRY_INTERVAL);
-        const shorter = tokens.slice(0, len).join(' ');
+        const shorter = shortenQuery(tokens, len);
         const r = await searchOnce(shorter);
         if (r.error) return r;
         if (r.data && r.data.Items && r.data.Items.length > 0) return { data: r.data };
@@ -524,20 +564,10 @@ const fetchSynopsis = async (title, explicitVolume) => {
     }
 
     // タイトル→巻数→あらすじ に整理
-    const volumeMap = {};
-    data.Items.forEach(it => {
-        const v = parseVolume(it.Item.title);
-        if (!volumeMap[v] && it.Item.itemCaption) {
-            volumeMap[v] = { volume: v, title: it.Item.title, caption: it.Item.itemCaption };
-        }
-    });
+    const volumeMap = buildVolumeMap(data.Items, parseVolume);
 
-    // 起点巻で終わる3巻の窓を作る（前が足りなければ後ろで埋める）
-    // 例: 1巻→1,2,3 / 3巻→1,2,3 / 5巻→3,4,5
-    const startVolume = Math.max(1, currentVolume - 2);
-    const targetVolumes = [startVolume, startVolume + 1, startVolume + 2]
-        .map(v => volumeMap[v])
-        .filter(Boolean);
+    // 起点巻で終わる3巻の窓を選択（例: 1巻→1,2,3 / 3巻→1,2,3 / 5巻→3,4,5）
+    const targetVolumes = selectTargetVolumes(volumeMap, currentVolume);
 
     if (targetVolumes.length === 0) {
         console.warn('[synopsis] あらすじデータなし（APIレスポンスにitemCaptionが無い）:', baseTitle);
@@ -547,14 +577,6 @@ const fetchSynopsis = async (title, explicitVolume) => {
 
     return targetVolumes;
 };
-
-// URLがKindleドメインか判定
-const isKindleUrl = (url) => {
-    return KINDLE_URL_PATTERN.test(url);
-};
-
-// あらすじが有効（配列で1件以上）か判定。壊れたデータは未取得扱い
-const hasSynopsis = (item) => Array.isArray(item.synopsis) && item.synopsis.length > 0;
 
 // 指定アイテムのあらすじを取得して保存。エラー時はトースト表示して { error } を返す
 const updateSynopsis = async (itemId, title, url, explicitVolume) => {
@@ -571,7 +593,10 @@ const updateSynopsis = async (itemId, title, url, explicitVolume) => {
     const store = tx.objectStore('items');
     store.get(itemId).onsuccess = (e) => {
         const data = e.target.result;
-        if (data) { data.synopsis = synopsis; store.put(data); }
+        if (data) {
+            data.synopsis = synopsis;
+            store.put(data);
+        }
     };
     tx.oncomplete = () => renderList();
     return { ok: true };
@@ -579,21 +604,8 @@ const updateSynopsis = async (itemId, title, url, explicitVolume) => {
 
 // あらすじモーダル表示
 // 右ペインにあらすじ表示。editedStateがあればその値を入力欄に引き継ぐ
-const showSynopsisPanel = (item, editedState) => {
-    const panel = document.getElementById('synopsisPanel');
-    const titleEl = document.getElementById('synopsisPanelTitle');
-    const bodyEl = document.getElementById('synopsisPanelBody');
-
-    // 同一アイテムを再度指定したらトグルで閉じる（editedState再描画時は除く）
-    if (!editedState && synopsisPanelItemId === item.id) {
-        hideSynopsisPanel();
-        return;
-    }
-    synopsisPanelItemId = item.id;
-
-    titleEl.textContent = item.title;
-    bodyEl.innerHTML = '';
-
+// あらすじ本文（各巻のあらすじ）を描画
+const renderSynopsisContent = (item, bodyEl) => {
     if (!hasSynopsis(item)) {
         const empty = document.createElement('p');
         empty.className = 'synopsis-empty';
@@ -603,83 +615,103 @@ const showSynopsisPanel = (item, editedState) => {
             empty.textContent = 'あらすじが取得されていません（Kindleドメインのみ取得可能）';
         }
         bodyEl.appendChild(empty);
-    } else {
-        item.synopsis.forEach(s => {
-            const wrap = document.createElement('div');
-            wrap.className = 'synopsis-volume';
-
-            const t = document.createElement('p');
-            t.className = 'synopsis-volume-title';
-            t.textContent = `${s.volume}巻`;
-            wrap.appendChild(t);
-
-            const text = document.createElement('p');
-            text.className = 'synopsis-volume-text';
-            text.textContent = s.caption;
-            wrap.appendChild(text);
-
-            bodyEl.appendChild(wrap);
-        });
+        return;
     }
+    item.synopsis.forEach(s => {
+        const wrap = document.createElement('div');
+        wrap.className = 'synopsis-volume';
+        const t = document.createElement('p');
+        t.className = 'synopsis-volume-title';
+        t.textContent = `${s.volume}巻`;
+        wrap.appendChild(t);
+        const text = document.createElement('p');
+        text.className = 'synopsis-volume-text';
+        text.textContent = s.caption;
+        wrap.appendChild(text);
+        bodyEl.appendChild(wrap);
+    });
+};
 
-    // タイトル・巻数の編集フォームと再取得ボタン（Kindleドメインのみ）
-    if (isKindleUrl(item.url)) {
-        const formWrap = document.createElement('div');
-        formWrap.className = 'synopsis-form';
-
-        const titleLabel = document.createElement('label');
-        titleLabel.textContent = 'タイトル（取得に使う作品名）';
-        titleLabel.htmlFor = 'synopsisTitleInput';
-        formWrap.appendChild(titleLabel);
-
-        const titleInput = document.createElement('input');
-        titleInput.type = 'text';
-        titleInput.id = 'synopsisTitleInput';
-        titleInput.className = 'synopsis-input';
-        titleInput.value = editedState ? editedState.title : item.title;
-        formWrap.appendChild(titleInput);
-
-        const volLabel = document.createElement('label');
-        volLabel.textContent = '巻数';
-        volLabel.htmlFor = 'synopsisVolumeInput';
-
-        const volInput = document.createElement('input');
-        volInput.type = 'number';
-        volInput.id = 'synopsisVolumeInput';
-        volInput.className = 'synopsis-input synopsis-volume-input';
-        volInput.value = editedState ? editedState.volume : parseVolume(item.title);
-
-        const refetchBtn = document.createElement('button');
-        refetchBtn.textContent = hasSynopsis(item) ? '再取得' : '取得';
-        refetchBtn.className = 'synopsis-fetch-btn';
-        refetchBtn.onclick = async () => {
-            const editedTitle = titleInput.value.trim();
-            const editedVolume = volInput.value.trim();
-            if (!editedTitle) return;
-            refetchBtn.disabled = true;
-            refetchBtn.textContent = '取得中...';
-            await updateSynopsis(item.id, editedTitle, item.url, editedVolume);
-            // 再取得したデータでパネル再描画（編集値を引き継ぐ）
-            db.transaction(['items'], 'readonly').objectStore('items').get(item.id).onsuccess = (ev) => {
-                if (ev.target.result) {
-                    showSynopsisPanel(ev.target.result, { title: editedTitle, volume: editedVolume });
-                }
-            };
+// 再取得ボタンを生成
+const createRefetchButton = (item, titleInput, volInput) => {
+    const btn = document.createElement('button');
+    btn.textContent = hasSynopsis(item) ? '再取得' : '取得';
+    btn.className = 'synopsis-fetch-btn';
+    btn.onclick = async () => {
+        const editedTitle = titleInput.value.trim();
+        const editedVolume = volInput.value.trim();
+        if (!editedTitle) return;
+        btn.disabled = true;
+        btn.textContent = '取得中...';
+        await updateSynopsis(item.id, editedTitle, item.url, editedVolume);
+        db.transaction(['items'], 'readonly').objectStore('items').get(item.id).onsuccess = (ev) => {
+            if (ev.target.result) {
+                showSynopsisPanel(ev.target.result, { title: editedTitle, volume: editedVolume });
+            }
         };
+    };
+    return btn;
+};
 
-        // 巻数入力と再取得ボタンを同じ行に並べる
-        const volRow = document.createElement('div');
-        volRow.className = 'synopsis-vol-row';
-        volRow.appendChild(volLabel);
-        volRow.appendChild(volInput);
-        volRow.appendChild(refetchBtn);
-        formWrap.appendChild(volRow);
+// あらすじ編集フォーム（タイトル・巻数・再取得ボタン）を描画
+const renderSynopsisForm = (item, bodyEl, editedState) => {
+    if (!isKindleUrl(item.url)) return;
 
-        bodyEl.appendChild(formWrap);
+    const formWrap = document.createElement('div');
+    formWrap.className = 'synopsis-form';
+
+    const titleLabel = document.createElement('label');
+    titleLabel.textContent = 'タイトル（取得に使う作品名）';
+    titleLabel.htmlFor = 'synopsisTitleInput';
+    formWrap.appendChild(titleLabel);
+
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.id = 'synopsisTitleInput';
+    titleInput.className = 'synopsis-input';
+    titleInput.value = editedState ? editedState.title : item.title;
+    formWrap.appendChild(titleInput);
+
+    const volLabel = document.createElement('label');
+    volLabel.textContent = '巻数';
+    volLabel.htmlFor = 'synopsisVolumeInput';
+
+    const volInput = document.createElement('input');
+    volInput.type = 'number';
+    volInput.id = 'synopsisVolumeInput';
+    volInput.className = 'synopsis-input synopsis-volume-input';
+    volInput.value = editedState ? editedState.volume : parseVolume(item.title);
+
+    const refetchBtn = createRefetchButton(item, titleInput, volInput);
+
+    const volRow = document.createElement('div');
+    volRow.className = 'synopsis-vol-row';
+    volRow.appendChild(volLabel);
+    volRow.appendChild(volInput);
+    volRow.appendChild(refetchBtn);
+    formWrap.appendChild(volRow);
+
+    bodyEl.appendChild(formWrap);
+};
+
+const showSynopsisPanel = (item, editedState) => {
+    const panel = document.getElementById('synopsisPanel');
+    const titleEl = document.getElementById('synopsisPanelTitle');
+    const bodyEl = document.getElementById('synopsisPanelBody');
+
+    // 同一アイテムを再度指定したらトグルで閉じる（editedState再描画時は除く）
+    if (!editedState && uiState.synopsisPanelItemId === item.id) {
+        hideSynopsisPanel();
+        return;
     }
+    uiState.synopsisPanelItemId = item.id;
+
+    titleEl.textContent = item.title;
+    bodyEl.innerHTML = '';
+    renderSynopsisContent(item, bodyEl);
+    renderSynopsisForm(item, bodyEl, editedState);
 
     panel.style.display = 'flex';
-    // アニメーション再実行のため一度外して付与
     panel.classList.remove('synopsis-panel-open');
     void panel.offsetWidth;
     panel.classList.add('synopsis-panel-open');
@@ -690,7 +722,7 @@ const hideSynopsisPanel = () => {
     const bodyEl = document.getElementById('synopsisPanelBody');
     const titleEl = document.getElementById('synopsisPanelTitle');
     // 非表示中は再侵入を防ぐためIDをnull化
-    synopsisPanelItemId = null;
+    uiState.synopsisPanelItemId = null;
     // 閉じるアニメーション後に非表示
     panel.classList.remove('synopsis-panel-open');
     panel.classList.add('synopsis-panel-close');
@@ -705,24 +737,25 @@ const hideSynopsisPanel = () => {
 // 共通トースト（右上・アニメーション付き）
 // opts: { persistent: 進行中表示（手動で消すまで残す）, error: エラー扱い（赤） }
 // 既に表示中の更新はテキストのみ書き換え（登場/消去アニメーションは最初と最後の1回だけ）
-let toastTimer = null;
-let toastVisible = false;
 const showToast = (msg, opts = {}) => {
     const toast = document.getElementById('synopsisToast');
     toast.textContent = msg;
     toast.classList.toggle('error', !!opts.error);
 
-    if (toastVisible) {
+    if (uiState.toastVisible) {
         // 表示中: テキスト更新のみ（アニメーションしない）
-        if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+        if (uiState.toastTimer) {
+            clearTimeout(uiState.toastTimer);
+            uiState.toastTimer = null;
+        }
         if (!opts.persistent) {
-            toastTimer = setTimeout(() => hideToast(), TIMING.TOAST_DURATION);
+            uiState.toastTimer = setTimeout(() => hideToast(), TIMING.TOAST_DURATION);
         }
         return;
     }
 
     // 新規表示: 登場アニメーション
-    toastVisible = true;
+    uiState.toastVisible = true;
     toast.classList.remove('synopsis-toast-hide');
     toast.style.display = 'block';
     toast.classList.remove('synopsis-toast-show');
@@ -730,21 +763,22 @@ const showToast = (msg, opts = {}) => {
     toast.classList.add('synopsis-toast-show');
 
     if (!opts.persistent) {
-        toastTimer = setTimeout(() => hideToast(), TIMING.TOAST_DURATION);
+        uiState.toastTimer = setTimeout(() => hideToast(), TIMING.TOAST_DURATION);
     }
 };
 
 const hideToast = () => {
     const toast = document.getElementById('synopsisToast');
-    if (!toastVisible) return;
-    toastVisible = false;
+    if (!uiState.toastVisible) return;
+    uiState.toastVisible = false;
     toast.classList.remove('synopsis-toast-show');
     toast.classList.add('synopsis-toast-hide');
-    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+    if (uiState.toastTimer) {
+        clearTimeout(uiState.toastTimer);
+        uiState.toastTimer = null;
+    }
     setTimeout(() => { toast.style.display = 'none'; }, TIMING.TOAST_HIDE_ANIM);
 };
-
-
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -756,7 +790,7 @@ const fetchAllSynopsis = async (force) => {
 
     const tx = db.transaction(['items'], 'readonly');
     tx.objectStore('items').getAll().onsuccess = async (e) => {
-        let items = filterVisibleItems(e.target.result);
+        let items = filterVisibleItems(e.target.result, filterState.selectedWindowId, filterState.selectedGroupId, filterState.searchQuery, TRASH.WINDOW_ID);
         // force=true: Kindleドメイン全件 / force=false: Kindleドメインかつ未取得
         const targets = items.filter(item =>
             isKindleUrl(item.url) && (force || !hasSynopsis(item))
@@ -800,9 +834,9 @@ const handleImagePaste = (e) => {
             const img = new Image();
             img.onload = () => {
                 const { trimLeft, trimmedW, trimmedH } = trimBackground(img);
-                imageDataBase64 = resizeToJpeg(img, trimLeft, trimmedW, trimmedH);
+                editState.imageDataBase64 = resizeToJpeg(img, trimLeft, trimmedW, trimmedH);
 
-                preview.src = imageDataBase64;
+                preview.src = editState.imageDataBase64;
                 preview.style.display = 'inline-block';
                 pasteArea.classList.add('has-image');
                 URL.revokeObjectURL(img.src);
@@ -838,21 +872,21 @@ const renderSortButtons = () => {
     sortRow.innerHTML = '';
     SORT_OPTIONS.forEach(opt => {
         const btn = document.createElement('button');
-        const isActive = currentSortKey === opt.key;
+        const isActive = filterState.sortKey === opt.key;
         btn.className = `sort-btn ${isActive ? 'active' : ''}`;
         btn.textContent = opt.label;
         if (isActive && opt.key !== 'sortOrder') {
             const arrow = document.createElement('span');
             arrow.className = 'arrow';
-            arrow.textContent = sortAsc ? '▲' : '▼';
+            arrow.textContent = filterState.sortAsc ? '▲' : '▼';
             btn.appendChild(arrow);
         }
         btn.onclick = () => {
-            if (currentSortKey === opt.key && opt.key !== 'sortOrder') {
-                sortAsc = !sortAsc;
+            if (filterState.sortKey === opt.key && opt.key !== 'sortOrder') {
+                filterState.sortAsc = !filterState.sortAsc;
             } else {
-                currentSortKey = opt.key;
-                sortAsc = true;
+                filterState.sortKey = opt.key;
+                filterState.sortAsc = true;
             }
             saveUIState();
             renderSortButtons();
@@ -868,11 +902,11 @@ const renderSortButtons = () => {
 
 // フィルタ選択切替の共通処理（右ペイン閉じる→保存→再描画）
 const applyFilterChange = (windowId, groupId) => {
-    currentSelectedWindowId = windowId;
-    currentSelectedGroupId = groupId;
+    filterState.selectedWindowId = windowId;
+    filterState.selectedGroupId = groupId;
     // グループを選んだ場合はウィンドウごとの記憶を更新
     if (groupId !== null && windowId !== null) {
-        selectedGroupByWindow[windowId] = groupId;
+        filterState.selectedGroupByWindow = updateGroupMemory(filterState.selectedGroupByWindow, windowId, groupId);
     }
     hideSynopsisPanel();
     saveUIState();
@@ -882,8 +916,8 @@ const applyFilterChange = (windowId, groupId) => {
 
 // ウィンドウ切替: 最後に選んだグループを復元（無効ならnull）
 const changeWindow = (windowId) => {
-    const remembered = windowId !== null ? selectedGroupByWindow[windowId] : null;
-    applyFilterChange(windowId, remembered ?? null);
+    const remembered = getRememberedGroup(filterState.selectedGroupByWindow, windowId);
+    applyFilterChange(windowId, remembered);
 };
 
 // フィルタ編集/削除アイコンのクリック共通処理
@@ -892,55 +926,59 @@ const onFilterIconClick = (e, handler) => {
     handler();
 };
 
+// フィルタボタンに編集・削除アイコンを付与（共通）
+const appendFilterIcons = (btn, editHandler, deleteHandler) => {
+    const editIcon = document.createElement('span');
+    editIcon.className = 'icon edit-icon';
+    editIcon.textContent = '✏';
+    editIcon.onclick = (e) => onFilterIconClick(e, editHandler);
+    btn.appendChild(editIcon);
+
+    const delIcon = document.createElement('span');
+    delIcon.className = 'icon delete-icon';
+    delIcon.textContent = '×';
+    delIcon.onclick = (e) => onFilterIconClick(e, deleteHandler);
+    btn.appendChild(delIcon);
+};
 
 const renderFilters = () => {
-    const myId = ++filterRenderId;
+    const myId = ++filterState.renderId;
     const winRow = document.getElementById('windowFilterRow');
     const tx = db.transaction(['windows', 'groups'], 'readonly');
     tx.objectStore('windows').getAll().onsuccess = (e) => {
-        if (myId !== filterRenderId) return;
+        if (myId !== filterState.renderId) return;
         winRow.innerHTML = '';
         const windows = e.target.result;
+
+        // 「すべて」ボタン
         const allBtn = document.createElement('button');
-        allBtn.className = `filter-btn ${currentSelectedWindowId === null ? 'active' : ''}`;
+        allBtn.className = `filter-btn ${filterState.selectedWindowId === null ? 'active' : ''}`;
         allBtn.textContent = 'すべて';
         allBtn.onclick = () => changeWindow(null);
         winRow.appendChild(allBtn);
 
+        // 通常ウィンドウ
         windows.forEach(w => {
-            // ゴミ箱ウィンドウは末尾に専用ボタンで出すためここではスキップ
             if (w.id === TRASH.WINDOW_ID) return;
             const btn = document.createElement('button');
             const classes = ['filter-btn'];
-            if (currentSelectedWindowId === w.id) classes.push('active');
-            if (editMode) classes.push('editable-btn');
+            if (filterState.selectedWindowId === w.id) classes.push('active');
+            if (editState.isEditMode) classes.push('editable-btn');
             btn.className = classes.join(' ');
             btn.textContent = w.name;
             btn.onclick = () => changeWindow(w.id);
-
-            if (editMode) {
-                const editIcon = document.createElement('span');
-                editIcon.className = 'icon edit-icon';
-                editIcon.textContent = '✏';
-                editIcon.onclick = (e) => onFilterIconClick(e, () => startEditFilter(w.id, 'windows', w.name, btn));
-                btn.appendChild(editIcon);
-
-                const delIcon = document.createElement('span');
-                delIcon.className = 'icon delete-icon';
-                delIcon.textContent = '×';
-                delIcon.onclick = (e) => onFilterIconClick(e, () => deleteWindow(w.id, w.name));
-                btn.appendChild(delIcon);
+            if (editState.isEditMode) {
+                appendFilterIcons(btn, () => startEditFilter(w.id, 'windows', w.name, btn), () => deleteWindow(w.id, w.name));
             }
-
             winRow.appendChild(btn);
         });
 
-        // ゴミ箱ウィンドウは末尾に専用ボタン（編集/削除不可）
+        // ゴミ箱ウィンドウ
         const trashWindow = windows.find(w => w.id === TRASH.WINDOW_ID);
         if (trashWindow) {
             const trashBtn = document.createElement('button');
             const classes = ['filter-btn', 'trash-btn'];
-            if (currentSelectedWindowId === TRASH.WINDOW_ID) classes.push('active');
+            if (filterState.selectedWindowId === TRASH.WINDOW_ID) classes.push('active');
             trashBtn.className = classes.join(' ');
             trashBtn.textContent = trashWindow.name;
             trashBtn.onclick = () => changeWindow(TRASH.WINDOW_ID);
@@ -952,48 +990,35 @@ const renderFilters = () => {
 };
 
 const renderGroupFilters = (tx) => {
-    const myId = filterRenderId;
+    const myId = filterState.renderId;
     const groupRow = document.getElementById('groupFilterRow');
-    if (currentSelectedWindowId === null) {
-        groupRow.innerHTML = '<span style="font-size:11px; color:#555;">ウィンドウを選択してください</span>'; return;
+    if (filterState.selectedWindowId === null) {
+        groupRow.innerHTML = '<span style="font-size:11px; color:#555;">ウィンドウを選択してください</span>';
+        return;
     }
     tx.objectStore('groups').getAll().onsuccess = (e) => {
-        if (myId !== filterRenderId) return;
+        if (myId !== filterState.renderId) return;
         groupRow.innerHTML = '';
-        const groups = e.target.result.filter(g => g.windowId === currentSelectedWindowId);
-        // 記憶したグループが現存しなければnullにフォールバック
-        if (currentSelectedGroupId !== null && !groups.some(g => g.id === currentSelectedGroupId)) {
-            currentSelectedGroupId = null;
-        }
+        const groups = e.target.result.filter(g => g.windowId === filterState.selectedWindowId);
+        filterState.selectedGroupId = validateRememberedGroup(filterState.selectedGroupId, groups);
+
         const allBtn = document.createElement('button');
-        allBtn.className = `filter-btn ${currentSelectedGroupId === null ? 'active' : ''}`;
+        allBtn.className = `filter-btn ${filterState.selectedGroupId === null ? 'active' : ''}`;
         allBtn.textContent = 'すべて';
-        allBtn.onclick = () => applyFilterChange(currentSelectedWindowId, null);
+        allBtn.onclick = () => applyFilterChange(filterState.selectedWindowId, null);
         groupRow.appendChild(allBtn);
 
         groups.forEach(g => {
             const btn = document.createElement('button');
             const classes = ['filter-btn'];
-            if (currentSelectedGroupId === g.id) classes.push('active');
-            if (editMode) classes.push('editable-btn');
+            if (filterState.selectedGroupId === g.id) classes.push('active');
+            if (editState.isEditMode) classes.push('editable-btn');
             btn.className = classes.join(' ');
             btn.textContent = g.name;
-            btn.onclick = () => applyFilterChange(currentSelectedWindowId, g.id);
-
-            if (editMode) {
-                const editIcon = document.createElement('span');
-                editIcon.className = 'icon edit-icon';
-                editIcon.textContent = '✏';
-                editIcon.onclick = (e) => onFilterIconClick(e, () => startEditFilter(g.id, 'groups', g.name, btn));
-                btn.appendChild(editIcon);
-
-                const delIcon = document.createElement('span');
-                delIcon.className = 'icon delete-icon';
-                delIcon.textContent = '×';
-                delIcon.onclick = (e) => onFilterIconClick(e, () => deleteGroup(g.id, g.name));
-                btn.appendChild(delIcon);
+            btn.onclick = () => applyFilterChange(filterState.selectedWindowId, g.id);
+            if (editState.isEditMode) {
+                appendFilterIcons(btn, () => startEditFilter(g.id, 'groups', g.name, btn), () => deleteGroup(g.id, g.name));
             }
-
             groupRow.appendChild(btn);
         });
     };
@@ -1021,7 +1046,10 @@ const startEditFilter = (id, storeName, currentName, btnElement) => {
             const tx = db.transaction([storeName], 'readwrite');
             tx.objectStore(storeName).get(id).onsuccess = (e) => {
                 const data = e.target.result;
-                if (data) { data.name = newName; tx.objectStore(storeName).put(data); }
+                if (data) {
+                    data.name = newName;
+                    tx.objectStore(storeName).put(data);
+                }
             };
             tx.oncomplete = () => {
                 refreshDataView();
@@ -1034,8 +1062,15 @@ const startEditFilter = (id, storeName, currentName, btnElement) => {
 
     input.onblur = finishEdit;
     input.onkeydown = (e) => {
-        if (e.key === 'Enter') { input.onblur = null; finishEdit(); }
-        if (e.key === 'Escape') { finished = true; input.onblur = null; refreshDataView(); }
+        if (e.key === 'Enter') {
+            input.onblur = null;
+            finishEdit();
+        }
+        if (e.key === 'Escape') {
+            finished = true;
+            input.onblur = null;
+            refreshDataView();
+        }
     };
 };
 
@@ -1058,9 +1093,9 @@ const deleteWindow = (id, name) => {
             });
         };
         tx2.oncomplete = () => {
-            if (currentSelectedWindowId === id) {
-                currentSelectedWindowId = null;
-                currentSelectedGroupId = null;
+            if (filterState.selectedWindowId === id) {
+                filterState.selectedWindowId = null;
+                filterState.selectedGroupId = null;
                 saveUIState();
             }
             refreshDataView();
@@ -1081,8 +1116,8 @@ const deleteGroup = (id, name) => {
         if (!confirm(`グループ「${name}」を削除しますか？`)) return;
 
         db.transaction(['groups'], 'readwrite').objectStore('groups').delete(id).onsuccess = () => {
-            if (currentSelectedGroupId === id) {
-                currentSelectedGroupId = null;
+            if (filterState.selectedGroupId === id) {
+                filterState.selectedGroupId = null;
                 saveUIState();
             }
             refreshDataView();
@@ -1116,22 +1151,97 @@ const emptyTrash = () => {
 // メインカードリスト描画
 // ============================================================
 
-// 現在のフィルタ条件（ウィンドウ・グループ・ゴミ箱・検索）に一致するアイテムを抽出
-const filterVisibleItems = (allItems) => {
-    let items = allItems;
-    // ゴミ箱選択時のみゴミ箱を表示。それ以外はゴミ箱を除外
-    if (currentSelectedWindowId === TRASH.WINDOW_ID) {
-        items = items.filter(item => item.windowId === TRASH.WINDOW_ID);
-    } else {
-        items = items.filter(item => item.windowId !== TRASH.WINDOW_ID);
-        if (currentSelectedWindowId !== null) items = items.filter(item => item.windowId === currentSelectedWindowId);
+// アイテムをゴミ箱へ移動
+const moveToTrash = (itemId) => {
+    const tx = db.transaction(['items'], 'readwrite');
+    const store = tx.objectStore('items');
+    store.get(itemId).onsuccess = (e) => {
+        const data = e.target.result;
+        if (data) {
+            data.windowId = TRASH.WINDOW_ID;
+            data.groupId = TRASH.GROUP_ID;
+            store.put(data);
+        }
+    };
+    tx.oncomplete = () => renderList();
+};
+
+// 削除ボタンを生成
+const createDeleteButton = (itemId) => {
+    const btn = document.createElement('button');
+    btn.className = 'delete-icon-btn';
+    btn.textContent = '×';
+    btn.onclick = () => moveToTrash(itemId);
+    return btn;
+};
+
+// カードの画像領域を生成
+const createCardImage = (item) => {
+    const imgBox = document.createElement('div');
+    imgBox.className = 'card-img-box';
+    if (item.image) {
+        const img = document.createElement('img');
+        img.className = 'card-img';
+        img.src = item.image;
+        if (uiState.blurEnabled) {
+            img.classList.add('blurred');
+        }
+        imgBox.appendChild(img);
     }
-    if (currentSelectedGroupId !== null) items = items.filter(item => item.groupId === currentSelectedGroupId);
-    if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        items = items.filter(item => item.title.toLowerCase().includes(q));
+    return imgBox;
+};
+
+// カードのコンテンツ（タイトル）領域を生成
+const createCardContent = (item) => {
+    const content = document.createElement('div');
+    content.className = 'card-content';
+    const title = document.createElement('p');
+    title.className = 'card-title';
+    title.textContent = item.title;
+    content.appendChild(title);
+    return content;
+};
+
+// カード要素を生成
+const createCardElement = (item, isDragEnabled) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    if (editState.editingItemId === item.id) {
+        card.classList.add('editing-image');
     }
-    return items;
+    if (hasSynopsis(item)) {
+        card.classList.add('has-synopsis');
+    } else if (isKindleUrl(item.url)) {
+        card.classList.add('no-synopsis');
+    }
+    card.draggable = isDragEnabled;
+    card.dataset.id = item.id;
+    card.tabIndex = 0;
+    card.title = item.title;
+
+    // シングルクリックでリンクオープン、右クリックであらすじ表示（右ペイン）
+    card.onclick = (e) => {
+        if (e.target.closest('.delete-icon-btn')) return;
+        if (editState.isEditMode) {
+            startItemEdit(item);
+            return;
+        }
+        window.open(item.url, '_blank', 'noopener,noreferrer');
+    };
+    card.oncontextmenu = (e) => {
+        if (editState.isEditMode) return;
+        e.preventDefault();
+        if (!isKindleUrl(item.url)) {
+            showToast('このカードはあらすじ非対応（Kindleドメインのみ）', { error: true });
+            return;
+        }
+        showSynopsisPanel(item);
+    };
+
+    card.appendChild(createDeleteButton(item.id));
+    card.appendChild(createCardImage(item));
+    card.appendChild(createCardContent(item));
+    return card;
 };
 
 const renderList = () => {
@@ -1140,90 +1250,14 @@ const renderList = () => {
 
     const tx = db.transaction(['items'], 'readonly');
     tx.objectStore('items').getAll().onsuccess = (e) => {
-        let items = filterVisibleItems(e.target.result);
+        let items = filterVisibleItems(e.target.result, filterState.selectedWindowId, filterState.selectedGroupId, filterState.searchQuery, TRASH.WINDOW_ID);
+        items = sortItems(items, filterState.sortKey, filterState.sortAsc);
 
-        const isDragEnabled = currentSortKey === 'sortOrder';
-        if (currentSortKey === 'sortOrder') {
-            items.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-        } else if (currentSortKey === 'title') {
-            items.sort((a, b) => sortAsc ? a.title.localeCompare(b.title, 'ja') : b.title.localeCompare(a.title, 'ja'));
-        } else if (currentSortKey === 'createdAt') {
-            items.sort((a, b) => sortAsc ? a.createdAt - b.createdAt : b.createdAt - a.createdAt);
-        }
-
+        const isDragEnabled = filterState.sortKey === 'sortOrder';
         items.forEach((item) => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            if (editingItemId === item.id) card.classList.add('editing-image');
-            if (hasSynopsis(item)) {
-                card.classList.add('has-synopsis');
-            } else if (isKindleUrl(item.url)) {
-                card.classList.add('no-synopsis');
-            }
-            card.draggable = isDragEnabled;
-            card.dataset.id = item.id;
-            card.tabIndex = 0;
-
-            // 長押しであらすじ表示（右ペイン）。短押しでリンクオープン。
-            // シングルクリックでリンクオープン、右クリックであらすじ表示（右ペイン）
-            card.onclick = (e) => {
-                if (e.target.closest('.delete-icon-btn')) return;
-                if (editMode) { startItemEdit(item); return; }
-                window.open(item.url, '_blank', 'noopener,noreferrer');
-            };
-            card.oncontextmenu = (e) => {
-                if (editMode) return;
-                e.preventDefault();
-                if (!isKindleUrl(item.url)) {
-                    showToast('このカードはあらすじ非対応（Kindleドメインのみ）', { error: true });
-                    return;
-                }
-                showSynopsisPanel(item);
-            };
-
-            const delBtn = document.createElement('button');
-            delBtn.className = 'delete-icon-btn';
-            delBtn.textContent = '×';
-            delBtn.onclick = () => {
-                // 物理削除せずゴミ箱へ移動
-                const tx = db.transaction(['items'], 'readwrite');
-                const store = tx.objectStore('items');
-                store.get(item.id).onsuccess = (e) => {
-                    const data = e.target.result;
-                    if (data) {
-                        data.windowId = TRASH.WINDOW_ID;
-                        data.groupId = TRASH.GROUP_ID;
-                        store.put(data);
-                    }
-                };
-                tx.oncomplete = () => renderList();
-            };
-            card.appendChild(delBtn);
-
-            const imgBox = document.createElement('div');
-            imgBox.className = 'card-img-box';
-            if (item.image) {
-                const img = document.createElement('img');
-                img.className = 'card-img';
-                img.src = item.image;
-                if (blurEnabled) img.classList.add('blurred');
-                imgBox.appendChild(img);
-            }
-            card.appendChild(imgBox);
-
-            const content = document.createElement('div');
-            content.className = 'card-content';
-            const title = document.createElement('p');
-            title.className = 'card-title';
-            title.textContent = item.title;
-            card.title = item.title;
-            content.appendChild(title);
-            card.appendChild(content);
-
-            listSection.appendChild(card);
+            listSection.appendChild(createCardElement(item, isDragEnabled));
         });
 
-        // 表示中のカード数を更新
         document.getElementById('cardCount').textContent = `${items.length}件`;
     };
 };
@@ -1236,17 +1270,28 @@ const initDragAndDrop = () => {
     const listSection = document.getElementById('listSection');
     listSection.addEventListener('dragstart', (e) => {
         const targetCard = e.target.closest('.card');
-        if (targetCard) { targetCard.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
+        if (targetCard) {
+            targetCard.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
     });
     listSection.addEventListener('dragend', (e) => {
         const targetCard = e.target.closest('.card');
-        if (targetCard) { targetCard.classList.remove('dragging'); saveNewOrder(); }
+        if (targetCard) {
+            targetCard.classList.remove('dragging');
+            saveNewOrder();
+        }
     });
     listSection.addEventListener('dragover', (e) => {
         e.preventDefault();
-        const draggingCard = listSection.querySelector('.dragging'); if (!draggingCard) return;
+        const draggingCard = listSection.querySelector('.dragging');
+        if (!draggingCard) return;
         const afterElement = getDragAfterElement(listSection, e.clientX, e.clientY);
-        if (afterElement == null) { listSection.appendChild(draggingCard); } else { listSection.insertBefore(draggingCard, afterElement); }
+        if (afterElement == null) {
+            listSection.appendChild(draggingCard);
+        } else {
+            listSection.insertBefore(draggingCard, afterElement);
+        }
     });
 };
 
@@ -1274,7 +1319,10 @@ const saveNewOrder = () => {
         const id = parseInt(card.dataset.id);
         store.get(id).onsuccess = (e) => {
             const data = e.target.result;
-            if (data) { data.sortOrder = index; store.put(data); }
+            if (data) {
+                data.sortOrder = index;
+                store.put(data);
+            }
         };
     });
 };
@@ -1290,10 +1338,7 @@ const fetchAllData = (callback) => {
     tx.objectStore('groups').getAll().onsuccess = (e) => backupData.groups = e.target.result;
     tx.objectStore('items').getAll().onsuccess = (e) => {
         // あらすじは容量肥大化を避けるためバックアップ対象外
-        backupData.items = e.target.result.map(item => {
-            const { synopsis, ...rest } = item;
-            return rest;
-        });
+        backupData.items = e.target.result.map(stripSynopsisForExport);
     };
     tx.oncomplete = () => callback(backupData);
 };
@@ -1330,7 +1375,10 @@ const handleSaveFile = () => {
 // ============================================================
 
 const importData = (parsedData) => {
-    if (!parsedData.windows || !parsedData.groups || !parsedData.items) { alert('データ構造が不正です'); return false; }
+    if (!parsedData.windows || !parsedData.groups || !parsedData.items) {
+        alert('データ構造が不正です');
+        return false;
+    }
     if (!confirm('インポートを実行しますか？\n既存のデータはすべて置き換えられます。')) return false;
 
     const tx = db.transaction(['windows', 'groups', 'items'], 'readwrite');
@@ -1343,8 +1391,8 @@ const importData = (parsedData) => {
     parsedData.items.forEach(i => tx.objectStore('items').put(i));
 
     tx.oncomplete = () => {
-        currentSelectedWindowId = null;
-        currentSelectedGroupId = null;
+        filterState.selectedWindowId = null;
+        filterState.selectedGroupId = null;
         saveUIState();
         initApp();
     };
@@ -1375,6 +1423,25 @@ const handleLoadFile = async () => {
 };
 
 // ============================================================
+// DOMキャッシュ・IndexedDB初期化（実行順序依存のため末尾に配置）
+// ============================================================
+
+const pasteArea = document.getElementById('pasteArea');
+const preview = document.getElementById('preview');
+
+const request = indexedDB.open(DB.NAME, DB.VERSION);
+request.onupgradeneeded = (e) => {
+    db = e.target.result;
+    db.createObjectStore('windows', { keyPath: 'id', autoIncrement: true });
+    db.createObjectStore('groups', { keyPath: 'id', autoIncrement: true });
+    db.createObjectStore('items', { keyPath: 'id', autoIncrement: true });
+};
+request.onsuccess = (e) => {
+    db = e.target.result;
+    initApp();
+};
+
+// ============================================================
 // イベントリスナー登録
 // ============================================================
 
@@ -1392,31 +1459,30 @@ document.getElementById('toggleNavBtn').addEventListener('click', () => {
 });
 
 document.getElementById('toggleEditModeBtn').addEventListener('click', () => {
-    editMode = !editMode;
-    if (!editMode) endItemEdit();
+    editState.isEditMode = !editState.isEditMode;
+    if (!editState.isEditMode) endItemEdit();
     const btn = document.getElementById('toggleEditModeBtn');
-    btn.style.backgroundColor = editMode ? '#6a4c93' : '';
-    btn.style.color = editMode ? '#fff' : '';
+    btn.style.backgroundColor = editState.isEditMode ? '#6a4c93' : '';
+    btn.style.color = editState.isEditMode ? '#fff' : '';
     renderFilters();
     renderList();
 });
 
 // サムネぼかしトグル
-let blurEnabled = false;
 document.getElementById('toggleBlurBtn').addEventListener('click', () => {
-    blurEnabled = !blurEnabled;
+    uiState.blurEnabled = !uiState.blurEnabled;
     const btn = document.getElementById('toggleBlurBtn');
-    btn.style.backgroundColor = blurEnabled ? '#c62828' : '';
-    btn.style.color = blurEnabled ? '#fff' : '';
-    btn.textContent = blurEnabled ? '🔓 ぼかし解除' : '🔒 ぼかし';
+    btn.style.backgroundColor = uiState.blurEnabled ? '#c62828' : '';
+    btn.style.color = uiState.blurEnabled ? '#fff' : '';
+    btn.textContent = uiState.blurEnabled ? '🔓 ぼかし解除' : '🔒 ぼかし';
     document.querySelectorAll('.card-img').forEach(img => {
-        img.classList.toggle('blurred', blurEnabled);
+        img.classList.toggle('blurred', uiState.blurEnabled);
     });
 });
 
 // 検索
 document.getElementById('searchInput').addEventListener('input', (e) => {
-    searchQuery = e.target.value.trim();
+    filterState.searchQuery = e.target.value.trim();
     renderList();
 });
 
@@ -1426,13 +1492,19 @@ document.getElementById('itemWindowSelect').addEventListener('change', updateGro
 // ウィンドウ追加
 document.getElementById('addWindowBtn').addEventListener('click', executeAddWindow);
 document.getElementById('newWindowInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); executeAddWindow(); }
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        executeAddWindow();
+    }
 });
 
 // グループ追加
 document.getElementById('addGroupBtn').addEventListener('click', executeAddGroup);
 document.getElementById('newGroupInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); executeAddGroup(); }
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        executeAddGroup();
+    }
 });
 
 // ペースト
@@ -1454,10 +1526,16 @@ pasteArea.addEventListener('paste', handleImagePaste);
 
 // Enter で保存
 document.getElementById('title').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); saveItem(); }
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        saveItem();
+    }
 });
 document.getElementById('url').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); saveItem(); }
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        saveItem();
+    }
 });
 
 // 保存
@@ -1475,7 +1553,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.getElementById('toggleAddPositionBtn').addEventListener('click', () => {
-    addPositionTop = !addPositionTop;
+    editState.addPositionTop = !editState.addPositionTop;
     updateAddPositionBtn();
     saveUIState();
 });
