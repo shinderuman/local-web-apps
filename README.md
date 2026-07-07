@@ -8,6 +8,7 @@
 |--------|------|
 | [URL Vault](url-vault/) | サムネイル付きカードでURLを管理する高密度タブマネージャー |
 | [WP Data Manager](wp-data-manager/) | Winning Post向けの系統・種牡馬データ管理ツール |
+| [SMART Vault](smart-vault/) | 外付けストレージのS.M.A.R.T.情報を一元管理する資産台帳 |
 
 ## 共通仕様
 
