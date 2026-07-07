@@ -1,0 +1,304 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: #f5f6f8;
+    color: #2d3748;
+    line-height: 1.5;
+    padding: 25px;
+    font-size: 16px;
+}
+.container {
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+header {
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 10px;
+}
+h1 {
+    font-size: 24px;
+    color: #1a202c;
+    margin-bottom: 5px;
+}
+.subtitle {
+    font-size: 15px;
+    color: #718096;
+}
+
+.accordion-section {
+    background-color: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+.accordion-toggle {
+    background-color: #edf2f7;
+    padding: 10px 15px;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.accordion-content {
+    padding: 15px;
+    background-color: #ebf8ff;
+    border-top: 1px solid #e2e8f0;
+}
+.code-block-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 5px;
+}
+.accordion-content code {
+    display: block;
+    background-color: #fff;
+    padding: 10px 15px;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background-color 0.1s;
+}
+.accordion-content code:hover {
+    background-color: #edf2f7;
+}
+
+/* 操作パネル */
+.control-panel {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    margin-bottom: 20px;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.paste-zone {
+    flex: 1;
+    height: 50px;
+    border: 2px dashed #3182ce;
+    background-color: #ebf8ff;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #2b6cb0;
+    cursor: pointer;
+    outline: none;
+    user-select: none;
+    transition: background-color 0.2s;
+}
+.paste-zone:focus {
+    background-color: #bee3f8;
+    border-color: #2b6cb0;
+}
+
+.btn-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* 画面中央下部に浮かび上がるトースト通知システム */
+.toast-notification {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background-color: #2d3748;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+    z-index: 9999;
+}
+.toast-notification.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+button, .file-input-label {
+    height: 42px;
+    padding: 0 20px;
+    font-size: 15px;
+    font-weight: bold;
+    border-radius: 4px;
+    cursor: pointer;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    box-sizing: border-box;
+}
+button {
+    background-color: #3182ce;
+    color: #fff;
+}
+button:hover { background-color: #2b6cb0; }
+.btn-danger { background-color: #e53e3e; }
+.btn-danger:hover { background-color: #c53030; }
+.btn-secondary { background-color: #4a5568; color: #fff; }
+.btn-secondary:hover { background-color: #2d3748; }
+.btn-success { background-color: #38a169; color: #fff; }
+.btn-success:hover { background-color: #2f855a; }
+
+.file-input-label {
+    background-color: #4a5568;
+    color: #fff;
+}
+.file-input-label:hover { background-color: #2d3748; }
+#fileInput { display: none; }
+
+.filter-section {
+    margin-bottom: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.filter-btn {
+    background-color: #e2e8f0;
+    color: #4a5568;
+    padding: 8px 16px;
+    font-size: 15px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+}
+.filter-btn.active {
+    background-color: #2d3748;
+    color: #fff;
+}
+
+.storage-list {
+    background-color: #fff;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+    overflow-x: auto;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 15px;
+}
+th, td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #edf2f7;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+th {
+    background-color: #f7fafc;
+    color: #4a5568;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 24px;
+}
+th:hover {
+    background-color: #edf2f7;
+}
+
+th.sort-asc::after {
+    content: " ▲";
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: #3182ce;
+}
+th.sort-desc::after {
+    content: " ▼";
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    color: #3182ce;
+}
+
+tr.item-row {
+    cursor: move;
+}
+tr.item-row.dragging {
+    opacity: 0.4;
+    background-color: #ebf8ff;
+}
+
+tr.unknown-type-row {
+    background-color: #fff5f5 !important;
+}
+tr.unknown-type-row:hover {
+    background-color: #fed7d7 !important;
+}
+
+.clickable-cell {
+    cursor: pointer;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    width: 100%;
+}
+.clickable-cell:hover {
+    background-color: #f7fafc;
+    border-color: #cbd5e0;
+}
+.select-inline-input {
+    width: 100%;
+    padding: 4px 6px;
+    font-size: 15px;
+    border: 1px solid #3182ce;
+    border-radius: 4px;
+    background-color: #fff;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    font-size: 13px;
+    font-weight: bold;
+    border-radius: 4px;
+    text-align: center;
+}
+.status-passed { background-color: #c6f6d5; color: #22543d; }
+.status-failed { background-color: #fed7d7; color: #742a2a; }
+.status-unknown { background-color: #edf2f7; color: #4a5568; }
+
+.bad-count { color: #e53e3e; font-weight: bold; }
+
+.details-row { background-color: #fafbfd; }
+.details-container { padding: 15px 20px; border-left: 4px solid #3182ce; }
+.details-grid { display: flex; flex-wrap: wrap; gap: 15px 40px; margin-bottom: 10px; }
+.raw-json {
+    background-color: #2d3748; color: #fff; padding: 12px; border-radius: 4px;
+    font-family: monospace; font-size: 13px; max-height: 250px; overflow-y: auto; white-space: pre-wrap;
+}
+.hidden { display: none !important; }

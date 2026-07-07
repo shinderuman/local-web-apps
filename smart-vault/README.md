@@ -65,7 +65,9 @@ sudo smartctl -a --json /dev/diskX | pbcopy
 
 ```
 smart-vault/
-├── index.html              — HTML/CSS/JS を統合した単一ファイルアプリ
+├── index.html              — HTML構造
+├── css/style.css           — スタイル
+├── js/app.js               — ロジック
 ├── bin/
 │   └── smart-vault.sh      — S.M.A.R.T.情報取得スクリプト（macOS用）
 └── README.md
