@@ -546,7 +546,7 @@ const exportBackup = async () => {
     if (db.length === 0) return;
     try {
         const handle = await window.showSaveFilePicker({
-            suggestedName: `smart_storage_backup_${new Date().toISOString().slice(0,10)}.json`,
+            suggestedName: 'smart_storage_backup.json',
             types: [{
                 description: 'JSON File',
                 accept: { 'application/json': ['.json'] }
