@@ -82,10 +82,28 @@ test('calcTbw: NVMe data_units_written から算出', () => {
     assert.ok(Math.abs(tbw - 35.31) < 0.1, 'expected ~35.31, got ' + tbw);
 });
 
-test('calcTbw: ATA ID241 から算出', () => {
-    const data = { ata_smart_attributes: { table: [{ id: 241, raw: { value: 26315 } }] } };
-    // (26315 / 2) / 1000 = 13.1575
-    assert.ok(Math.abs(calcTbw(data) - 13.1575) < 0.001);
+test('calcTbw: ID241 が GiB 単位（Total_Writes_GiB）', () => {
+    // 26315 GiB * 1.073741824 / 1000 ≒ 28.26 TB
+    const data = { ata_smart_attributes: { table: [{ id: 241, name: 'Total_Writes_GiB', raw: { value: 26315 } }] } };
+    assert.ok(Math.abs(calcTbw(data) - 28.26) < 0.01, 'got ' + calcTbw(data));
+});
+
+test('calcTbw: ID241 が LBA 単位（Total_LBAs_Written, 512B/sector）', () => {
+    // 19484917029 * 512 / 1e12 ≒ 9.97 TB
+    const data = { ata_smart_attributes: { table: [{ id: 241, name: 'Total_LBAs_Written', raw: { value: 19484917029 } }] } };
+    assert.ok(Math.abs(calcTbw(data) - 9.97) < 0.01, 'got ' + calcTbw(data));
+});
+
+test('calcTbw: ID241 が 32MiB 単位（Host_Writes_32MiB）', () => {
+    // 12252475699 * 33554432 / 1e12 ≒ 411125 TB
+    const data = { ata_smart_attributes: { table: [{ id: 241, name: 'Host_Writes_32MiB', raw: { value: 12252475699 } }] } };
+    assert.ok(Math.abs(calcTbw(data) - 411125) < 1, 'got ' + calcTbw(data));
+});
+
+test('calcTbw: ID241 が無ければ ID246 を使用', () => {
+    const data = { ata_smart_attributes: { table: [{ id: 246, name: 'Total_LBAs_Written', raw: { value: 3130197676 } }] } };
+    // 3130197676 * 512 / 1e12 ≒ 1.60 TB
+    assert.ok(Math.abs(calcTbw(data) - 1.60) < 0.01, 'got ' + calcTbw(data));
 });
 
 test('calcTbw: 情報無しは0', () => {

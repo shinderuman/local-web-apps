@@ -47,17 +47,34 @@
         return estimateSizeFromModel(model);
     };
 
+    // ATA書込量属性のraw値をTBに換算（属性名の単位で係数を切替）
+    const ataWriteAttrToTb = (attr) => {
+        const raw = Number(attr.raw?.value || 0);
+        if (!raw) return 0;
+        const name = (attr.name || '').toUpperCase();
+        // LBA単位（512バイト/セクタ）
+        if (name.includes('LBA')) {
+            return (raw * 512) / 1e12;
+        }
+        // 32MiB単位
+        if (name.includes('32MIB')) {
+            return (raw * 33554432) / 1e12;
+        }
+        // GiB単位（Total_Writes_GiB 等）
+        return (raw * 1.073741824) / 1000;
+    };
+
     // 総書込量（TB）を算出
     const calcTbw = (data) => {
         const nvmeLog = data.nvme_smart_health_information_log;
         if (nvmeLog?.data_units_written !== undefined) {
-            return (Number(nvmeLog.data_units_written) * 512000) / (1000 * 1000 * 1000 * 1000);
+            return (Number(nvmeLog.data_units_written) * 512000) / 1e12;
         }
-        const attr241 = data.ata_smart_attributes?.table?.find(a => a.id === 241);
-        if (attr241 && attr241.raw?.value) {
-            return (Number(attr241.raw.value) / 2) / 1000;
-        }
-        return 0;
+        const table = data.ata_smart_attributes?.table || [];
+        // ID 241（Total_Writes_GiB / Host_Writes_32MiB / Total_LBAs_Written）を優先、なければ 246
+        const attr = table.find(a => a.id === 241 && a.raw?.value)
+            || table.find(a => a.id === 246 && a.raw?.value);
+        return attr ? ataWriteAttrToTb(attr) : 0;
     };
 
     // 残り寿命を算出（lifePercent + 表示用 lifeOrSector）
@@ -77,13 +94,8 @@
                 const lifePercent = Number(attrLife.value);
                 return { lifePercent, lifeOrSector: '寿命: ' + lifePercent + '%' };
             }
-            const attr5 = table.find(a => a.id === 5);
-            if (attr5) {
-                const count = attr5.raw?.value || 0;
-                const lifeOrSector = count > 0 ? `<span class="bad-count">代替: ${count}</span>` : '代替: 0';
-                return { lifePercent: -1, lifeOrSector };
-            }
         }
+        // 寿命情報非対応のディスクは不明（代替セクタ数は別項目で表示）
         return { lifePercent: -1, lifeOrSector: '不明' };
     };
 

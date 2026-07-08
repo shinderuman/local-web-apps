@@ -34,7 +34,7 @@ const CORE_VENDORS = [
 // フィルタ種別（個数カウント対象）= all + 全デバイスタイプ
 const FILTER_TYPES = ['all', ...Object.keys(TYPE_LABELS)];
 
-// ソート列とテーブルヘッダ位置の対応
+// ソート列とテーブルヘッダ位置の対応（メモ列はソート不可）
 const SORT_INDEX_MAP = {
     'vendor': 0,
     'size_bytes': 1,
@@ -48,7 +48,7 @@ const SORT_INDEX_MAP = {
 
 // データ取得コマンド・バックアップファイル名
 const SMART_COMMAND = 'sudo smartctl -a --json /dev/diskX | pbcopy';
-const BACKUP_FILENAME = 'smart_storage_backup.json';
+const BACKUP_FILENAME = 'smart-storage.json';
 
 // トーストメッセージ
 const TOAST = {
@@ -262,7 +262,7 @@ const exportBackup = async () => {
             }]
         });
         const writable = await handle.createWritable();
-        await writable.write(JSON.stringify(db, null, 2));
+        await writable.write(JSON.stringify(db));
         await writable.close();
         showToast(TOAST.SAVED);
     } catch (e) {
@@ -356,6 +356,8 @@ const copyCommandText = () => {
 const enableVendorEdit = (serial, container) => {
     const idx = db.findIndex(item => item.serial === serial);
     if (idx === -1) return;
+    // 編集中（セレクト表示中）の再クリックは無視
+    if (container.querySelector('select')) return;
 
     const currentVendor = db[idx].vendor || '不明';
     const isCustom = !CORE_VENDORS.includes(currentVendor) && currentVendor !== '不明';
@@ -396,6 +398,8 @@ const enableVendorEdit = (serial, container) => {
 const enableTypeEdit = (serial, container) => {
     const idx = db.findIndex(item => item.serial === serial);
     if (idx === -1) return;
+    // 編集中（セレクト表示中）の再クリックは無視
+    if (container.querySelector('select')) return;
 
     const currentType = db[idx].customType || 'unknown';
 
@@ -425,6 +429,8 @@ const enableTypeEdit = (serial, container) => {
 const enableMemoEdit = (serial, container) => {
     const idx = db.findIndex(item => item.serial === serial);
     if (idx === -1) return;
+    // 編集中（入力表示中）の再クリックは無視
+    if (container.querySelector('input')) return;
 
     const currentText = db[idx].memo || '';
     const input = document.createElement('input');
@@ -508,10 +514,9 @@ const createLevelBadge = (item) => {
     return badge;
 };
 
-// メモ+消去セルを生成
+// メモセルを生成
 const createMemoCell = (item) => {
     const td = document.createElement('td');
-    td.className = 'memo-cell';
     const memoCell = document.createElement('div');
     memoCell.className = 'clickable-cell';
     if (item.memo) {
@@ -523,12 +528,7 @@ const createMemoCell = (item) => {
         memoCell.appendChild(ph);
     }
     memoCell.addEventListener('click', () => enableMemoEdit(item.serial, memoCell));
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn-danger btn-mini';
-    delBtn.innerText = '消去';
-    delBtn.addEventListener('click', () => deleteItem(item.serial));
     td.appendChild(memoCell);
-    td.appendChild(delBtn);
     return td;
 };
 
@@ -572,13 +572,13 @@ const createRow = (item, index) => {
     // 通電時間 / 電源回数
     appendTextTd(tr, `${item.powerOnHours} / ${item.powerCycleCount}回`);
 
-    // メモ + 消去
+    // メモ
     tr.appendChild(createMemoCell(item));
 
-    // 行クリックで詳細トグル（編集可能セル・ボタンは除外）
+    // 行クリックで詳細トグル（編集可能セル・ボタン・入力要素は除外）
     const detailsId = `details-${index}`;
     tr.addEventListener('click', (e) => {
-        if (e.target.closest('.clickable-cell, button')) return;
+        if (e.target.closest('.clickable-cell, button, select, input, option')) return;
         toggleDetails(detailsId);
     });
 
@@ -595,14 +595,19 @@ const appendDetailField = (grid, label, value) => {
     grid.appendChild(div);
 };
 
-// 詳細グリッドに判定理由ブロックを追加
-const appendReasonsBlock = (grid, reasons) => {
+// 詳細グリッドに判定理由ブロックを追加（右端に消去ボタンを配置）
+const appendReasonsBlock = (grid, reasons, actionBtn) => {
     const div = document.createElement('div');
     div.className = 'reason-block';
+    // ラベル行（ラベル左詰め、ボタン右詰め）
+    const header = document.createElement('div');
+    header.className = 'reason-header';
     const strong = document.createElement('strong');
     strong.innerText = '判定理由:';
-    div.appendChild(strong);
-    div.appendChild(document.createElement('br'));
+    header.appendChild(strong);
+    if (actionBtn) header.appendChild(actionBtn);
+    div.appendChild(header);
+    // 理由本文
     const body = document.createElement('span');
     body.innerText = reasons.map(r => '・' + r).join('\n');
     div.appendChild(body);
@@ -635,7 +640,13 @@ const createDetailsRow = (item, index) => {
         ['デバイスタイプ', item.deviceType || '不明']
     ];
     fields.forEach(([label, value]) => appendDetailField(grid, label, value));
-    appendReasonsBlock(grid, item.healthReasons);
+
+    // 消去ボタン（判定理由ブロックの右端に配置）
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-danger btn-mini';
+    delBtn.innerText = 'このストレージを消去';
+    delBtn.addEventListener('click', () => deleteItem(item.serial));
+    appendReasonsBlock(grid, item.healthReasons, delBtn);
     container.appendChild(grid);
 
     const raw = document.createElement('div');
