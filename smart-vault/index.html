@@ -13,14 +13,14 @@
     </header>
 
     <div class="accordion-section">
-        <div class="accordion-toggle" onclick="toggleAccordion('cmdAccordion')">
+        <div class="accordion-toggle" id="accordionToggle">
             <span>📋 データ取得用コマンドを表示 (クリックして展開)</span>
             <span id="accordionIcon">▼</span>
         </div>
         <div id="cmdAccordion" class="accordion-content hidden">
             <div>対象ディスクを指定して以下を実行し、結果のJSONを出力させてください（枠内クリックでコピー）。</div>
             <div class="code-block-container">
-                <code onclick="copyCommandText(this)">sudo smartctl -a --json /dev/diskX | pbcopy</code>
+                <code id="commandCode">sudo smartctl -a --json /dev/diskX | pbcopy</code>
             </div>
         </div>
     </div>
@@ -30,36 +30,36 @@
             ここにフォーカスを合わせて JSON をペースト (Cmd+V / Ctrl+V)
         </div>
         <div class="btn-container">
-            <button class="btn-success" onclick="rebuildDatabaseFromRaw()">全再読み込み（再構築）</button>
-            <button class="btn-secondary" onclick="exportBackup()">バックアップ保存</button>
+            <button class="btn-success" id="rebuildBtn">全再読み込み（再構築）</button>
+            <button class="btn-secondary" id="exportBtn">バックアップ保存</button>
             <label for="fileInput" class="file-input-label">復元</label>
-            <input type="file" id="fileInput" accept=".json" onchange="importBackup(event)">
+            <input type="file" id="fileInput" accept=".json">
         </div>
     </div>
 
     <div class="filter-section" id="filterContainer">
-        <button class="filter-btn active" onclick="filterType('all', event)">すべて (<span id="count-all">0</span>)</button>
-        <button class="filter-btn" onclick="filterType('nvme', event)">NVMe (<span id="count-nvme">0</span>)</button>
-        <button class="filter-btn" onclick="filterType('sata-ssd', event)">SATA SSD (<span id="count-sata-ssd">0</span>)</button>
-        <button class="filter-btn" onclick="filterType('sshd', event)">SSHD (<span id="count-sshd">0</span>)</button>
-        <button class="filter-btn" onclick="filterType('hdd-25', event)">HDD 2.5" (<span id="count-hdd-25">0</span>)</button>
-        <button class="filter-btn" onclick="filterType('hdd-35', event)">HDD 3.5" (<span id="count-hdd-35">0</span>)</button>
-        <button class="filter-btn" onclick="filterType('emmc', event)">eMMC (<span id="count-emmc">0</span>)</button>
-        <button class="filter-btn" onclick="filterType('unknown', event)">不明 (<span id="count-unknown">0</span>)</button>
+        <button class="filter-btn active" data-filter="all">すべて (<span id="count-all">0</span>)</button>
+        <button class="filter-btn" data-filter="nvme">NVMe (<span id="count-nvme">0</span>)</button>
+        <button class="filter-btn" data-filter="sata-ssd">SATA SSD (<span id="count-sata-ssd">0</span>)</button>
+        <button class="filter-btn" data-filter="sshd">SSHD (<span id="count-sshd">0</span>)</button>
+        <button class="filter-btn" data-filter="hdd-25">HDD 2.5" (<span id="count-hdd-25">0</span>)</button>
+        <button class="filter-btn" data-filter="hdd-35">HDD 3.5" (<span id="count-hdd-35">0</span>)</button>
+        <button class="filter-btn" data-filter="emmc">eMMC (<span id="count-emmc">0</span>)</button>
+        <button class="filter-btn" data-filter="unknown">不明 (<span id="count-unknown">0</span>)</button>
     </div>
 
     <div class="storage-list">
         <table>
             <thead>
                 <tr>
-                    <th style="width: 160px;" onclick="sortTable('vendor')">メーカー</th>
-                    <th style="width: 120px;" onclick="sortTable('size_bytes')">容量</th>
-                    <th onclick="sortTable('model')">モデル名</th>
-                    <th style="width: 140px;" onclick="sortTable('customType')">分類</th>
-                    <th style="width: 110px;" onclick="sortTable('healthLevel')">状態レベル</th>
-                    <th style="width: 100px;" onclick="sortTable('lifePercent')">残り寿命</th>
-                    <th style="width: 140px;" onclick="sortTable('tbw_val')">総書込量</th>
-                    <th style="width: 200px;" onclick="sortTable('hours_val')">通電時間 / 電源回数</th>
+                    <th style="width: 160px;" data-sort="vendor">メーカー</th>
+                    <th style="width: 120px;" data-sort="size_bytes">容量</th>
+                    <th data-sort="model">モデル名</th>
+                    <th style="width: 140px;" data-sort="customType">分類</th>
+                    <th style="width: 110px;" data-sort="healthLevel">状態レベル</th>
+                    <th style="width: 100px;" data-sort="lifePercent">残り寿命</th>
+                    <th style="width: 140px;" data-sort="tbw_val">総書込量</th>
+                    <th style="width: 200px;" data-sort="hours_val">通電時間 / 電源回数</th>
                     <th>メモ欄 / 消去</th>
                 </tr>
             </thead>
