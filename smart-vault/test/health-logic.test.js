@@ -3,8 +3,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const { computeHealthLevel, parseErrorDescriptions } = require('../js/health-logic.js');
 
-// hoge.json の実データを読み込み
-const backup = JSON.parse(fs.readFileSync(__dirname + '/../hoge.json', 'utf8'));
+// 実データ相当のサンプルを読み込み（S/N等の個人情報はダミー化済み）
+const backup = JSON.parse(fs.readFileSync(__dirname + '/fixtures/smart-storage-samples.json', 'utf8'));
 const findByModel = (kw) => backup.find(r => r.model.includes(kw));
 
 // 各ディスクのレコードから判定用 context 相当を組み立てて computeHealthLevel に渡す

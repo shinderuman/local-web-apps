@@ -5,14 +5,15 @@ const {
     getAttrRaw,
     pickNum,
     calcSize,
+    parseSizeToBytes,
     calcTbw,
     calcLife,
     calcSectorCounts,
     detectCustomType,
 } = require('../js/parse-logic.js');
 
-// hoge.json の実データを読み込み
-const backup = JSON.parse(fs.readFileSync(__dirname + '/../hoge.json', 'utf8'));
+// 実データ相当のサンプルを読み込み（S/N等の個人情報はダミー化済み）
+const backup = JSON.parse(fs.readFileSync(__dirname + '/fixtures/smart-storage-samples.json', 'utf8'));
 const findByModel = (kw) => JSON.parse(backup.find(r => r.model.includes(kw)).raw);
 
 // ============================================================
@@ -70,6 +71,32 @@ test('calcSize: capacity無しでモデル名にTを含む場合はTB推定', ()
     const r = calcSize('FooBar 1T', 0);
     assert.strictEqual(r.sizeStr, '1 TB');
     assert.strictEqual(r.sizeBytes, 1 * 1000 * 1000 * 1000 * 1000);
+});
+
+// ============================================================
+// parseSizeToBytes: 手動入力容量文字列 → バイト数
+// ============================================================
+test('parseSizeToBytes: GB単位（空白あり/なし両対応）', () => {
+    assert.strictEqual(parseSizeToBytes('500GB'), 500 * 1024 ** 3);
+    assert.strictEqual(parseSizeToBytes('500 GB'), 500 * 1024 ** 3);
+});
+
+test('parseSizeToBytes: TB単位（小数・大文字小文字）', () => {
+    assert.strictEqual(parseSizeToBytes('2 TB'), 2 * 1024 ** 4);
+    assert.strictEqual(parseSizeToBytes('1.5tb'), 1.5 * 1024 ** 4);
+});
+
+test('parseSizeToBytes: MB単位', () => {
+    assert.strictEqual(parseSizeToBytes('120MB'), 120 * 1024 ** 2);
+});
+
+test('parseSizeToBytes: 単位無しはそのままの数値（バイト扱い）', () => {
+    assert.strictEqual(parseSizeToBytes('1024'), 1024);
+});
+
+test('parseSizeToBytes: 空・数値以外は0', () => {
+    assert.strictEqual(parseSizeToBytes(''), 0);
+    assert.strictEqual(parseSizeToBytes('abc'), 0);
 });
 
 // ============================================================

@@ -22,8 +22,8 @@ const TYPE_LABELS = {
     'unknown': '不明'
 };
 
-// 状態レベルの表示名（添字 = レベル）
-const LEVEL_LABELS = ['L0 正常', 'L1 注意', 'L2 警告', 'L3 危険'];
+// 状態レベルの表示名（添字 = レベル、末尾 = 手動登録）
+const LEVEL_LABELS = ['L0 正常', 'L1 注意', 'L2 警告', 'L3 危険', '手動'];
 
 // メーカー選択肢（プルダウン）
 const CORE_VENDORS = [
@@ -33,6 +33,13 @@ const CORE_VENDORS = [
 
 // フィルタ種別（個数カウント対象）= all + 全デバイスタイプ
 const FILTER_TYPES = ['all', ...Object.keys(TYPE_LABELS)];
+
+// メーカー・分類の編集プルダウン選択肢（CORE_VENDORS / TYPE_LABELS から派生）
+const VENDOR_OPTIONS = [
+    { label: '不明', value: '不明' },
+    ...CORE_VENDORS.map(v => ({ label: v, value: v }))
+];
+const TYPE_OPTIONS = Object.keys(TYPE_LABELS).map(key => ({ label: TYPE_LABELS[key], value: key }));
 
 // ソート列とテーブルヘッダ位置の対応（メモ列はソート不可）
 const SORT_INDEX_MAP = {
@@ -91,7 +98,7 @@ const uiState = {
 
 const { detectVendor } = window.VENDOR_LOGIC;
 const {
-    pickNum, calcSize, calcTbw, calcLife, calcSectorCounts, detectCustomType
+    pickNum, calcSize, parseSizeToBytes, calcTbw, calcLife, calcSectorCounts, detectCustomType
 } = window.PARSE_LOGIC;
 const { computeHealthLevel } = window.HEALTH_LOGIC;
 const {
@@ -174,6 +181,39 @@ const saveDb = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
 };
 
+// S.M.A.R.T.未取得の手動登録レコードを生成（customType は選択中フィルタから決定）
+const createManualRecord = (customType = 'unknown') => ({
+    id: Number(Date.now()),
+    serial: '',
+    isManual: true,
+    model: '',
+    vendor: '',
+    protocol: '',
+    deviceType: '',
+    size: '',
+    size_bytes: 0,
+    manualSize: '',
+    health: '',
+    powerOnHours: '',
+    hours_val: 0,
+    powerCycleCount: '不明',
+    temperature: '',
+    temp_val: 0,
+    tbw: '',
+    tbw_val: 0,
+    lifeOrSector: '不明',
+    lifePercent: -1,
+    reallocSectors: 0,
+    pendingSectors: 0,
+    crcErrors: 0,
+    healthLevel: LEVEL_LABELS.length - 1,
+    healthReasons: [],
+    updatedAt: new Date().toLocaleString(),
+    memo: '',
+    customType,
+    raw: ''
+});
+
 // ペーストされたJSONを新規追加または既存更新
 const upsertRecord = (rawText) => {
     const parsedTmp = JSON.parse(rawText);
@@ -198,12 +238,42 @@ const upsertRecord = (rawText) => {
     showToast(TOAST.PARSE_OK);
 };
 
+// 選択中フィルタから手動レコードの分類を決定（「すべて」なら不明）
+const manualTypeFromFilter = () => {
+    const f = viewState.filter;
+    return (f && f !== 'all') ? f : 'unknown';
+};
+
+// 指定IDの直後に手動レコードを挿入（分類は選択中フィルタから決定）
+const addManualRecordAfter = (id) => {
+    const idx = db.findIndex(item => item.id === id);
+    const newRecord = createManualRecord(manualTypeFromFilter());
+    if (idx === -1) {
+        db.push(newRecord);
+    } else {
+        db.splice(idx + 1, 0, newRecord);
+    }
+    saveDb();
+    renderTable();
+    focusSizeCell(newRecord.id);
+};
+
+// 一覧末尾に手動レコードを追加（0件時の「新規追加」ボタン用、分類は選択中フィルタから決定）
+const addManualRecordToEnd = () => {
+    const newRecord = createManualRecord(manualTypeFromFilter());
+    db.push(newRecord);
+    saveDb();
+    renderTable();
+    focusSizeCell(newRecord.id);
+};
+
 const rebuildDatabaseFromRaw = () => {
     if (db.length === 0) return;
-    const ok = confirm('蓄積された生JSONデータから台帳を再構築します。\n手動入力した項目（分類・メーカー・メモ）はそのまま維持されます。実行しますか？');
+    const ok = confirm('蓄積された生JSONデータから台帳を再構築します。\nSMARTレコードは分類・メーカー・メモのみ維持し、それ以外（容量・モデル名・寿命・TBW・通電時間等の手動編集を含む）は生JSONで上書きされます。\n手動登録レコードはそのまま維持されます。実行しますか？');
     if (!ok) return;
 
     db = db.map(oldRecord => {
+        // 手動レコード・raw未保持レコードは再構築対象外（そのまま維持）
         if (!oldRecord.raw) return oldRecord;
         try {
             return parseSmartJson(oldRecord.raw, oldRecord);
@@ -217,10 +287,10 @@ const rebuildDatabaseFromRaw = () => {
     showToast(TOAST.REBUILT);
 };
 
-const deleteItem = (serial) => {
+const deleteItem = (id) => {
     const ok = confirm('このストレージの記録を完全に削除しますか？');
     if (!ok) return;
-    db = db.filter(item => item.serial !== serial);
+    db = db.filter(item => item.id !== id);
     saveDb();
     renderTable();
     showToast(TOAST.DELETED);
@@ -350,28 +420,37 @@ const copyCommandText = () => {
 };
 
 // ============================================================
-// インライン編集
+// インライン編集（共通ヘルパ）
 // ============================================================
 
-const enableVendorEdit = (serial, container) => {
-    const idx = db.findIndex(item => item.serial === serial);
-    if (idx === -1) return;
-    // 編集中（セレクト表示中）の再クリックは無視
-    if (container.querySelector('select')) return;
+// レコードを検索（存在しなければnull）
+const findRecord = (id) => {
+    const idx = db.findIndex(item => item.id === id);
+    return idx === -1 ? null : { idx, record: db[idx] };
+};
 
-    const currentVendor = db[idx].vendor || '不明';
-    const isCustom = !CORE_VENDORS.includes(currentVendor) && currentVendor !== '不明';
+// 編集確定の共通処理: 検証→保存→再描画
+const commitEdit = (idx, patch) => {
+    Object.assign(db[idx], patch);
+    saveDb();
+    renderTable();
+};
+
+// プルダウン編集（field に選択値を保存）。allowFreeInput で自由入力プロンプトを許可
+const enableSelectEdit = (id, container, field, options, allowFreeInput = false) => {
+    const found = findRecord(id);
+    if (!found || container.querySelector('select')) return;
+    const { idx, record } = found;
+    const current = record[field] || options[0].value;
 
     const select = document.createElement('select');
     select.className = 'select-inline-input';
-    select.add(new Option('不明', '不明', false, currentVendor === '不明'));
-    CORE_VENDORS.forEach(v => {
-        select.add(new Option(v, v, false, currentVendor === v));
+    options.forEach(opt => {
+        select.add(new Option(opt.label, opt.value, false, opt.value === current));
     });
-    if (isCustom) {
-        select.add(new Option(currentVendor, currentVendor, true, true));
-    }
-    select.add(new Option('+ 新規直接自由入力...', 'custom_input'));
+    const isCustom = allowFreeInput && !options.some(o => o.value === current) && current;
+    if (isCustom) select.add(new Option(current, current, true, true));
+    if (allowFreeInput) select.add(new Option('+ 新規直接自由入力...', '__free_input__'));
 
     container.innerHTML = '';
     container.appendChild(select);
@@ -382,76 +461,109 @@ const enableVendorEdit = (serial, container) => {
         if (committed) return;
         committed = true;
         let next = val;
-        if (val === 'custom_input') {
-            const userInput = prompt('メーカー名を手動自由入力してください:', isCustom ? currentVendor : '');
-            next = (userInput && userInput.trim()) ? userInput.trim() : currentVendor;
+        if (val === '__free_input__') {
+            const userInput = prompt('手動自由入力してください:', isCustom ? current : '');
+            next = (userInput && userInput.trim()) ? userInput.trim() : current;
         }
-        db[idx].vendor = next;
-        saveDb();
-        renderTable();
+        commitEdit(idx, { [field]: next });
     };
 
     select.addEventListener('change', () => commit(select.value));
     select.addEventListener('blur', () => commit(select.value));
 };
 
-const enableTypeEdit = (serial, container) => {
-    const idx = db.findIndex(item => item.serial === serial);
-    if (idx === -1) return;
-    // 編集中（セレクト表示中）の再クリックは無視
-    if (container.querySelector('select')) return;
+// テキスト編集（field に文字列を保存）。onCommit で追加の派生更新を行える
+const enableTextEdit = (id, container, field, placeholder = '', onCommit = null) => {
+    const found = findRecord(id);
+    if (!found || container.querySelector('input')) return;
+    const { idx, record } = found;
 
-    const currentType = db[idx].customType || 'unknown';
-
-    const select = document.createElement('select');
-    select.className = 'select-inline-input';
-    Object.keys(TYPE_LABELS).forEach(key => {
-        select.add(new Option(TYPE_LABELS[key], key, false, currentType === key));
-    });
-
-    container.innerHTML = '';
-    container.appendChild(select);
-    select.focus();
-
-    let committed = false;
-    const commit = (val) => {
-        if (committed) return;
-        committed = true;
-        db[idx].customType = val;
-        saveDb();
-        renderTable();
-    };
-
-    select.addEventListener('change', () => commit(select.value));
-    select.addEventListener('blur', () => commit(select.value));
-};
-
-const enableMemoEdit = (serial, container) => {
-    const idx = db.findIndex(item => item.serial === serial);
-    if (idx === -1) return;
-    // 編集中（入力表示中）の再クリックは無視
-    if (container.querySelector('input')) return;
-
-    const currentText = db[idx].memo || '';
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'memo-edit-input select-inline-input';
-    input.value = currentText;
+    if (placeholder) input.placeholder = placeholder;
+    input.value = record[field] || '';
 
     container.innerHTML = '';
     container.appendChild(input);
     input.focus();
 
+    let committed = false;
     const commit = () => {
-        const newText = input.value.trim();
-        db[idx].memo = newText;
-        saveDb();
-        renderTable();
+        if (committed) return;
+        committed = true;
+        const patch = { [field]: input.value.trim() };
+        if (onCommit) Object.assign(patch, onCommit(input.value.trim()));
+        commitEdit(idx, patch);
     };
 
     input.addEventListener('blur', commit);
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') commit();
+    });
+};
+
+// 追加レコードの容量セルを編集モードにしてフォーカス（行追加後の自動入力誘導）
+const focusSizeCell = (id) => {
+    const row = document.querySelector(`tr.item-row[data-id="${id}"]`);
+    if (!row) return;
+    // 容量セルは2列目（.size-cell 配下の .clickable-cell）
+    const sizeCell = row.querySelector('.size-cell .clickable-cell');
+    if (sizeCell) enableTextEdit(id, sizeCell, 'manualSize', '例: 500GB',
+        (text) => ({ size: text, size_bytes: parseSizeToBytes(text) }));
+};
+
+// 通電時間と電源回数を1セル内で並べて編集（両方の数値を更新）
+const enableHoursCycleEdit = (id, container) => {
+    const found = findRecord(id);
+    if (!found || container.querySelector('input')) return;
+    const { idx, record } = found;
+
+    const make = (field, placeholder, width) => {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.inputMode = 'numeric';
+        input.className = 'memo-edit-input select-inline-input';
+        input.placeholder = placeholder;
+        input.style.width = width;
+        const cur = record[field];
+        input.value = (typeof cur === 'number' && cur > 0) ? String(cur) : '';
+        return input;
+    };
+    const hoursInput = make('hours_val', '時間', '52px');
+    const cycleInput = make('powerCycleCount', '回数', '52px');
+
+    container.innerHTML = '';
+    container.appendChild(hoursInput);
+    const sep = document.createElement('span');
+    sep.innerText = ' / ';
+    sep.style.color = '#a0aec0';
+    container.appendChild(sep);
+    container.appendChild(cycleInput);
+    hoursInput.focus();
+
+    let committed = false;
+    const commit = () => {
+        if (committed) return;
+        committed = true;
+        // 入力が空なら既存値を維持（0で上書きしない）、入力があれば数値化
+        const parseOrKeep = (raw, keep) => {
+            const trimmed = raw.trim();
+            if (trimmed === '') return keep;
+            const n = parseInt(trimmed, 10);
+            return isNaN(n) ? keep : n;
+        };
+        commitEdit(idx, {
+            hours_val: parseOrKeep(hoursInput.value, record.hours_val),
+            powerCycleCount: parseOrKeep(cycleInput.value, record.powerCycleCount)
+        });
+    };
+
+    [hoursInput, cycleInput].forEach(input => {
+        input.addEventListener('blur', commit);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') commit();
+        });
     });
 };
 
@@ -504,12 +616,23 @@ const createEditableCell = (text, onEdit) => {
     return cell;
 };
 
-// 状態レベルバッジを生成
+// 通電時間 / 電源回数の表示文字列（未入力項目は省略、両方未入力なら空）
+const formatHoursCycle = (powerOnHours, powerCycleCount) => {
+    const hasHours = powerOnHours && powerOnHours !== '不明';
+    const cycleNum = typeof powerCycleCount === 'number' ? powerCycleCount : 0;
+    const hasCycle = typeof powerCycleCount === 'number' && cycleNum > 0;
+    if (hasHours && hasCycle) return `${powerOnHours} / ${cycleNum}回`;
+    if (hasHours) return powerOnHours;
+    if (hasCycle) return `${cycleNum}回`;
+    return '';
+};
+
+// 状態レベルバッジを生成（手動登録は青バッジ・判定理由なし）
 const createLevelBadge = (item) => {
-    const hl = item.healthLevel ?? 0;
+    const hl = item.isManual ? LEVEL_LABELS.length - 1 : (item.healthLevel ?? 0);
     const badge = document.createElement('span');
-    badge.className = `level-badge level-${hl}`;
-    badge.title = item.healthReasons.join('\n');
+    badge.className = item.isManual ? 'level-badge level-manual' : `level-badge level-${hl}`;
+    if (!item.isManual) badge.title = item.healthReasons.join('\n');
     badge.innerText = LEVEL_LABELS[hl];
     return badge;
 };
@@ -527,7 +650,7 @@ const createMemoCell = (item) => {
         ph.innerText = 'クリックして入力';
         memoCell.appendChild(ph);
     }
-    memoCell.addEventListener('click', () => enableMemoEdit(item.serial, memoCell));
+    memoCell.addEventListener('click', () => enableTextEdit(item.id, memoCell, 'memo'));
     td.appendChild(memoCell);
     return td;
 };
@@ -539,41 +662,87 @@ const createRow = (item, index) => {
     const tr = document.createElement('tr');
     tr.className = isUnknown ? 'item-row unknown-type-row' : 'item-row';
     tr.setAttribute('draggable', 'true');
-    tr.setAttribute('data-serial', item.serial);
+    tr.setAttribute('data-id', item.id);
 
-    // メーカー（編集可能）
+    // メーカー（編集可能・自由入力可）
     const tdVendor = document.createElement('td');
     tdVendor.appendChild(createEditableCell(
         item.vendor || '不明',
-        (e) => enableVendorEdit(item.serial, e.currentTarget)
+        (e) => enableSelectEdit(item.id, e.currentTarget, 'vendor', VENDOR_OPTIONS, true)
     ));
     tr.appendChild(tdVendor);
 
-    appendTextTd(tr, item.size, 'size-cell');
-    appendTextTd(tr, item.model, 'model-cell');
+    // 容量（編集可能・size_bytesも再計算）
+    const tdSize = document.createElement('td');
+    tdSize.className = 'size-cell';
+    tdSize.appendChild(createEditableCell(
+        item.size || '—',
+        (e) => enableTextEdit(item.id, e.currentTarget, 'manualSize', '例: 500GB',
+            (text) => ({ size: text, size_bytes: parseSizeToBytes(text) }))
+    ));
+    tr.appendChild(tdSize);
+
+    // モデル名（編集可能）
+    const tdModel = document.createElement('td');
+    tdModel.className = 'model-cell';
+    tdModel.appendChild(createEditableCell(
+        item.model || '—',
+        (e) => enableTextEdit(item.id, e.currentTarget, 'model')
+    ));
+    tr.appendChild(tdModel);
 
     // 分類（編集可能）
     const tdType = document.createElement('td');
     tdType.appendChild(createEditableCell(
         TYPE_LABELS[currentType] || '不明',
-        (e) => enableTypeEdit(item.serial, e.currentTarget)
+        (e) => enableSelectEdit(item.id, e.currentTarget, 'customType', TYPE_OPTIONS)
     ));
     tr.appendChild(tdType);
 
-    // 状態レベル
+    // 状態レベル（編集不可）
     const tdLevel = document.createElement('td');
     tdLevel.appendChild(createLevelBadge(item));
     tr.appendChild(tdLevel);
 
-    // 残り寿命
-    appendTextTd(tr, item.lifePercent >= 0 ? item.lifePercent + '%' : item.lifeOrSector);
-    // 総書込量
-    appendTextTd(tr, item.tbw);
-    // 通電時間 / 電源回数
-    appendTextTd(tr, `${item.powerOnHours} / ${item.powerCycleCount}回`);
+    // 残り寿命（編集可能・表示文字列 lifeOrSector を直接編集）
+    const tdLife = document.createElement('td');
+    tdLife.appendChild(createEditableCell(
+        item.lifePercent >= 0 ? item.lifePercent + '%' : (item.lifeOrSector || '—'),
+        (e) => enableTextEdit(item.id, e.currentTarget, 'lifeOrSector', '例: 寿命: 99%')
+    ));
+    tr.appendChild(tdLife);
 
-    // メモ
+    // 総書込量（編集可能・表示文字列 tbw を直接編集）
+    const tdTbw = document.createElement('td');
+    tdTbw.appendChild(createEditableCell(
+        item.tbw || '—',
+        (e) => enableTextEdit(item.id, e.currentTarget, 'tbw', '例: 1.6 TBW')
+    ));
+    tr.appendChild(tdTbw);
+
+    // 通電時間 / 電源回数（1セル内で2つの数値を編集）
+    const tdHours = document.createElement('td');
+    const hoursCell = document.createElement('div');
+    hoursCell.className = 'clickable-cell';
+    hoursCell.style.gap = '0';
+    hoursCell.innerText = formatHoursCycle(item.powerOnHours, item.powerCycleCount);
+    hoursCell.addEventListener('click', (e) => enableHoursCycleEdit(item.id, e.currentTarget));
+    tdHours.appendChild(hoursCell);
+    tr.appendChild(tdHours);
+
+    // メモ（編集可能）
     tr.appendChild(createMemoCell(item));
+
+    // 行挿入ボタン（右端の「＋」、クリックでこの行の直後に手動レコード挿入）
+    const tdInsert = document.createElement('td');
+    tdInsert.className = 'insert-cell';
+    const insertBtn = document.createElement('button');
+    insertBtn.className = 'btn-insert';
+    insertBtn.title = 'この下に行を追加';
+    insertBtn.innerText = '＋';
+    insertBtn.addEventListener('click', () => addManualRecordAfter(item.id));
+    tdInsert.appendChild(insertBtn);
+    tr.appendChild(tdInsert);
 
     // 行クリックで詳細トグル（編集可能セル・ボタン・入力要素は除外）
     const detailsId = `details-${index}`;
@@ -620,7 +789,7 @@ const createDetailsRow = (item, index) => {
     tr.id = `details-${index}`;
 
     const td = document.createElement('td');
-    td.colSpan = 9;
+    td.colSpan = 10;
 
     const container = document.createElement('div');
     container.className = 'details-container';
@@ -645,7 +814,7 @@ const createDetailsRow = (item, index) => {
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-danger btn-mini';
     delBtn.innerText = 'このストレージを消去';
-    delBtn.addEventListener('click', () => deleteItem(item.serial));
+    delBtn.addEventListener('click', () => deleteItem(item.id));
     appendReasonsBlock(grid, item.healthReasons, delBtn);
     container.appendChild(grid);
 
@@ -655,6 +824,27 @@ const createDetailsRow = (item, index) => {
     container.appendChild(raw);
 
     td.appendChild(container);
+    tr.appendChild(td);
+    return tr;
+};
+
+// 0件時の行: メッセージ＋新規追加ボタン（分類は選択中フィルタで登録）
+const createEmptyRow = () => {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 10;
+    td.style.cssText = 'text-align:center; color:#a0aec0; padding:30px;';
+
+    const msg = document.createElement('span');
+    msg.innerText = '該当するディスクがありません。';
+    td.appendChild(msg);
+
+    const btn = document.createElement('button');
+    btn.className = 'btn-add-empty';
+    btn.innerText = '＋ 新規追加';
+    btn.addEventListener('click', () => addManualRecordToEnd());
+    td.appendChild(btn);
+
     tr.appendChild(td);
     return tr;
 };
@@ -675,13 +865,7 @@ const renderTable = () => {
     });
 
     if (visibleCount === 0) {
-        const tr = document.createElement('tr');
-        const td = document.createElement('td');
-        td.colSpan = 9;
-        td.style.cssText = 'text-align:center; color:#a0aec0; padding:30px;';
-        td.innerText = '該当するディスクがありません。';
-        tr.appendChild(td);
-        tbody.appendChild(tr);
+        tbody.appendChild(createEmptyRow());
     } else {
         setupDragAndDrop();
     }
@@ -717,10 +901,10 @@ const setupDragAndDrop = () => {
             e.currentTarget.style.borderTop = '';
 
             if (dragSrcEl === e.currentTarget) return;
-            const srcSerial = dragSrcEl.getAttribute('data-serial');
-            const targetSerial = e.currentTarget.getAttribute('data-serial');
-            const srcIdx = db.findIndex(item => item.serial === srcSerial);
-            const targetIdx = db.findIndex(item => item.serial === targetSerial);
+            const srcId = Number(dragSrcEl.getAttribute('data-id'));
+            const targetId = Number(e.currentTarget.getAttribute('data-id'));
+            const srcIdx = db.findIndex(item => item.id === srcId);
+            const targetIdx = db.findIndex(item => item.id === targetId);
             if (srcIdx === -1 || targetIdx === -1) return;
 
             const [removed] = db.splice(srcIdx, 1);

@@ -355,6 +355,10 @@ tr.unknown-type-row {
     background-color: #fed7d7;
     color: #742a2a;
 }
+.level-manual {
+    background-color: #bee3f8;
+    color: #2a4365;
+}
 
 .bad-count {
     color: #e53e3e;
@@ -415,4 +419,46 @@ tr.unknown-type-row {
 }
 .hidden {
     display: none !important;
+}
+
+/* 行挿入ボタン: 控えめなグレーの小さな「＋」 */
+.insert-cell {
+    text-align: center;
+    width: 36px;
+    padding: 4px 2px;
+}
+.btn-insert {
+    background-color: transparent;
+    color: #a0aec0;
+    border: none;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    font-size: 15px;
+    font-weight: normal;
+    line-height: 1;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.btn-insert:hover {
+    background-color: #edf2f7;
+    color: #718096;
+}
+
+/* 0件時の新規追加: メッセージに同化する小さなリンク風ボタン */
+.btn-add-empty {
+    background-color: transparent;
+    color: #a0aec0;
+    border: none;
+    height: auto;
+    padding: 0;
+    margin-left: 10px;
+    font-size: 13px;
+    font-weight: normal;
+    text-decoration: underline;
+    cursor: pointer;
+}
+.btn-add-empty:hover {
+    background-color: transparent;
+    color: #718096;
 }

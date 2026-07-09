@@ -47,6 +47,18 @@
         return estimateSizeFromModel(model);
     };
 
+    // 容量文字列（例: "500GB", "2 TB", "1.5tb"）をバイト数に変換（手動入力用・失敗時は0）
+    const parseSizeToBytes = (text) => {
+        if (!text) return 0;
+        const match = String(text).trim().match(/^([\d.]+)\s*(tb|gb|mb)?/i);
+        if (!match) return 0;
+        const value = parseFloat(match[1]);
+        if (isNaN(value)) return 0;
+        const unit = (match[2] || '').toLowerCase();
+        const factors = { tb: 1024 ** 4, gb: 1024 ** 3, mb: 1024 ** 2 };
+        return Math.round(value * (factors[unit] || 1));
+    };
+
     // ATA書込量属性のraw値をTBに換算（属性名の単位で係数を切替）
     const ataWriteAttrToTb = (attr) => {
         const raw = Number(attr.raw?.value || 0);
@@ -138,6 +150,7 @@
         getAttrRaw,
         pickNum,
         calcSize,
+        parseSizeToBytes,
         calcTbw,
         calcLife,
         calcSectorCounts,
