@@ -57,6 +57,78 @@ const SORT_INDEX_MAP = {
 const SMART_COMMAND = 'sudo smartctl -a --json /dev/diskX | pbcopy';
 const BACKUP_FILENAME = 'smart-storage.json';
 
+// 判定理由キーワードの平易な解説（初心者向け）。理由文字列中のキーが出現したらツールチップ化
+const REASON_GLOSSARY = [
+    {
+        key: '保留中セクタ(197)',
+        desc: '読み書きに失敗して代替処理待ちの不良セクタ。数が増えるとデータ消失の危険がある。'
+    },
+    {
+        key: '代替処理済セクタ(5)',
+        desc: 'すでに予備領域へ交換済みのセクタ。多いほど経年劣化が進んでいる。'
+    },
+    {
+        key: '回復不能セクタ(198)',
+        desc: '読み書きできず回復も不能な不良セクタ。データ消失の原因になる。'
+    },
+    {
+        key: '予備ブロック',
+        desc: '不良セクタと交換するために確保された予備領域。しきい値を下回ると寿命が近い。'
+    },
+    {
+        key: 'UDMA_CRC(199)',
+        desc: 'SATAケーブル・接続の通信エラーの累積。値が大きいと接触不良やケーブル不良の兆候で、ドライブ自体の故障とは限らない。'
+    },
+    {
+        key: 'Command_Timeout(188)',
+        desc: 'コマンドがタイムアウトして中断された回数。接触不良やドライブの応答遅延が主な原因で、必ずしも故障ではない。'
+    },
+    {
+        key: 'UNC',
+        desc: '読み出せなかった読み取り不能エラー。放置するとデータ破損に繋がる。'
+    },
+    {
+        key: 'IDNF',
+        desc: '存在しないアドレスへのアクセス要求。論理的な故障の兆候。'
+    },
+    {
+        key: 'ICRC/ABRT',
+        desc: 'ケーブル・接続不良による通信エラーで処理が中断した状態。ドライブ自体の故障とは限らない。'
+    },
+    {
+        key: 'ICRC',
+        desc: 'インタフェースの通信エラー。主にケーブル・接続不良が原因。'
+    },
+    {
+        key: 'critical_warning',
+        desc: 'NVMeドライブの重大警告フラグ。メディアエラーや寿命切れなどを示す。'
+    },
+    {
+        key: 'percentage_used',
+        desc: 'NVMeドライブの書き換え消費量（%）。高いほど寿命に近い。'
+    },
+    {
+        key: 'available_spare',
+        desc: 'NVMeドライブの予備領域の残り（%）。低いほど寿命が近い。'
+    },
+    {
+        key: 'media_errors',
+        desc: 'NVMeドライブで発生したメディア（記憶素子）エラーの件数。データ信頼性への影響がある。'
+    },
+    {
+        key: '残り寿命',
+        desc: 'SSDの書き換え可能量の残り（%）。低いほど寿命に近い。'
+    },
+    {
+        key: '通電時間',
+        desc: 'ドライブの累計稼働時間。長いほど経年劣化が進む。'
+    },
+    {
+        key: 'S.M.A.R.T. 総合判定 = FAILED',
+        desc: 'ドライブ自身が故障と判定している状態。速やかな交換を推奨。'
+    }
+];
+
 // トーストメッセージ
 const TOAST = {
     PARSE_OK: 'データを解析して登録・更新しました',
@@ -765,6 +837,34 @@ const appendDetailField = (grid, label, value) => {
 };
 
 // 詳細グリッドに判定理由ブロックを追加（右端に消去ボタンを配置）
+// 判定理由1行をノード配列に変換: 既知キーワードはツールチップ付きspanに、それ以外はテキストに
+const createReasonNodes = (reason) => {
+    const nodes = [];
+    let rest = reason;
+    while (rest.length > 0) {
+        // 出現位置が最も早いキーワードを探す
+        const match = REASON_GLOSSARY
+            .map(g => ({ g, idx: rest.indexOf(g.key) }))
+            .filter(m => m.idx !== -1)
+            .sort((a, b) => a.idx - b.idx)[0];
+        if (!match) {
+            nodes.push(document.createTextNode(rest));
+            break;
+        }
+        if (match.idx > 0) {
+            nodes.push(document.createTextNode(rest.slice(0, match.idx)));
+        }
+        const span = document.createElement('span');
+        span.className = 'reason-keyword';
+        span.tabIndex = 0;
+        span.title = match.g.desc;
+        span.innerText = match.g.key;
+        nodes.push(span);
+        rest = rest.slice(match.idx + match.g.key.length);
+    }
+    return nodes;
+};
+
 const appendReasonsBlock = (grid, reasons, actionBtn) => {
     const div = document.createElement('div');
     div.className = 'reason-block';
@@ -776,9 +876,13 @@ const appendReasonsBlock = (grid, reasons, actionBtn) => {
     header.appendChild(strong);
     if (actionBtn) header.appendChild(actionBtn);
     div.appendChild(header);
-    // 理由本文
+    // 理由本文（各理由を1行に、キーワードはツールチップ付きspanに）
     const body = document.createElement('span');
-    body.innerText = reasons.map(r => '・' + r).join('\n');
+    reasons.forEach((reason, i) => {
+        if (i > 0) body.appendChild(document.createElement('br'));
+        body.append(document.createTextNode('・'));
+        createReasonNodes(reason).forEach(node => body.appendChild(node));
+    });
     div.appendChild(body);
     grid.appendChild(div);
 };

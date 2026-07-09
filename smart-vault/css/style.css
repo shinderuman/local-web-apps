@@ -385,12 +385,26 @@ tr.unknown-type-row {
 /* 詳細: 判定理由ブロック（改行保持） */
 .reason-block {
     flex-basis: 100%;
-    white-space: pre-wrap;
 }
 .reason-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+/* 判定理由のキーワード: ツールチップ付き、控えめな下線 */
+.reason-keyword {
+    color: #2b6cb0;
+    border-bottom: 1px dotted #a0aec0;
+    cursor: help;
+}
+.reason-keyword:hover,
+.reason-keyword:focus {
+    color: #2c5282;
+    border-bottom-style: solid;
+    border-bottom-color: #3182ce;
+    outline: none;
+    background-color: #ebf8ff;
 }
 
 .details-row {
