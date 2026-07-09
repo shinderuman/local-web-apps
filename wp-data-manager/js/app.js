@@ -12,9 +12,6 @@ const STORAGE_KEYS = {
 // section表示状態の保存キー接尾辞（{sectionId}_visible）
 const VISIBLE_SUFFIX = '_visible';
 
-// 種牡馬強制判定の年齢閾値
-const STALLION_AGE_THRESHOLD = 10;
-
 // ソート状態
 const sortState = {
     key: 'order',
@@ -83,6 +80,18 @@ const masterHorseData = {
 let horses = [];               // 系統データ本体
 let currentGameYear = 1973;    // ゲーム内現在年
 let dragSrcRow = null;         // ドラッグ元の行（D&D並び替え用）
+
+// ============================================================
+// モジュール関数のインポート
+// ============================================================
+
+const {
+    STALLION_AGE_THRESHOLD,
+    isStallion,
+    calcAge,
+    parseEditValue,
+    getEditOriginalValue
+} = window.HORSE_LOGIC;
 
 // ============================================================
 // 初期化
@@ -233,18 +242,11 @@ const sortData = (key) => {
     render();
 };
 
-// 種牡馬かどうかの判定: 閾値以上は強制種牡馬、それ以外は isRunner フラグ
-const isStallion = (h) => {
-    const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : null;
-    if (age !== null && age >= STALLION_AGE_THRESHOLD) return true;
-    return !h.isRunner;
-};
-
 // 現役/種牡馬のトグル（閾値以上は固定でトグル不可）
 const toggleRunner = (id) => {
     const h = horses.find(h => h.id === id);
     if (!h) return;
-    const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : null;
+    const age = calcAge(h, currentGameYear);
     if (age !== null && age >= STALLION_AGE_THRESHOLD) return;
     h.isRunner = !h.isRunner;
     saveAndRender();
@@ -267,25 +269,17 @@ const startEdit = (id, key, element) => {
     const horse = horses.find(h => h.id === id);
     if (!horse) return;
     if (element.querySelector('input, textarea')) return;
-    const originalValue = (key === 'otherHorseNames') ? (horse.otherHorseNames || []).join('\n') : horse[key];
     const input = document.createElement(key === 'otherHorseNames' ? 'textarea' : 'input');
     if (key !== 'otherHorseNames') {
         input.type = (key === 'birthYear') ? 'number' : 'text';
     }
-    input.value = originalValue;
+    input.value = getEditOriginalValue(horse, key);
     input.className = 'edit-input';
     element.innerHTML = '';
     element.appendChild(input);
     input.focus();
     const finishEdit = () => {
-        const newValue = input.value.trim();
-        if (key === 'birthYear') {
-            horse[key] = newValue !== '' ? parseInt(newValue, 10) : '';
-        } else if (key === 'otherHorseNames') {
-            horse.otherHorseNames = newValue ? newValue.split(/\n/).map(s => s.trim()).filter(s => s !== '') : [];
-        } else {
-            horse[key] = newValue;
-        }
+        horse[key] = parseEditValue(key, input.value.trim());
         saveAndRender();
     };
     input.onblur = finishEdit;
@@ -307,8 +301,8 @@ const render = () => {
     const tbody = document.getElementById('horseTableBody');
     tbody.innerHTML = '';
     horses.forEach((h) => {
-        const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : '-';
-        const stallion = isStallion(h);
+        const age = calcAge(h, currentGameYear) ?? '-';
+        const stallion = isStallion(h, currentGameYear);
         const otherText = (h.otherHorseNames || []).join('\n');
         const tr = document.createElement('tr');
         tr.dataset.id = h.id;
