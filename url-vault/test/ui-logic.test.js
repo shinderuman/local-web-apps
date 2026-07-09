@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
     serializeUIState,
-    deserializeUIState,
+    deserializeUIState
 } = require('../js/ui-logic.js');
 
 // ============================================================
@@ -16,7 +16,7 @@ test('serializeUIState: 状態オブジェクトをJSON文字列化', () => {
         sortKey: 'title',
         sortAsc: false,
         addPositionTop: false,
-        selectedGroupByWindow: { 1: 10 },
+        selectedGroupByWindow: { 1: 10 }
     };
     const json = serializeUIState(state);
     const parsed = JSON.parse(json);
@@ -42,7 +42,7 @@ test('serializeUIState: null値も保持', () => {
 
 test('deserializeUIState: 全フィールド存在ならそのまま復元', () => {
     const json = JSON.stringify({
-        windowId: 1, groupId: 2, sortKey: 'title', sortAsc: false, addPositionTop: false, selectedGroupByWindow: { 1: 10 },
+        windowId: 1, groupId: 2, sortKey: 'title', sortAsc: false, addPositionTop: false, selectedGroupByWindow: { 1: 10 }
     });
     const state = deserializeUIState(json);
     assert.strictEqual(state.windowId, 1);
@@ -62,6 +62,15 @@ test('deserializeUIState: フィールド欠落時はデフォルト', () => {
     assert.strictEqual(state.sortAsc, true);
     assert.strictEqual(state.addPositionTop, true);
     assert.deepStrictEqual(state.selectedGroupByWindow, {});
+    assert.strictEqual(state.dupCheckEnabled, false);
+    assert.strictEqual(state.dupCheckLength, 6);
+});
+
+test('deserializeUIState: 重複チェック設定があれば復元', () => {
+    const json = JSON.stringify({ dupCheckEnabled: true, dupCheckLength: 4 });
+    const state = deserializeUIState(json);
+    assert.strictEqual(state.dupCheckEnabled, true);
+    assert.strictEqual(state.dupCheckLength, 4);
 });
 
 test('deserializeUIState: 無効JSONならnull', () => {

@@ -53,6 +53,24 @@ const KINDLE_URL_PATTERN = /^https?:\/\/read\.amazon\.co\.jp\//;
         return groups.some(g => g.id === groupId) ? groupId : null;
     };
 
+    // 重複グループ化のキーを算出。
+    // parseBaseTitleで巻数・雑誌名・サブタイトルを除去した作品名の先頭n文字をキーとする。
+    // parseBaseTitleは引数で受け取る（Nodeテスト時のrequire順への依存を避ける）
+    const duplicateKey = (item, n, parseBaseTitle) => {
+        const base = parseBaseTitle(item.title);
+        return base.slice(0, n);
+    };
+
+    // 同じキー（先頭n文字一致）が2件以上のアイテムのみを残す（非破壊）
+    const filterDuplicates = (items, n, parseBaseTitle) => {
+        const counts = {};
+        items.forEach((item) => {
+            const key = duplicateKey(item, n, parseBaseTitle);
+            counts[key] = (counts[key] || 0) + 1;
+        });
+        return items.filter((item) => counts[duplicateKey(item, n, parseBaseTitle)] >= 2);
+    };
+
     const FILTER_LOGIC = {
         isKindleUrl,
         hasSynopsis,
@@ -61,7 +79,9 @@ const KINDLE_URL_PATTERN = /^https?:\/\/read\.amazon\.co\.jp\//;
         updateGroupMemory,
         getRememberedGroup,
         validateRememberedGroup,
-        KINDLE_URL_PATTERN,
+        duplicateKey,
+        filterDuplicates,
+        KINDLE_URL_PATTERN
     };
 
     factory(root, FILTER_LOGIC);
@@ -73,4 +93,3 @@ const KINDLE_URL_PATTERN = /^https?:\/\/read\.amazon\.co\.jp\//;
         window.FILTER_LOGIC = FILTER_LOGIC;
     }
 });
-

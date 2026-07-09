@@ -8,7 +8,10 @@ const {
     updateGroupMemory,
     getRememberedGroup,
     validateRememberedGroup,
+    duplicateKey,
+    filterDuplicates
 } = require('../js/filter-logic.js');
+const { parseBaseTitle } = require('../js/title-parser.js');
 
 const TRASH_WINDOW_ID = 99999;
 
@@ -76,7 +79,7 @@ const ALL_ITEMS = [
     { id: 1, windowId: 1, groupId: 10, title: 'アイテム1' },
     { id: 2, windowId: 1, groupId: 11, title: 'アイテム2' },
     { id: 3, windowId: 2, groupId: 20, title: '検索対象' },
-    { id: 4, windowId: TRASH_WINDOW_ID, groupId: 99999, title: 'ゴミ箱アイテム' },
+    { id: 4, windowId: TRASH_WINDOW_ID, groupId: 99999, title: 'ゴミ箱アイテム' }
 ];
 
 test('filterVisibleItems: すべて選択（windowId=null）は通常アイテムのみ', () => {
@@ -159,4 +162,94 @@ test('validateRememberedGroup: 存在しないIDならnull', () => {
 test('validateRememberedGroup: groupIdがnullならnull', () => {
     const groups = [{ id: 10, name: 'A' }];
     assert.strictEqual(validateRememberedGroup(null, groups), null);
+});
+
+// ============================================================
+// duplicateKey / filterDuplicates
+// ============================================================
+
+test('duplicateKey: 作品名の先頭n文字を返す', () => {
+    assert.strictEqual(duplicateKey({ title: '作品A (4)' }, 3, parseBaseTitle), '作品A');
+});
+
+test('filterDuplicates: 巻違いが両方残る', () => {
+    const items = [
+        { id: 1, title: '作品A (4)' },
+        { id: 2, title: '作品A (5)' },
+        { id: 3, title: '別作品' }
+    ];
+    const result = filterDuplicates(items, 3, parseBaseTitle);
+    assert.deepStrictEqual(result.map(i => i.id), [1, 2]);
+});
+
+test('filterDuplicates: 雑誌名括弧付きと無しは同一と判定', () => {
+    const items = [
+        { id: 1, title: '作品A (週刊X)' },
+        { id: 2, title: '作品A' }
+    ];
+    const result = filterDuplicates(items, 3, parseBaseTitle);
+    assert.deepStrictEqual(result.map(i => i.id), [1, 2]);
+});
+
+test('filterDuplicates: サブタイトル付きは本編と同一と判定', () => {
+    const items = [
+        { id: 1, title: '作品A 〜副題〜' },
+        { id: 2, title: '作品A' }
+    ];
+    const result = filterDuplicates(items, 3, parseBaseTitle);
+    assert.deepStrictEqual(result.map(i => i.id), [1, 2]);
+});
+
+test('filterDuplicates: 全く異なる作品は残らない', () => {
+    const items = [
+        { id: 1, title: '作品A' },
+        { id: 2, title: '作品B' },
+        { id: 3, title: '作品C' }
+    ];
+    const result = filterDuplicates(items, 3, parseBaseTitle);
+    assert.strictEqual(result.length, 0);
+});
+
+test('filterDuplicates: 1件のみ（同じキーが2件未満）は残らない', () => {
+    const items = [
+        { id: 1, title: '作品A' },
+        { id: 2, title: '作品B' }
+    ];
+    const result = filterDuplicates(items, 6, parseBaseTitle);
+    assert.strictEqual(result.length, 0);
+});
+
+test('filterDuplicates: nを大きくすると別作品に分かれる', () => {
+    const items = [
+        { id: 1, title: '進撃の巨人 1' },
+        { id: 2, title: '進撃の巨人 2' },
+        { id: 3, title: '進撃の別物' }
+    ];
+    // n=3 なら「進撃の」で3件とも同一 → 全件残る
+    assert.strictEqual(filterDuplicates(items, 3, parseBaseTitle).length, 3);
+    // n=4 なら3件目が「進撃の別」で分岐 → 1,2のみ残る
+    assert.deepStrictEqual(filterDuplicates(items, 4, parseBaseTitle).map(i => i.id), [1, 2]);
+});
+
+test('filterDuplicates: 作品名がn文字未満の場合は全文字で比較', () => {
+    const items = [
+        { id: 1, title: 'AB 1' },
+        { id: 2, title: 'AB 2' }
+    ];
+    const result = filterDuplicates(items, 6, parseBaseTitle);
+    assert.deepStrictEqual(result.map(i => i.id), [1, 2]);
+});
+
+test('filterDuplicates: 空配列は空配列を返す（非破壊）', () => {
+    const result = filterDuplicates([], 6, parseBaseTitle);
+    assert.deepStrictEqual(result, []);
+});
+
+test('filterDuplicates: 元配列を変更しない（非破壊）', () => {
+    const items = [
+        { id: 1, title: '作品A' },
+        { id: 2, title: '作品A' }
+    ];
+    filterDuplicates(items, 3, parseBaseTitle);
+    assert.strictEqual(items.length, 2);
 });

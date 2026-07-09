@@ -19,6 +19,8 @@
                 sortAsc: state.sortAsc ?? true,
                 addPositionTop: state.addPositionTop ?? true,
                 selectedGroupByWindow: state.selectedGroupByWindow ?? {},
+                dupCheckEnabled: state.dupCheckEnabled ?? false,
+                dupCheckLength: state.dupCheckLength ?? 6
             };
         } catch (e) {
             return null;
@@ -27,7 +29,7 @@
 
     const UI_LOGIC = {
         serializeUIState,
-        deserializeUIState,
+        deserializeUIState
     };
 
     factory(root, UI_LOGIC);

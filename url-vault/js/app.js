@@ -5,21 +5,21 @@
 // IndexedDB設定
 const DB = {
     NAME: 'HighDensityTabManagerDB_v2',
-    VERSION: 1,
+    VERSION: 1
 };
 
 // ソート設定
 const SORT_OPTIONS = [
     { key: 'sortOrder', label: '手動順' },
     { key: 'title', label: 'タイトル順' },
-    { key: 'createdAt', label: '登録順' },
+    { key: 'createdAt', label: '登録順' }
 ];
 
 // 画像処理設定
 const IMAGE = {
     MAX_W: 440,
     MAX_H: 620,
-    JPEG_QUALITY: 0.7,
+    JPEG_QUALITY: 0.7
 };
 
 // タイムアウト・間隔（ミリ秒）
@@ -29,15 +29,15 @@ const TIMING = {
     PANEL_ANIM: 180,
     SYNOPSIS: {
         FETCH_INTERVAL: 1200,    // 全取得の1件ごとの間隔
-        RETRY_INTERVAL: 500,     // 短縮再リクエストの間隔
-    },
+        RETRY_INTERVAL: 500     // 短縮再リクエストの間隔
+    }
 };
 
 // あらすじ取得エラーメッセージ
 const SYNOPSIS_ERROR_MESSAGES = {
     http: 'API通信エラーが発生しました（HTTPエラー）',
     api: 'APIエラーが発生しました',
-    network: 'ネットワークエラーが発生しました',
+    network: 'ネットワークエラーが発生しました'
 };
 
 // 表示閾値
@@ -48,7 +48,7 @@ const TRASH = {
     WINDOW_ID: 99999,
     GROUP_ID: 99999,
     WINDOW_NAME: '🗑 ゴミ箱',
-    GROUP_NAME: 'ゴミ箱',
+    GROUP_NAME: 'ゴミ箱'
 };
 
 // ============================================================
@@ -66,6 +66,8 @@ const filterState = {
     searchQuery: '',
     renderId: 0,
     selectedGroupByWindow: {}, // ウィンドウごとの最終選択グループID { windowId: groupId }
+    dupCheckEnabled: false, // 重複チェックON（表示中リストの重複候補のみ表示）
+    dupCheckLength: 6 // 重複判定の作品名先頭文字数
 };
 
 // アイテム編集状態
@@ -73,7 +75,7 @@ const editState = {
     imageDataBase64: '',
     addPositionTop: true,
     editingItemId: null, // 編集中のアイテムID（null=新規作成モード）
-    isEditMode: false, // ✏ 編集モード（ウィンドウ・グループ・アイテム編集のトグル）
+    isEditMode: false // ✏ 編集モード（ウィンドウ・グループ・アイテム編集のトグル）
 };
 
 // UI状態
@@ -81,7 +83,7 @@ const uiState = {
     synopsisPanelItemId: null, // 右ペイン表示中のアイテムID（トグル用）
     toastTimer: null, // トーストの自動消滅タイマー
     toastVisible: false, // トースト表示中フラグ
-    blurEnabled: false, // サムネぼかし有効フラグ
+    blurEnabled: false // サムネぼかし有効フラグ
 };
 
 // ============================================================
@@ -91,7 +93,7 @@ const uiState = {
 const {
     normalizeDigits,
     parseVolume,
-    parseBaseTitle,
+    parseBaseTitle
 } = window.TITLE_PARSER;
 const {
     calcNextSortOrder,
@@ -99,7 +101,7 @@ const {
     buildNewItem,
     sortItems,
     isValidItemInput,
-    stripSynopsisForExport,
+    stripSynopsisForExport
 } = window.ITEM_LOGIC;
 const {
     isKindleUrl,
@@ -108,17 +110,18 @@ const {
     updateGroupMemory,
     getRememberedGroup,
     validateRememberedGroup,
+    filterDuplicates
 } = window.FILTER_LOGIC;
 const {
     buildRakutenUrl,
     buildVolumeMap,
     selectTargetVolumes,
     tokenizeQuery,
-    shortenQuery,
+    shortenQuery
 } = window.SYNOPSIS_LOGIC;
 const {
     serializeUIState,
-    deserializeUIState,
+    deserializeUIState
 } = window.UI_LOGIC;
 
 // ============================================================
@@ -161,6 +164,32 @@ const loadToggleStates = () => {
     if (sessionStorage.getItem('navContainerHidden') === 'true') navContainer.classList.add('hidden');
 
     updateAddPositionBtn();
+    updateDupCheckBtn();
+    document.getElementById('dupCheckLengthInput').value = filterState.dupCheckLength;
+};
+
+// 重複チェックボタンのON/OFF見た目と文字数入力欄の表示を反映（ON=filter-btnのactive＋入力欄表示）
+const updateDupCheckBtn = () => {
+    const btn = document.getElementById('toggleDupCheckBtn');
+    btn.classList.toggle('active', filterState.dupCheckEnabled);
+    const wrap = document.getElementById('dupCheckLengthWrap');
+    wrap.classList.toggle('hidden', !filterState.dupCheckEnabled);
+};
+
+// 重複チェックON/OFF切替
+const toggleDupCheck = () => {
+    filterState.dupCheckEnabled = !filterState.dupCheckEnabled;
+    updateDupCheckBtn();
+    saveUIState();
+    renderList();
+};
+
+// 重複判定の先頭文字数を変更
+const changeDupCheckLength = (value) => {
+    const n = parseInt(value, 10);
+    filterState.dupCheckLength = isNaN(n) || n < 1 ? 1 : n;
+    saveUIState();
+    renderList();
 };
 
 const saveUIState = () => {
@@ -171,6 +200,8 @@ const saveUIState = () => {
         sortAsc: filterState.sortAsc,
         addPositionTop: editState.addPositionTop,
         selectedGroupByWindow: filterState.selectedGroupByWindow,
+        dupCheckEnabled: filterState.dupCheckEnabled,
+        dupCheckLength: filterState.dupCheckLength
     }));
 };
 
@@ -183,6 +214,8 @@ const loadUIState = () => {
     filterState.sortAsc = state.sortAsc;
     editState.addPositionTop = state.addPositionTop;
     filterState.selectedGroupByWindow = state.selectedGroupByWindow;
+    filterState.dupCheckEnabled = state.dupCheckEnabled;
+    filterState.dupCheckLength = state.dupCheckLength;
 };
 
 // ゴミ箱ウィンドウ/グループが存在しなければ作成
@@ -369,7 +402,7 @@ const saveItemNew = (winSelect, groupSelect, titleInput, urlInput) => {
             title: titleInput.value,
             url: urlInput.value,
             image: editState.imageDataBase64,
-            sortOrder: sortOrder,
+            sortOrder: sortOrder
         }, new Date().getTime());
 
         store.add(data).onsuccess = (ev) => {
@@ -797,7 +830,7 @@ const fetchAllSynopsis = async (force) => {
 
     const tx = db.transaction(['items'], 'readonly');
     tx.objectStore('items').getAll().onsuccess = async (e) => {
-        let items = filterVisibleItems(e.target.result, filterState.selectedWindowId, filterState.selectedGroupId, filterState.searchQuery, TRASH.WINDOW_ID);
+        const items = filterVisibleItems(e.target.result, filterState.selectedWindowId, filterState.selectedGroupId, filterState.searchQuery, TRASH.WINDOW_ID);
         // force=true: Kindleドメイン全件 / force=false: Kindleドメインかつ未取得
         const targets = items.filter(item =>
             isKindleUrl(item.url) && (force || !hasSynopsis(item))
@@ -1259,6 +1292,9 @@ const renderList = () => {
     tx.objectStore('items').getAll().onsuccess = (e) => {
         let items = filterVisibleItems(e.target.result, filterState.selectedWindowId, filterState.selectedGroupId, filterState.searchQuery, TRASH.WINDOW_ID);
         items = sortItems(items, filterState.sortKey, filterState.sortAsc);
+        if (filterState.dupCheckEnabled) {
+            items = filterDuplicates(items, filterState.dupCheckLength, parseBaseTitle);
+        }
 
         const isDragEnabled = filterState.sortKey === 'sortOrder';
         items.forEach((item) => {
@@ -1366,7 +1402,7 @@ const handleSaveFile = () => {
         try {
             const handle = await window.showSaveFilePicker({
                 suggestedName: 'url-vault-backup.json',
-                types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+                types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
             });
             const writable = await handle.createWritable();
             await writable.write(JSON.stringify(backupData));
@@ -1417,7 +1453,7 @@ const handleImport = () => {
 const handleLoadFile = async () => {
     try {
         const [handle] = await window.showOpenFilePicker({
-            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
         });
         const file = await handle.getFile();
         const jsonString = await file.text();
@@ -1473,6 +1509,14 @@ document.getElementById('toggleEditModeBtn').addEventListener('click', () => {
     btn.style.color = editState.isEditMode ? '#fff' : '';
     renderFilters();
     renderList();
+});
+
+// 重複チェックトグル
+document.getElementById('toggleDupCheckBtn').addEventListener('click', toggleDupCheck);
+
+// 重複判定の先頭文字数
+document.getElementById('dupCheckLengthInput').addEventListener('input', (e) => {
+    changeDupCheckLength(e.target.value);
 });
 
 // サムネぼかしトグル

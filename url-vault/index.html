@@ -91,6 +91,11 @@
             <div class="nav-label">並び:</div>
             <div id="sortRow" class="nav-row"></div>
             <span class="nav-sep">|</span>
+            <button id="toggleDupCheckBtn" class="filter-btn">🔁 重複</button>
+            <span id="dupCheckLengthWrap" class="nav-row hidden">
+                <input type="number" id="dupCheckLengthInput" class="search-input" min="1" value="6" title="重複判定の作品名先頭文字数" style="max-width: 50px;">
+                <span class="nav-sep">|</span>
+            </span>
             <input type="text" id="searchInput" class="search-input" placeholder="タイトルで絞り込み">
             <span id="cardCount" class="card-count"></span>
         </div>

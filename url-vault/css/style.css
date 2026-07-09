@@ -182,6 +182,9 @@ button:hover { background-color: #0062a3; }
     flex-wrap: wrap;
     align-items: center;
 }
+.nav-row.hidden {
+    display: none;
+}
 .nav-label {
     font-size: 11px;
     color: #888;
