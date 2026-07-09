@@ -37,8 +37,8 @@ test('detectVendor: HGST', () => {
     assert.strictEqual(detectVendor({}, 'HGST HTS725050A7E630'), 'HGST');
 });
 
-test('detectVendor: HGST（旧Hitachiブランド）', () => {
-    assert.strictEqual(detectVendor({}, 'Hitachi HTS545032A7E380'), 'HGST');
+test('detectVendor: HITACHI', () => {
+    assert.strictEqual(detectVendor({}, 'Hitachi HTS545032A7E380'), 'HITACHI');
 });
 
 test('detectVendor: 該当なしはモデル名の先頭語', () => {

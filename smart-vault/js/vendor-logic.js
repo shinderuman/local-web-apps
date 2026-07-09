@@ -13,7 +13,8 @@
         if (vId === 4158 || upper.includes('CRUCIAL') || upper.includes('MICRON') || /^CT\d/.test(upper)) return 'Crucial';
         if (vId === 7474 || upper.includes('INTEL')) return 'Intel';
         if (upper.includes('WDC') || upper.includes('WESTERN DIGITAL') || upper.includes('WD')) return 'Western Digital';
-        if (upper.includes('HGST') || upper.includes('HITACHI')) return 'HGST';
+        if (upper.includes('HGST')) return 'HGST';
+        if (upper.includes('HITACHI')) return 'HITACHI';
         // Seagateモデル名は ST + 数字 で始まる（"HGST"のST誤判定を避けるため境界チェック）
         if (upper.includes('SEAGATE') || /\bST\d/.test(upper)) return 'Seagate';
         if (upper.includes('TOSHIBA')) return 'Toshiba';
