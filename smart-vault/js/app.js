@@ -8,7 +8,8 @@ const FILTER_KEY = 'smart_vault_filter';
 
 // タイムアウト（ミリ秒）
 const TIMING = {
-    TOAST_DURATION: 2500
+    TOAST_DURATION: 2500,
+    HIGHLIGHT_DURATION: 3000
 };
 
 // デバイスタイプの表示名（キー順 = フィルタ・編集の表示順）
@@ -133,6 +134,7 @@ const REASON_GLOSSARY = [
 // トーストメッセージ
 const TOAST = {
     PARSE_OK: 'データを解析して登録・更新しました',
+    PARSE_UPDATED: '登録済みのデータを更新しました',
     PARSE_FAIL: 'エラー: パース失敗',
     NO_SERIAL: 'エラー: S/N不検出',
     REBUILT: 'データベースを再構築しました',
@@ -162,7 +164,8 @@ const viewState = {
 
 // UI状態
 const uiState = {
-    toastTimer: null
+    toastTimer: null,
+    highlightTimer: null
 };
 
 // ============================================================
@@ -301,7 +304,8 @@ const upsertRecord = (rawText) => {
     const existingRecord = existingIndex !== -1 ? db[existingIndex] : null;
     const newRecord = parseSmartJson(rawText, existingRecord);
 
-    if (existingIndex !== -1) {
+    const isUpdate = existingIndex !== -1;
+    if (isUpdate) {
         db[existingIndex] = newRecord;
     } else {
         db.push(newRecord);
@@ -309,7 +313,8 @@ const upsertRecord = (rawText) => {
 
     saveDb();
     renderTable();
-    showToast(TOAST.PARSE_OK);
+    highlightRow(newRecord.id);
+    showToast(isUpdate ? TOAST.PARSE_UPDATED : TOAST.PARSE_OK);
 };
 
 // 選択中フィルタから手動レコードの分類を決定（「すべて」なら不明）
@@ -585,6 +590,18 @@ const focusSizeCell = (id) => {
     const sizeCell = row.querySelector('.size-cell .clickable-cell');
     if (sizeCell) enableTextEdit(id, sizeCell, 'manualSize', '例: 500GB',
         (text) => ({ size: text, size_bytes: parseSizeToBytes(text) }), record.size || '');
+};
+
+// 既存レコード更新時に該当行を強調表示（スクロール＋一時ハイライト）
+const highlightRow = (id) => {
+    const row = document.querySelector(`tr.item-row[data-id="${id}"]`);
+    if (!row) return;
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    row.classList.add('row-updated');
+    if (uiState.highlightTimer) clearTimeout(uiState.highlightTimer);
+    uiState.highlightTimer = setTimeout(() => {
+        row.classList.remove('row-updated');
+    }, TIMING.HIGHLIGHT_DURATION);
 };
 
 // 通電時間と電源回数を1セル内で並べて編集（両方の数値を更新）

@@ -286,6 +286,38 @@ tr.unknown-type-row {
     background-color: #fff5f5 !important;
 }
 
+tr.item-row.row-updated {
+    animation: row-highlight 3s ease-out;
+}
+
+tr.unknown-type-row.row-updated {
+    animation: row-highlight-unknown 3s ease-out;
+}
+
+@keyframes row-highlight-unknown {
+    0% {
+        background-color: #fed7aa !important;
+    }
+    70% {
+        background-color: #fed7aa !important;
+    }
+    100% {
+        background-color: #fff5f5 !important;
+    }
+}
+
+@keyframes row-highlight {
+    0% {
+        background-color: #fef5e7;
+    }
+    70% {
+        background-color: #fef5e7;
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
 .clickable-cell {
     cursor: pointer;
     min-height: 32px;
