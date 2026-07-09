@@ -706,6 +706,11 @@ const showSynopsisPanel = (item, editedState) => {
     }
     uiState.synopsisPanelItemId = item.id;
 
+    // フォーカス表示：前回のフォーカスを解除し、対象カードを強調
+    document.querySelectorAll('.card.synopsis-active').forEach(c => c.classList.remove('synopsis-active'));
+    const activeCard = document.querySelector(`.card[data-id="${item.id}"]`);
+    if (activeCard) activeCard.classList.add('synopsis-active');
+
     titleEl.textContent = item.title;
     bodyEl.innerHTML = '';
     renderSynopsisContent(item, bodyEl);
@@ -723,6 +728,8 @@ const hideSynopsisPanel = () => {
     const titleEl = document.getElementById('synopsisPanelTitle');
     // 非表示中は再侵入を防ぐためIDをnull化
     uiState.synopsisPanelItemId = null;
+    // フォーカス表示を解除
+    document.querySelectorAll('.card.synopsis-active').forEach(c => c.classList.remove('synopsis-active'));
     // 閉じるアニメーション後に非表示
     panel.classList.remove('synopsis-panel-open');
     panel.classList.add('synopsis-panel-close');

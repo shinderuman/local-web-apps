@@ -382,6 +382,11 @@ button:hover { background-color: #0062a3; }
 .card:focus {
     outline: none;
 }
+/* あらすじ表示中のフォーカスカード */
+.card.synopsis-active {
+    border-color: #d4a373;
+    box-shadow: 0 0 8px rgba(212, 163, 115, 0.4);
+}
 /* あらすじ未取得インジケータ */
 .card.has-synopsis::after {
     content: '📖';
