@@ -1,7 +1,27 @@
-let horses = [];
-let currentGameYear = 1973;
-const sortState = { key: 'order', asc: true };
+// ============================================================
+// 定数
+// ============================================================
 
+// localStorage の保存キー
+const STORAGE_KEYS = {
+    HORSES: 'horse_data_ordered_v7',
+    GAME_YEAR: 'game_year_v3',
+    SCHEDULE: 'schedule_checkbox_states_v1'
+};
+
+// section表示状態の保存キー接尾辞（{sectionId}_visible）
+const VISIBLE_SUFFIX = '_visible';
+
+// 種牡馬強制判定の年齢閾値
+const STALLION_AGE_THRESHOLD = 10;
+
+// ソート状態
+const sortState = {
+    key: 'order',
+    asc: true
+};
+
+// 年代別の史実馬マスターデータ（生年: [馬名...])
 const masterHorseData = {
     1963: ['スピードシンボリ', 'ワカクモ'],
     1964: ['ヒカルタカイ', 'ニットエイト', 'リュウズキ', 'Damascus', 'Dr.Fager', 'In Reality'],
@@ -56,44 +76,258 @@ const masterHorseData = {
     2020: ['リバティアイランド', 'Auguste Rodin', 'Ka Ying Rising', 'カーインライジング']
 };
 
-function escapeHtml(str) {
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
+// ============================================================
+// 状態変数（ミュータブル）
+// ============================================================
 
-function toggleElement(id) {
+let horses = [];               // 系統データ本体
+let currentGameYear = 1973;    // ゲーム内現在年
+let dragSrcRow = null;         // ドラッグ元の行（D&D並び替え用）
+
+// ============================================================
+// 初期化
+// ============================================================
+
+// エントリポイント: データ読込とイベント登録を行う
+const init = () => {
+    loadData();
+    initEvents();
+};
+
+// 保存データ・ゲーム内年・section表示状態を復元し描画
+const loadData = () => {
+    const saved = localStorage.getItem(STORAGE_KEYS.HORSES);
+    if (saved) horses = JSON.parse(saved);
+
+    const savedYear = localStorage.getItem(STORAGE_KEYS.GAME_YEAR);
+    if (savedYear) {
+        currentGameYear = parseInt(savedYear, 10);
+        document.getElementById('currentGameYear').value = currentGameYear;
+    }
+
+    ['memoArea', 'csvSection', 'horseListSection', 'scheduleSection'].forEach(id => {
+        const visible = localStorage.getItem(id + VISIBLE_SUFFIX) === 'true';
+        document.getElementById(id).style.display = visible ? 'block' : 'none';
+    });
+
+    render();
+    renderFilteredHorseList();
+    loadCheckboxes();
+};
+
+// 静的HTML要素のイベントを登録（インラインonclick廃止に伴う集約登録）
+const initEvents = () => {
+    registerToggleButtons();
+    registerGameYearInput();
+    registerScheduleCheckboxes();
+    registerIoButtons();
+    registerAddButton();
+    registerSortHeader();
+};
+
+// トグルボタン: data-target のsection表示を切替
+const registerToggleButtons = () => {
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => toggleElement(btn.dataset.target));
+    });
+};
+
+// ゲーム内年入力: 変更でリスト再描画
+const registerGameYearInput = () => {
+    document.getElementById('currentGameYear').addEventListener('input', (e) => updateGameYear(e.target.value));
+};
+
+// スケジュールのcheckbox: 変更を委譲で一括保存
+const registerScheduleCheckboxes = () => {
+    document.getElementById('scheduleSection').addEventListener('change', saveCheckboxes);
+};
+
+// JSON入出力・ファイル読込/保存の4ボタン
+const registerIoButtons = () => {
+    document.getElementById('importBtn').addEventListener('click', importJSON);
+    document.getElementById('exportBtn').addEventListener('click', exportJSON);
+    document.getElementById('loadFileBtn').addEventListener('click', loadFile);
+    document.getElementById('saveFileBtn').addEventListener('click', saveFile);
+};
+
+// 追加ボタン
+const registerAddButton = () => {
+    document.getElementById('addBtn').addEventListener('click', addData);
+};
+
+// テーブルヘッダ: data-sort の列でソート
+const registerSortHeader = () => {
+    document.querySelector('#horseTable thead').addEventListener('click', (e) => {
+        const th = e.target.closest('th[data-sort]');
+        if (!th) return;
+        sortData(th.dataset.sort);
+    });
+};
+
+// ============================================================
+// セクション表示切替
+// ============================================================
+
+// 指定sectionの表示/非表示を切替し状態を保存
+const toggleElement = (id) => {
     const el = document.getElementById(id);
     const isVisible = el.style.display === 'block';
     el.style.display = isVisible ? 'none' : 'block';
-    localStorage.setItem(id + '_visible', !isVisible);
-}
+    localStorage.setItem(id + VISIBLE_SUFFIX, !isVisible);
+};
 
-function saveCheckboxes() {
-    const checkboxes = document.querySelectorAll('#scheduleSection input[type="checkbox"]');
-    const state = {};
-    checkboxes.forEach(cb => {
-        state[cb.id] = cb.checked;
+// ============================================================
+// データ操作
+// ============================================================
+
+// データを保存して再描画
+const saveAndRender = () => {
+    localStorage.setItem(STORAGE_KEYS.HORSES, JSON.stringify(horses));
+    render();
+};
+
+// 新規系統を追加
+const addData = () => {
+    const name = document.getElementById('newName').value.trim();
+    const year = document.getElementById('newYear').value.trim();
+    const horseName = document.getElementById('newHorseName').value.trim();
+    if (!name) return;
+    const maxOrder = horses.length > 0 ? Math.max(...horses.map(h => h.order)) : 0;
+    horses.push({
+        id: Date.now(),
+        order: maxOrder + 1,
+        name: name,
+        birthYear: year ? parseInt(year, 10) : '',
+        horseName: horseName === '' ? '種牡馬' : horseName,
+        otherHorseNames: [],
+        isRunner: true
     });
-    localStorage.setItem('schedule_checkbox_states_v1', JSON.stringify(state));
-}
+    document.getElementById('newName').value = '';
+    document.getElementById('newYear').value = '';
+    document.getElementById('newHorseName').value = '';
+    saveAndRender();
+};
 
-function loadCheckboxes() {
-    const saved = localStorage.getItem('schedule_checkbox_states_v1');
-    if (!saved) return;
-    const state = JSON.parse(saved);
-    Object.keys(state).forEach(id => {
-        const cb = document.getElementById(id);
-        if (cb) cb.checked = state[id];
+// 指定IDの系統を削除
+const deleteData = (id) => {
+    horses = horses.filter(h => h.id !== id);
+    saveAndRender();
+};
+
+// 指定キーでソート（同キー再クリックで昇降切替）
+const sortData = (key) => {
+    if (sortState.key === key) {
+        sortState.asc = !sortState.asc;
+    } else {
+        sortState.key = key;
+        sortState.asc = true;
+    }
+    horses.sort((a, b) => {
+        const valA = (a[key] === '' || a[key] === null) ? (sortState.asc ? Infinity : -Infinity) : a[key];
+        const valB = (b[key] === '' || b[key] === null) ? (sortState.asc ? Infinity : -Infinity) : b[key];
+        if (typeof valA === 'string') {
+            return sortState.asc ? valA.localeCompare(valB, 'ja') : valB.localeCompare(valA, 'ja');
+        }
+        return sortState.asc ? valA - valB : valB - valA;
     });
-}
+    render();
+};
 
-function updateGameYear(val) {
+// 種牡馬かどうかの判定: 閾値以上は強制種牡馬、それ以外は isRunner フラグ
+const isStallion = (h) => {
+    const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : null;
+    if (age !== null && age >= STALLION_AGE_THRESHOLD) return true;
+    return !h.isRunner;
+};
+
+// 現役/種牡馬のトグル（閾値以上は固定でトグル不可）
+const toggleRunner = (id) => {
+    const h = horses.find(h => h.id === id);
+    if (!h) return;
+    const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : null;
+    if (age !== null && age >= STALLION_AGE_THRESHOLD) return;
+    h.isRunner = !h.isRunner;
+    saveAndRender();
+};
+
+// ゲーム内年を更新して関連表示を再描画
+const updateGameYear = (val) => {
     currentGameYear = parseInt(val, 10) || 0;
-    localStorage.setItem('game_year_v3', currentGameYear);
+    localStorage.setItem(STORAGE_KEYS.GAME_YEAR, currentGameYear);
     render();
     renderFilteredHorseList();
-}
+};
 
-function renderFilteredHorseList() {
+// ============================================================
+// 編集
+// ============================================================
+
+// セルをクリックしてインライン編集を開始
+const startEdit = (id, key, element) => {
+    const horse = horses.find(h => h.id === id);
+    if (!horse) return;
+    if (element.querySelector('input, textarea')) return;
+    const originalValue = (key === 'otherHorseNames') ? (horse.otherHorseNames || []).join('\n') : horse[key];
+    const input = document.createElement(key === 'otherHorseNames' ? 'textarea' : 'input');
+    if (key !== 'otherHorseNames') {
+        input.type = (key === 'birthYear') ? 'number' : 'text';
+    }
+    input.value = originalValue;
+    input.className = 'edit-input';
+    element.innerHTML = '';
+    element.appendChild(input);
+    input.focus();
+    const finishEdit = () => {
+        const newValue = input.value.trim();
+        if (key === 'birthYear') {
+            horse[key] = newValue !== '' ? parseInt(newValue, 10) : '';
+        } else if (key === 'otherHorseNames') {
+            horse.otherHorseNames = newValue ? newValue.split(/\n/).map(s => s.trim()).filter(s => s !== '') : [];
+        } else {
+            horse[key] = newValue;
+        }
+        saveAndRender();
+    };
+    input.onblur = finishEdit;
+    input.onkeydown = (e) => {
+        if (e.key === 'Enter' && key !== 'otherHorseNames') finishEdit();
+        if (e.key === 'Escape') {
+            input.onblur = null;
+            render();
+        }
+    };
+};
+
+// ============================================================
+// レンダリング
+// ============================================================
+
+// テーブル本体を描画
+const render = () => {
+    const tbody = document.getElementById('horseTableBody');
+    tbody.innerHTML = '';
+    horses.forEach((h) => {
+        const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : '-';
+        const stallion = isStallion(h);
+        const otherText = (h.otherHorseNames || []).join('\n');
+        const tr = document.createElement('tr');
+        tr.dataset.id = h.id;
+        if (!stallion) tr.classList.add('runner-row');
+        tr.appendChild(createDragHandleCell());
+        tr.appendChild(createOrderCell(h.order));
+        tr.appendChild(createNameCell(h.name));
+        tr.appendChild(createAgeCell(age));
+        tr.appendChild(createEditableCell(h.id, 'birthYear', h.birthYear, false));
+        tr.appendChild(createEditableCell(h.id, 'horseName', h.horseName, false));
+        tr.appendChild(createEditableCell(h.id, 'otherHorseNames', escapeHtml(otherText).replace(/\n/g, '<br>'), true));
+        tr.appendChild(createDeleteCell(h.id));
+        attachRowEvents(tr, h.id);
+        tbody.appendChild(tr);
+    });
+};
+
+// 年代別馬リストを描画（ゲーム内年-1以降の史実馬）
+const renderFilteredHorseList = () => {
     const targetContainer = document.getElementById('filteredHorseList');
     targetContainer.innerHTML = '';
 
@@ -122,29 +356,140 @@ function renderFilteredHorseList() {
         card.appendChild(ul);
         targetContainer.appendChild(card);
     });
-}
+};
+
+// ドラッグ用のハンドルセル（≡）を生成
+const createDragHandleCell = () => {
+    const td = document.createElement('td');
+    td.className = 'handle';
+    td.setAttribute('draggable', 'true');
+    td.textContent = '≡';
+    return td;
+};
+
+// 順序表示セルを生成（クリック不可）
+const createOrderCell = (order) => {
+    const td = document.createElement('td');
+    td.style.color = '#666';
+    td.style.fontWeight = 'bold';
+    td.style.textAlign = 'center';
+    td.textContent = order;
+    return td;
+};
+
+// 系統名セルを生成（クリックでトグル）
+const createNameCell = (name) => {
+    const td = document.createElement('td');
+    td.className = 'name-cell';
+    td.textContent = name;
+    return td;
+};
+
+// 年齢セルを生成（クリックでトグル）
+const createAgeCell = (age) => {
+    const td = document.createElement('td');
+    td.className = 'age-cell';
+    td.textContent = age;
+    return td;
+};
+
+// 編集可能セルを生成。isHtml=trueならinnerHTMLで改行タグ等を反映
+const createEditableCell = (id, key, value, isHtml) => {
+    const td = document.createElement('td');
+    td.className = 'editable' + (key === 'otherHorseNames' ? ' other-cell' : '');
+    if (isHtml) {
+        td.innerHTML = value;
+    } else {
+        td.textContent = value;
+    }
+    td.addEventListener('click', () => startEdit(id, key, td));
+    return td;
+};
+
+// 削除ボタンセルを生成
+const createDeleteCell = (id) => {
+    const td = document.createElement('td');
+    const btn = document.createElement('button');
+    btn.className = 'delete-btn';
+    btn.textContent = '削除';
+    btn.addEventListener('click', () => deleteData(id));
+    td.appendChild(btn);
+    return td;
+};
+
+// 行のドラッグ＆ドロップと、編集セル以外のクリック（現役/種牡馬トグル）を登録
+const attachRowEvents = (tr, id) => {
+    const handle = tr.querySelector('.handle');
+    handle.addEventListener('dragstart', handleDragStart);
+    tr.addEventListener('dragover', handleDragOver);
+    tr.addEventListener('drop', handleDrop);
+    handle.addEventListener('dragend', handleDragEnd);
+    tr.querySelectorAll('td:not(.editable)').forEach(td => {
+        if (td.querySelector('button')) return;
+        td.style.cursor = 'pointer';
+        td.addEventListener('click', () => toggleRunner(id));
+    });
+};
+
+// HTMLエスケープ（XSS対策）
+const escapeHtml = (str) => {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+};
+
+// ============================================================
+// チェックボックス状態の保存・復元
+// ============================================================
+
+// スケジュールの全checkbox状態を保存
+const saveCheckboxes = () => {
+    const checkboxes = document.querySelectorAll('#scheduleSection input[type="checkbox"]');
+    const state = {};
+    checkboxes.forEach(cb => {
+        state[cb.id] = cb.checked;
+    });
+    localStorage.setItem(STORAGE_KEYS.SCHEDULE, JSON.stringify(state));
+};
+
+// 保存済みのcheckbox状態を復元
+const loadCheckboxes = () => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SCHEDULE);
+    if (!saved) return;
+    const state = JSON.parse(saved);
+    Object.keys(state).forEach(id => {
+        const cb = document.getElementById(id);
+        if (cb) cb.checked = state[id];
+    });
+};
+
+// ============================================================
+// JSON入出力
+// ============================================================
 
 // JSON形式のインポート（テキストエリア）
-function importJSON() {
+const importJSON = () => {
     const text = document.getElementById('ioTextarea').value.trim();
     if (!text) return;
     try {
         const parsed = JSON.parse(text);
-        if (!Array.isArray(parsed)) { alert('データ構造が不正です'); return; }
+        if (!Array.isArray(parsed)) {
+            alert('データ構造が不正です');
+            return;
+        }
         horses = parsed;
         saveAndRender();
     } catch {
         alert('JSONのパースに失敗しました');
     }
-}
+};
 
 // JSON形式のエクスポート（テキストエリア）
-function exportJSON() {
+const exportJSON = () => {
     const exportList = [...horses].sort((a, b) => a.order - b.order);
     document.getElementById('ioTextarea').value = JSON.stringify(exportList, null, 2);
-}
+};
 
-async function loadFile() {
+// ファイルからJSONを読込
+const loadFile = async () => {
     try {
         const [handle] = await window.showOpenFilePicker({
             types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
@@ -156,9 +501,10 @@ async function loadFile() {
     } catch (e) {
         if (e.name !== 'AbortError') console.error('ファイルの読み込みに失敗しました', e);
     }
-}
+};
 
-async function saveFile() {
+// ファイルにJSONを保存
+const saveFile = async () => {
     try {
         const handle = await window.showSaveFilePicker({
             suggestedName: 'horse-data.json',
@@ -171,273 +517,30 @@ async function saveFile() {
     } catch (e) {
         if (e.name !== 'AbortError') console.error('ファイルの保存に失敗しました', e);
     }
-}
+};
 
-function loadData() {
-    const saved = localStorage.getItem('horse_data_ordered_v7');
-    if (saved) horses = JSON.parse(saved);
+// ============================================================
+// ドラッグ＆ドロップ並び替え
+// ============================================================
 
-    const savedYear = localStorage.getItem('game_year_v3');
-    if (savedYear) {
-        currentGameYear = parseInt(savedYear, 10);
-        document.getElementById('currentGameYear').value = currentGameYear;
-    }
-
-    ['memoArea', 'csvSection', 'horseListSection', 'scheduleSection'].forEach(id => {
-        const visible = localStorage.getItem(id + '_visible') === 'true';
-        document.getElementById(id).style.display = visible ? 'block' : 'none';
-    });
-
-    render();
-    renderFilteredHorseList();
-    loadCheckboxes();
-}
-
-// 静的HTML要素のイベントを登録（インラインonclick廃止に伴う集約登録）
-function initEvents() {
-    registerToggleButtons();
-    registerGameYearInput();
-    registerScheduleCheckboxes();
-    registerIoButtons();
-    registerAddButton();
-    registerSortHeader();
-}
-
-// トグルボタン: data-target のsection表示を切替
-function registerToggleButtons() {
-    document.querySelectorAll('.toggle-btn').forEach(btn => {
-        btn.addEventListener('click', () => toggleElement(btn.dataset.target));
-    });
-}
-
-// ゲーム内年入力: 変更でリスト再描画
-function registerGameYearInput() {
-    document.getElementById('currentGameYear').addEventListener('input', (e) => updateGameYear(e.target.value));
-}
-
-// スケジュールのcheckbox: 変更を委譲で一括保存
-function registerScheduleCheckboxes() {
-    document.getElementById('scheduleSection').addEventListener('change', saveCheckboxes);
-}
-
-// JSON入出力・ファイル読込/保存の4ボタン
-function registerIoButtons() {
-    document.getElementById('importBtn').addEventListener('click', importJSON);
-    document.getElementById('exportBtn').addEventListener('click', exportJSON);
-    document.getElementById('loadFileBtn').addEventListener('click', loadFile);
-    document.getElementById('saveFileBtn').addEventListener('click', saveFile);
-}
-
-// 追加ボタン
-function registerAddButton() {
-    document.getElementById('addBtn').addEventListener('click', addData);
-}
-
-// テーブルヘッダ: data-sort の列でソート
-function registerSortHeader() {
-    document.querySelector('#horseTable thead').addEventListener('click', (e) => {
-        const th = e.target.closest('th[data-sort]');
-        if (!th) return;
-        sortData(th.dataset.sort);
-    });
-}
-
-function saveAndRender() {
-    localStorage.setItem('horse_data_ordered_v7', JSON.stringify(horses));
-    render();
-}
-
-function addData() {
-    const name = document.getElementById('newName').value.trim();
-    const year = document.getElementById('newYear').value.trim();
-    const horseName = document.getElementById('newHorseName').value.trim();
-    if (!name) return;
-    const maxOrder = horses.length > 0 ? Math.max(...horses.map(h => h.order)) : 0;
-    horses.push({
-        id: Date.now(),
-        order: maxOrder + 1,
-        name: name,
-        birthYear: year ? parseInt(year, 10) : '',
-        horseName: horseName === '' ? '種牡馬' : horseName,
-        otherHorseNames: [],
-        isRunner: true
-    });
-    document.getElementById('newName').value = '';
-    document.getElementById('newYear').value = '';
-    document.getElementById('newHorseName').value = '';
-    saveAndRender();
-}
-
-function deleteData(id) {
-    horses = horses.filter(h => h.id !== id);
-    saveAndRender();
-}
-
-function startEdit(id, key, element) {
-    const horse = horses.find(h => h.id === id);
-    if (!horse) return;
-    if (element.querySelector('input, textarea')) return;
-    const originalValue = (key === 'otherHorseNames') ? (horse.otherHorseNames || []).join('\n') : horse[key];
-    const input = document.createElement(key === 'otherHorseNames' ? 'textarea' : 'input');
-    if (key !== 'otherHorseNames') input.type = (key === 'birthYear') ? 'number' : 'text';
-    input.value = originalValue;
-    input.className = 'edit-input';
-    element.innerHTML = '';
-    element.appendChild(input);
-    input.focus();
-    const finishEdit = () => {
-        const newValue = input.value.trim();
-        if (key === 'birthYear') {
-            horse[key] = newValue !== '' ? parseInt(newValue, 10) : '';
-        } else if (key === 'otherHorseNames') {
-            horse.otherHorseNames = newValue ? newValue.split(/\n/).map(s => s.trim()).filter(s => s !== '') : [];
-        } else {
-            horse[key] = newValue;
-        }
-        saveAndRender();
-    };
-    input.onblur = finishEdit;
-    input.onkeydown = (e) => {
-        if (e.key === 'Enter' && key !== 'otherHorseNames') finishEdit();
-        if (e.key === 'Escape') { input.onblur = null; render(); }
-    };
-}
-
-// 種牡馬かどうかの判定: 10歳以上は強制種牡馬、それ以外は isRunner フラグ
-function isStallion(h) {
-    const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : null;
-    if (age !== null && age >= 10) return true;
-    return !h.isRunner;
-}
-
-// 現役/種牡馬のトグル（10歳以上は固定でトグル不可）
-function toggleRunner(id) {
-    const h = horses.find(h => h.id === id);
-    if (!h) return;
-    const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : null;
-    if (age !== null && age >= 10) return;
-    h.isRunner = !h.isRunner;
-    saveAndRender();
-}
-
-function sortData(key) {
-    if (sortState.key === key) { sortState.asc = !sortState.asc; } else { sortState.key = key; sortState.asc = true; }
-    horses.sort((a, b) => {
-        const valA = (a[key] === '' || a[key] === null) ? (sortState.asc ? Infinity : -Infinity) : a[key];
-        const valB = (b[key] === '' || b[key] === null) ? (sortState.asc ? Infinity : -Infinity) : b[key];
-        if (typeof valA === 'string') return sortState.asc ? valA.localeCompare(valB, 'ja') : valB.localeCompare(valA, 'ja');
-        return sortState.asc ? valA - valB : valB - valA;
-    });
-    render();
-}
-
-function render() {
-    const tbody = document.getElementById('horseTableBody');
-    tbody.innerHTML = '';
-    horses.forEach((h) => {
-        const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : '-';
-        const stallion = isStallion(h);
-        const otherText = (h.otherHorseNames || []).join('\n');
-        const tr = document.createElement('tr');
-        tr.dataset.id = h.id;
-        if (!stallion) tr.classList.add('runner-row');
-        tr.appendChild(createDragHandleCell());
-        tr.appendChild(createOrderCell(h.order));
-        tr.appendChild(createNameCell(h.name));
-        tr.appendChild(createAgeCell(age));
-        tr.appendChild(createEditableCell(h.id, 'birthYear', h.birthYear, false));
-        tr.appendChild(createEditableCell(h.id, 'horseName', h.horseName, false));
-        tr.appendChild(createEditableCell(h.id, 'otherHorseNames', escapeHtml(otherText).replace(/\n/g, '<br>'), true));
-        tr.appendChild(createDeleteCell(h.id));
-        attachRowEvents(tr, h.id);
-        tbody.appendChild(tr);
-    });
-}
-
-// ドラッグ用のハンドルセル（≡）を生成
-function createDragHandleCell() {
-    const td = document.createElement('td');
-    td.className = 'handle';
-    td.setAttribute('draggable', 'true');
-    td.textContent = '≡';
-    return td;
-}
-
-// 順序表示セルを生成（クリック不可）
-function createOrderCell(order) {
-    const td = document.createElement('td');
-    td.style.color = '#666';
-    td.style.fontWeight = 'bold';
-    td.style.textAlign = 'center';
-    td.textContent = order;
-    return td;
-}
-
-// 系統名セルを生成（クリックでトグル）
-function createNameCell(name) {
-    const td = document.createElement('td');
-    td.className = 'name-cell';
-    td.textContent = name;
-    return td;
-}
-
-// 年齢セルを生成（クリックでトグル）
-function createAgeCell(age) {
-    const td = document.createElement('td');
-    td.className = 'age-cell';
-    td.textContent = age;
-    return td;
-}
-
-// 編集可能セルを生成。isHtml=trueならinnerHTMLで改行タグ等を反映
-function createEditableCell(id, key, value, isHtml) {
-    const td = document.createElement('td');
-    td.className = 'editable' + (key === 'otherHorseNames' ? ' other-cell' : '');
-    if (isHtml) {
-        td.innerHTML = value;
-    } else {
-        td.textContent = value;
-    }
-    td.addEventListener('click', () => startEdit(id, key, td));
-    return td;
-}
-
-// 削除ボタンセルを生成
-function createDeleteCell(id) {
-    const td = document.createElement('td');
-    const btn = document.createElement('button');
-    btn.className = 'delete-btn';
-    btn.textContent = '削除';
-    btn.addEventListener('click', () => deleteData(id));
-    td.appendChild(btn);
-    return td;
-}
-
-// 行のドラッグ＆ドロップと、編集セル以外のクリック（現役/種牡馬トグル）を登録
-function attachRowEvents(tr, id) {
-    const handle = tr.querySelector('.handle');
-    handle.addEventListener('dragstart', handleDragStart);
-    tr.addEventListener('dragover', handleDragOver);
-    tr.addEventListener('drop', handleDrop);
-    handle.addEventListener('dragend', handleDragEnd);
-    tr.querySelectorAll('td:not(.editable)').forEach(td => {
-        if (td.querySelector('button')) return;
-        td.style.cursor = 'pointer';
-        td.addEventListener('click', () => toggleRunner(id));
-    });
-}
-
-let dragSrcRow = null;
-function handleDragStart(e) {
-    dragSrcRow = this.parentElement;
+// ドラッグ開始: 元の行を記憶
+const handleDragStart = (e) => {
+    dragSrcRow = e.currentTarget.parentElement;
     dragSrcRow.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setDragImage(dragSrcRow, 0, 0);
-}
-function handleDragOver(e) { if (e.preventDefault) e.preventDefault(); return false; }
-function handleDrop(e) {
+};
+
+// ドラッグ中: デフォルト動作を抑制
+const handleDragOver = (e) => {
+    if (e.preventDefault) e.preventDefault();
+    return false;
+};
+
+// ドロップ: 行を入れ替えて order を再採番
+const handleDrop = (e) => {
     if (e.stopPropagation) e.stopPropagation();
-    const targetRow = this;
+    const targetRow = e.currentTarget;
     if (dragSrcRow !== targetRow) {
         const allRows = [...document.querySelectorAll('#horseTableBody tr')];
         const fromIndex = allRows.indexOf(dragSrcRow);
@@ -448,10 +551,15 @@ function handleDrop(e) {
         saveAndRender();
     }
     return false;
-}
-function handleDragEnd() { if (dragSrcRow) dragSrcRow.classList.remove('dragging'); }
-
-window.onload = () => {
-    loadData();
-    initEvents();
 };
+
+// ドラッグ終了: dragging クラスを解除
+const handleDragEnd = () => {
+    if (dragSrcRow) dragSrcRow.classList.remove('dragging');
+};
+
+// ============================================================
+// エントリポイント
+// ============================================================
+
+init();
