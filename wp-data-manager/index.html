@@ -9,10 +9,10 @@
 <body>
 
 <div class="btn-group">
-    <button class="toggle-btn" onclick="toggleElement('scheduleSection')">スケジュール</button>
-    <button class="toggle-btn" onclick="toggleElement('horseListSection')">年代別馬リスト</button>
-    <button class="toggle-btn" onclick="toggleElement('memoArea')">注記メモ</button>
-    <button class="toggle-btn" onclick="toggleElement('csvSection')">JSON入出力パネル</button>
+    <button class="toggle-btn" data-target="scheduleSection">スケジュール</button>
+    <button class="toggle-btn" data-target="horseListSection">年代別馬リスト</button>
+    <button class="toggle-btn" data-target="memoArea">注記メモ</button>
+    <button class="toggle-btn" data-target="csvSection">JSON入出力パネル</button>
 </div>
 
 <div class="container">
@@ -20,7 +20,7 @@
         <h2>系統・種牡馬データ管理</h2>
         <div class="game-year-box">
             <label for="currentGameYear">ゲーム内年:</label>
-            <input type="number" id="currentGameYear" value="1973" oninput="updateGameYear(this.value)">
+            <input type="number" id="currentGameYear" value="1973">
         </div>
     </div>
 
@@ -30,36 +30,36 @@
             <div class="schedule-box">
                 <h3>## 1月1週目にやること</h3>
                 <ul>
-                    <li><input type="checkbox" id="chk_1_1" onchange="saveCheckboxes()"><label for="chk_1_1">年表で念のため滅亡した系統がないかチェックする</label></li>
-                    <li><input type="checkbox" id="chk_1_2" onchange="saveCheckboxes()"><label for="chk_1_2">幼駒→競走馬、競走馬→繁殖入りした馬のマークを変更する</label></li>
-                    <li><input type="checkbox" id="chk_1_3" onchange="saveCheckboxes()"><label for="chk_1_3">海外遠征と三歳三冠のローテを設定</label></li>
+                    <li><input type="checkbox" id="chk_1_1"><label for="chk_1_1">年表で念のため滅亡した系統がないかチェックする</label></li>
+                    <li><input type="checkbox" id="chk_1_2"><label for="chk_1_2">幼駒→競走馬、競走馬→繁殖入りした馬のマークを変更する</label></li>
+                    <li><input type="checkbox" id="chk_1_3"><label for="chk_1_3">海外遠征と三歳三冠のローテを設定</label></li>
                 </ul>
                 <h3>## 4月1週目</h3>
                 <ul>
-                    <li><input type="checkbox" id="chk_4_1" onchange="saveCheckboxes()"><label for="chk_4_1">誕生した馬をルールに則ってマークする</label></li>
-                    <li><input type="checkbox" id="chk_4_2" onchange="saveCheckboxes()"><label for="chk_4_2">滅亡寸前産駒のチェック</label></li>
-                    <li><input type="checkbox" id="chk_4_3" onchange="saveCheckboxes()"><label for="chk_4_3">購入予定史実馬のチェック</label></li>
+                    <li><input type="checkbox" id="chk_4_1"><label for="chk_4_1">誕生した馬をルールに則ってマークする</label></li>
+                    <li><input type="checkbox" id="chk_4_2"><label for="chk_4_2">滅亡寸前産駒のチェック</label></li>
+                    <li><input type="checkbox" id="chk_4_3"><label for="chk_4_3">購入予定史実馬のチェック</label></li>
                 </ul>
                 <h3>## 5月1週目</h3>
                 <ul>
-                    <li><input type="checkbox" id="chk_5_1" onchange="saveCheckboxes()"><label for="chk_5_1">新しく種牡馬入りした馬が基準交配を起こせないかチェック</label></li>
-                    <li><input type="checkbox" id="chk_5_2" onchange="saveCheckboxes()"><label for="chk_5_2">購入予定史実馬を買えるだけ買う</label></li>
-                    <li><input type="checkbox" id="chk_5_3" onchange="saveCheckboxes()"><label for="chk_5_3">史実繁殖牝馬の史実誕生条件で種付</label></li>
+                    <li><input type="checkbox" id="chk_5_1"><label for="chk_5_1">新しく種牡馬入りした馬が基準交配を起こせないかチェック</label></li>
+                    <li><input type="checkbox" id="chk_5_2"><label for="chk_5_2">購入予定史実馬を買えるだけ買う</label></li>
+                    <li><input type="checkbox" id="chk_5_3"><label for="chk_5_3">史実繁殖牝馬の史実誕生条件で種付</label></li>
                 </ul>
             </div>
             <div class="schedule-box">
                 <h3>## 8月1週目</h3>
                 <ul>
-                    <li><input type="checkbox" id="chk_8_1" onchange="saveCheckboxes()"><label for="chk_8_1">幼駒セールで購入予定の史実馬の分だけ売る</label></li>
+                    <li><input type="checkbox" id="chk_8_1"><label for="chk_8_1">幼駒セールで購入予定の史実馬の分だけ売る</label></li>
                 </ul>
                 <h3>## 12月3週目</h3>
                 <ul>
                     <li>
                         <div>
-                            <input type="checkbox" id="chk_123_1" onchange="saveCheckboxes()"><label for="chk_123_1">海外トレセンで必要な空きの分だけ売る</label>
+                            <input type="checkbox" id="chk_123_1"><label for="chk_123_1">海外トレセンで必要な空きの分だけ売る</label>
                             <ul class="sub-list">
-                                <li><input type="checkbox" id="chk_123_1_a" onchange="saveCheckboxes()"><label for="chk_123_1_a">購入予定の史実馬を買う</label></li>
-                                <li><input type="checkbox" id="chk_123_1_b" onchange="saveCheckboxes()"><label for="chk_123_1_b">売った馬で印付きのやつは庭先取引で日本に買い戻す</label></li>
+                                <li><input type="checkbox" id="chk_123_1_a"><label for="chk_123_1_a">購入予定の史実馬を買う</label></li>
+                                <li><input type="checkbox" id="chk_123_1_b"><label for="chk_123_1_b">売った馬で印付きのやつは庭先取引で日本に買い戻す</label></li>
                             </ul>
                         </div>
                     </li>
@@ -68,24 +68,24 @@
                 <ul>
                     <li>
                         <div>
-                            <input type="checkbox" id="chk_124_1" onchange="saveCheckboxes()"><label for="chk_124_1">滅亡しそうな種牡馬系統のチェックしてセーブ</label>
+                            <input type="checkbox" id="chk_124_1"><label for="chk_124_1">滅亡しそうな種牡馬系統のチェックしてセーブ</label>
                             <ul class="sub-list">
-                                <li><input type="checkbox" id="chk_124_1_a" onchange="saveCheckboxes()"><label for="chk_124_1_a">一度年末の引退種牡馬まで進める</label></li>
-                                <li><input type="checkbox" id="chk_124_1_b" onchange="saveCheckboxes()"><label for="chk_124_1_b">滅亡寸前種牡馬が2頭以上引退していないかチェック</label></li>
-                                <li><input type="checkbox" id="chk_124_1_c" onchange="saveCheckboxes()"><label for="chk_124_1_c">引退していなければロードし直して普通に年末作業をする</label></li>
+                                <li><input type="checkbox" id="chk_124_1_a"><label for="chk_124_1_a">一度年末の引退種牡馬まで進める</label></li>
+                                <li><input type="checkbox" id="chk_124_1_b"><label for="chk_124_1_b">滅亡寸前種牡馬が2頭以上引退していないかチェック</label></li>
+                                <li><input type="checkbox" id="chk_124_1_c"><label for="chk_124_1_c">引退していなければロードし直して普通に年末作業をする</label></li>
                             </ul>
                         </div>
                     </li>
                 </ul>
                 <h4>### 滅亡寸前系統が2頭以上引退する場合</h4>
                 <ul>
-                    <li><input type="checkbox" id="chk_ext_1" onchange="saveCheckboxes()"><label for="chk_ext_1">一度オート進行で4月1週目まで進める</label></li>
-                    <li><input type="checkbox" id="chk_ext_2" onchange="saveCheckboxes()"><label for="chk_ext_2">誕生した幼駒に滅亡系統の牡馬がいるかチェックする</label></li>
+                    <li><input type="checkbox" id="chk_ext_1"><label for="chk_ext_1">一度オート進行で4月1週目まで進める</label></li>
+                    <li><input type="checkbox" id="chk_ext_2"><label for="chk_ext_2">誕生した幼駒に滅亡系統の牡馬がいるかチェックする</label></li>
                     <li>
                         <div>
-                            <input type="checkbox" id="chk_ext_3" onchange="saveCheckboxes()"><label for="chk_ext_3">いない場合は12月4周目の段階で牡馬がいるかチェックして購入する、いなければほぼ滅亡確定</label>
+                            <input type="checkbox" id="chk_ext_3"><label for="chk_ext_3">いない場合は12月4周目の段階で牡馬がいるかチェックして購入する、いなければほぼ滅亡確定</label>
                             <ul class="sub-list">
-                                <li><input type="checkbox" id="chk_ext_3_a" onchange="saveCheckboxes()"><label for="chk_ext_3_a">運が良ければ現役牡馬が種牡馬になるがほぼない</label></li>
+                                <li><input type="checkbox" id="chk_ext_3_a"><label for="chk_ext_3_a">運が良ければ現役牡馬が種牡馬になるがほぼない</label></li>
                             </ul>
                         </div>
                     </li>
@@ -125,10 +125,10 @@
     <div id="csvSection">
         <textarea id="ioTextarea" placeholder="JSONデータを出力・入力"></textarea>
         <div style="display: flex; gap: 10px;">
-            <button onclick="importJSON()" class="primary-btn">JSONから読み込み</button>
-            <button onclick="exportJSON()">JSON出力</button>
-            <button onclick="loadFile()" class="primary-btn">ファイルから読込</button>
-            <button onclick="saveFile()">ファイルに保存</button>
+            <button id="importBtn" class="primary-btn">JSONから読み込み</button>
+            <button id="exportBtn">JSON出力</button>
+            <button id="loadFileBtn" class="primary-btn">ファイルから読込</button>
+            <button id="saveFileBtn">ファイルに保存</button>
         </div>
     </div>
 
@@ -136,18 +136,18 @@
         <input type="text" id="newName" placeholder="系統名">
         <input type="number" id="newYear" placeholder="生年" style="width: 80px;">
         <input type="text" id="newHorseName" placeholder="所有種牡馬名（空なら種牡馬）">
-        <button onclick="addData()" class="primary-btn">追加</button>
+        <button id="addBtn" class="primary-btn">追加</button>
     </div>
 
     <table id="horseTable">
         <thead>
             <tr>
                 <th style="width: 40px; cursor: default;">移動</th>
-                <th onclick="sortData('order')" style="width: 50px;">順序</th>
-                <th onclick="sortData('name')">系統名</th>
+                <th data-sort="order" style="width: 50px;">順序</th>
+                <th data-sort="name">系統名</th>
                 <th style="width: 50px; cursor: default;">年齢</th>
-                <th onclick="sortData('birthYear')" style="width: 60px;">生年</th>
-                <th onclick="sortData('horseName')">所有種牡馬名</th>
+                <th data-sort="birthYear" style="width: 60px;">生年</th>
+                <th data-sort="horseName">所有種牡馬名</th>
                 <th>他牧場の種牡馬</th>
                 <th style="width: 70px; cursor: default;">操作</th>
             </tr>

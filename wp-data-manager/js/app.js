@@ -193,6 +193,55 @@ function loadData() {
     loadCheckboxes();
 }
 
+// 静的HTML要素のイベントを登録（インラインonclick廃止に伴う集約登録）
+function initEvents() {
+    registerToggleButtons();
+    registerGameYearInput();
+    registerScheduleCheckboxes();
+    registerIoButtons();
+    registerAddButton();
+    registerSortHeader();
+}
+
+// トグルボタン: data-target のsection表示を切替
+function registerToggleButtons() {
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => toggleElement(btn.dataset.target));
+    });
+}
+
+// ゲーム内年入力: 変更でリスト再描画
+function registerGameYearInput() {
+    document.getElementById('currentGameYear').addEventListener('input', (e) => updateGameYear(e.target.value));
+}
+
+// スケジュールのcheckbox: 変更を委譲で一括保存
+function registerScheduleCheckboxes() {
+    document.getElementById('scheduleSection').addEventListener('change', saveCheckboxes);
+}
+
+// JSON入出力・ファイル読込/保存の4ボタン
+function registerIoButtons() {
+    document.getElementById('importBtn').addEventListener('click', importJSON);
+    document.getElementById('exportBtn').addEventListener('click', exportJSON);
+    document.getElementById('loadFileBtn').addEventListener('click', loadFile);
+    document.getElementById('saveFileBtn').addEventListener('click', saveFile);
+}
+
+// 追加ボタン
+function registerAddButton() {
+    document.getElementById('addBtn').addEventListener('click', addData);
+}
+
+// テーブルヘッダ: data-sort の列でソート
+function registerSortHeader() {
+    document.querySelector('#horseTable thead').addEventListener('click', (e) => {
+        const th = e.target.closest('th[data-sort]');
+        if (!th) return;
+        sortData(th.dataset.sort);
+    });
+}
+
 function saveAndRender() {
     localStorage.setItem('horse_data_ordered_v7', JSON.stringify(horses));
     render();
@@ -227,12 +276,12 @@ function deleteData(id) {
 function startEdit(id, key, element) {
     const horse = horses.find(h => h.id === id);
     if (!horse) return;
+    if (element.querySelector('input, textarea')) return;
     const originalValue = (key === 'otherHorseNames') ? (horse.otherHorseNames || []).join('\n') : horse[key];
     const input = document.createElement(key === 'otherHorseNames' ? 'textarea' : 'input');
     if (key !== 'otherHorseNames') input.type = (key === 'birthYear') ? 'number' : 'text';
     input.value = originalValue;
     input.className = 'edit-input';
-    element.onclick = null;
     element.innerHTML = '';
     element.appendChild(input);
     input.focus();
@@ -292,28 +341,89 @@ function render() {
         const tr = document.createElement('tr');
         tr.dataset.id = h.id;
         if (!stallion) tr.classList.add('runner-row');
-        tr.innerHTML = `
-            <td class="handle" draggable="true">≡</td>
-            <td style="color: #666; font-weight: bold; text-align: center;">${h.order}</td>
-            <td class="name-cell">${escapeHtml(h.name)}</td>
-            <td class="age-cell">${age}</td>
-            <td class="editable" onclick="startEdit(${h.id}, 'birthYear', this)">${h.birthYear}</td>
-            <td class="editable" onclick="startEdit(${h.id}, 'horseName', this)">${escapeHtml(h.horseName)}</td>
-            <td class="editable other-cell" onclick="startEdit(${h.id}, 'otherHorseNames', this)">${escapeHtml(otherText).replace(/\n/g, '<br>')}</td>
-            <td><button class="delete-btn" onclick="deleteData(${h.id})">削除</button></td>
-        `;
-        const handle = tr.querySelector('.handle');
-        handle.addEventListener('dragstart', handleDragStart);
-        tr.addEventListener('dragover', handleDragOver);
-        tr.addEventListener('drop', handleDrop);
-        handle.addEventListener('dragend', handleDragEnd);
-        // 編集セル以外のクリックで現役/種牡馬トグル
-        tr.querySelectorAll('td:not(.editable)').forEach(td => {
-            if (td.querySelector('button')) return;
-            td.style.cursor = 'pointer';
-            td.addEventListener('click', () => toggleRunner(h.id));
-        });
+        tr.appendChild(createDragHandleCell());
+        tr.appendChild(createOrderCell(h.order));
+        tr.appendChild(createNameCell(h.name));
+        tr.appendChild(createAgeCell(age));
+        tr.appendChild(createEditableCell(h.id, 'birthYear', h.birthYear, false));
+        tr.appendChild(createEditableCell(h.id, 'horseName', h.horseName, false));
+        tr.appendChild(createEditableCell(h.id, 'otherHorseNames', escapeHtml(otherText).replace(/\n/g, '<br>'), true));
+        tr.appendChild(createDeleteCell(h.id));
+        attachRowEvents(tr, h.id);
         tbody.appendChild(tr);
+    });
+}
+
+// ドラッグ用のハンドルセル（≡）を生成
+function createDragHandleCell() {
+    const td = document.createElement('td');
+    td.className = 'handle';
+    td.setAttribute('draggable', 'true');
+    td.textContent = '≡';
+    return td;
+}
+
+// 順序表示セルを生成（クリック不可）
+function createOrderCell(order) {
+    const td = document.createElement('td');
+    td.style.color = '#666';
+    td.style.fontWeight = 'bold';
+    td.style.textAlign = 'center';
+    td.textContent = order;
+    return td;
+}
+
+// 系統名セルを生成（クリックでトグル）
+function createNameCell(name) {
+    const td = document.createElement('td');
+    td.className = 'name-cell';
+    td.textContent = name;
+    return td;
+}
+
+// 年齢セルを生成（クリックでトグル）
+function createAgeCell(age) {
+    const td = document.createElement('td');
+    td.className = 'age-cell';
+    td.textContent = age;
+    return td;
+}
+
+// 編集可能セルを生成。isHtml=trueならinnerHTMLで改行タグ等を反映
+function createEditableCell(id, key, value, isHtml) {
+    const td = document.createElement('td');
+    td.className = 'editable' + (key === 'otherHorseNames' ? ' other-cell' : '');
+    if (isHtml) {
+        td.innerHTML = value;
+    } else {
+        td.textContent = value;
+    }
+    td.addEventListener('click', () => startEdit(id, key, td));
+    return td;
+}
+
+// 削除ボタンセルを生成
+function createDeleteCell(id) {
+    const td = document.createElement('td');
+    const btn = document.createElement('button');
+    btn.className = 'delete-btn';
+    btn.textContent = '削除';
+    btn.addEventListener('click', () => deleteData(id));
+    td.appendChild(btn);
+    return td;
+}
+
+// 行のドラッグ＆ドロップと、編集セル以外のクリック（現役/種牡馬トグル）を登録
+function attachRowEvents(tr, id) {
+    const handle = tr.querySelector('.handle');
+    handle.addEventListener('dragstart', handleDragStart);
+    tr.addEventListener('dragover', handleDragOver);
+    tr.addEventListener('drop', handleDrop);
+    handle.addEventListener('dragend', handleDragEnd);
+    tr.querySelectorAll('td:not(.editable)').forEach(td => {
+        if (td.querySelector('button')) return;
+        td.style.cursor = 'pointer';
+        td.addEventListener('click', () => toggleRunner(id));
     });
 }
 
@@ -341,4 +451,7 @@ function handleDrop(e) {
 }
 function handleDragEnd() { if (dragSrcRow) dragSrcRow.classList.remove('dragging'); }
 
-window.onload = loadData;
+window.onload = () => {
+    loadData();
+    initEvents();
+};
