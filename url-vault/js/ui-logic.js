@@ -22,7 +22,7 @@
                 dupCheckEnabled: state.dupCheckEnabled ?? false,
                 dupCheckLength: state.dupCheckLength ?? 6
             };
-        } catch (e) {
+        } catch {
             return null;
         }
     };

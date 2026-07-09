@@ -356,7 +356,7 @@ const rebuildDatabaseFromRaw = () => {
         if (!oldRecord.raw) return oldRecord;
         try {
             return parseSmartJson(oldRecord.raw, oldRecord);
-        } catch (e) {
+        } catch {
             return oldRecord;
         }
     });
@@ -392,7 +392,7 @@ const importBackup = (event) => {
             saveDb();
             renderTable();
             showToast(TOAST.IMPORTED);
-        } catch (err) {
+        } catch {
             showToast(TOAST.IMPORT_FAIL);
         }
         document.getElementById('fileInput').value = '';
@@ -588,8 +588,11 @@ const focusSizeCell = (id) => {
     if (!row) return;
     // 容量セルは2列目（.size-cell 配下の .clickable-cell）
     const sizeCell = row.querySelector('.size-cell .clickable-cell');
-    if (sizeCell) enableTextEdit(id, sizeCell, 'manualSize', '例: 500GB',
-        (text) => ({ size: text, size_bytes: parseSizeToBytes(text) }), record.size || '');
+    if (!sizeCell) return;
+    const found = findRecord(id);
+    const fallback = found ? (found.record.size || '') : '';
+    enableTextEdit(id, sizeCell, 'manualSize', '例: 500GB',
+        (text) => ({ size: text, size_bytes: parseSizeToBytes(text) }), fallback);
 };
 
 // 既存レコード更新時に該当行を強調表示（スクロール＋一時ハイライト）
@@ -687,15 +690,6 @@ const updateSortIndicators = () => {
     const thIdx = SORT_INDEX_MAP[viewState.sortField];
     if (thIdx === undefined) return;
     ths[thIdx].className = viewState.sortOrder === 'asc' ? 'sort-asc' : 'sort-desc';
-};
-
-// テキストtdを生成してtrに追加
-const appendTextTd = (tr, text, className) => {
-    const td = document.createElement('td');
-    if (className) td.className = className;
-    if (text !== undefined) td.innerText = text;
-    tr.appendChild(td);
-    return td;
 };
 
 // 編集可能セル（clickable-cell）を生成
@@ -1069,7 +1063,7 @@ const bindStaticEvents = () => {
         if (!rawText) return;
         try {
             upsertRecord(rawText);
-        } catch (err) {
+        } catch {
             showToast(TOAST.PARSE_FAIL);
         }
     });

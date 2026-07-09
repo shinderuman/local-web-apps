@@ -91,7 +91,6 @@ const uiState = {
 // ============================================================
 
 const {
-    normalizeDigits,
     parseVolume,
     parseBaseTitle
 } = window.TITLE_PARSER;
@@ -1446,7 +1445,12 @@ const handleImport = () => {
     const jsonString = document.getElementById('ioTextarea').value.trim();
     if (!jsonString) return;
     let parsedData;
-    try { parsedData = JSON.parse(jsonString); } catch (e) { alert('JSONのパースに失敗しました。'); return; }
+    try {
+        parsedData = JSON.parse(jsonString);
+    } catch {
+        alert('JSONのパースに失敗しました。');
+        return;
+    }
     importData(parsedData);
 };
 
@@ -1458,7 +1462,12 @@ const handleLoadFile = async () => {
         const file = await handle.getFile();
         const jsonString = await file.text();
         let parsedData;
-        try { parsedData = JSON.parse(jsonString); } catch (e) { alert('JSONのパースに失敗しました。'); return; }
+        try {
+            parsedData = JSON.parse(jsonString);
+        } catch {
+            alert('JSONのパースに失敗しました。');
+            return;
+        }
         importData(parsedData);
     } catch (e) {
         if (e.name !== 'AbortError') console.error('ファイルの読み込みに失敗しました', e);

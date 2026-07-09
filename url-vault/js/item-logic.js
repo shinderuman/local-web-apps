@@ -53,7 +53,8 @@
 
     // エクスポート時にsynopsisフィールドを除外したコピーを返す（非破壊）
     const stripSynopsisForExport = (item) => {
-        const { synopsis, ...rest } = item;
+        const rest = { ...item };
+        delete rest.synopsis;
         return rest;
     };
 

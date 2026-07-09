@@ -133,7 +133,7 @@ function importJSON() {
         if (!Array.isArray(parsed)) { alert('データ構造が不正です'); return; }
         horses = parsed;
         saveAndRender();
-    } catch (e) {
+    } catch {
         alert('JSONのパースに失敗しました');
     }
 }
