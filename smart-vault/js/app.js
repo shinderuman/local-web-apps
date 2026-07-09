@@ -213,7 +213,8 @@ const parseSmartJson = (rawText, existingRecord = null) => {
     const id = existingRecord ? existingRecord.id : Number(Date.now());
 
     if (!vendor) vendor = detectVendor(data, model);
-    const customType = detectCustomType(protocol, model, deviceType, existingType);
+    const detected = detectCustomType(protocol, model, deviceType, existingType);
+    const customType = detected === 'unknown' ? manualTypeFromFilter() : detected;
 
     const { level: healthLevel, reasons: healthReasons } = computeHealthLevel(data, {
         customType, health, hours_val: hoursVal, lifePercent, reallocSectors, pendingSectors, crcErrors
