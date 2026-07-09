@@ -4,3 +4,6 @@ url-vault/config.js
 # OS・ツールメタデータ
 .DS_Store
 .claude/
+
+# Node.js依存パッケージ
+node_modules/

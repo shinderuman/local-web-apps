@@ -1,0 +1,10 @@
+{
+    "name": "local-web-apps",
+    "version": "1.0.0",
+    "private": true,
+    "description": "ローカル専用Webアプリ群（url-vault, smart-vault, wp-data-manager）",
+    "devDependencies": {
+        "eslint": "^9.39.1",
+        "globals": "^17.7.0"
+    }
+}
