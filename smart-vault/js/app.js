@@ -546,7 +546,7 @@ const enableSelectEdit = (id, container, field, options, allowFreeInput = false)
 };
 
 // テキスト編集（field に文字列を保存）。onCommit で追加の派生更新を行える
-const enableTextEdit = (id, container, field, placeholder = '', onCommit = null) => {
+const enableTextEdit = (id, container, field, placeholder = '', onCommit = null, fallback = '') => {
     const found = findRecord(id);
     if (!found || container.querySelector('input')) return;
     const { idx, record } = found;
@@ -555,7 +555,7 @@ const enableTextEdit = (id, container, field, placeholder = '', onCommit = null)
     input.type = 'text';
     input.className = 'memo-edit-input select-inline-input';
     if (placeholder) input.placeholder = placeholder;
-    input.value = record[field] || '';
+    input.value = record[field] || fallback || '';
 
     container.innerHTML = '';
     container.appendChild(input);
@@ -583,7 +583,7 @@ const focusSizeCell = (id) => {
     // 容量セルは2列目（.size-cell 配下の .clickable-cell）
     const sizeCell = row.querySelector('.size-cell .clickable-cell');
     if (sizeCell) enableTextEdit(id, sizeCell, 'manualSize', '例: 500GB',
-        (text) => ({ size: text, size_bytes: parseSizeToBytes(text) }));
+        (text) => ({ size: text, size_bytes: parseSizeToBytes(text) }), record.size || '');
 };
 
 // 通電時間と電源回数を1セル内で並べて編集（両方の数値を更新）
@@ -751,7 +751,7 @@ const createRow = (item, index) => {
     tdSize.appendChild(createEditableCell(
         item.size || '—',
         (e) => enableTextEdit(item.id, e.currentTarget, 'manualSize', '例: 500GB',
-            (text) => ({ size: text, size_bytes: parseSizeToBytes(text) }))
+            (text) => ({ size: text, size_bytes: parseSizeToBytes(text) }), item.size || '')
     ));
     tr.appendChild(tdSize);
 
