@@ -49,7 +49,7 @@
         shortenQuery,
         RAKUTEN_API_URL,
         RAKUTEN_GENRE_COMIC,
-        RAKUTEN_HITS,
+        RAKUTEN_HITS
     };
 
     factory(root, SYNOPSIS_LOGIC);

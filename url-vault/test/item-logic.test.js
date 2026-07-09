@@ -6,7 +6,7 @@ const {
     buildNewItem,
     sortItems,
     isValidItemInput,
-    stripSynopsisForExport,
+    stripSynopsisForExport
 } = require('../js/item-logic.js');
 
 // ============================================================
@@ -41,7 +41,7 @@ test('shiftSortOrders: 各アイテムのsortOrderを+1する', () => {
     assert.deepStrictEqual(result, [
         { id: 1, sortOrder: 1 },
         { id: 2, sortOrder: 2 },
-        { id: 3, sortOrder: 3 },
+        { id: 3, sortOrder: 3 }
     ]);
 });
 
@@ -68,7 +68,7 @@ test('buildNewItem: 全フィールドを含む新規アイテムを構築', () 
         title: 'タイトル',
         url: 'https://example.com',
         image: 'data:image/jpeg;base64,xxx',
-        sortOrder: 0,
+        sortOrder: 0
     }, 1234567890);
     assert.deepStrictEqual(result, {
         windowId: 1,
@@ -77,13 +77,13 @@ test('buildNewItem: 全フィールドを含む新規アイテムを構築', () 
         url: 'https://example.com',
         image: 'data:image/jpeg;base64,xxx',
         sortOrder: 0,
-        createdAt: 1234567890,
+        createdAt: 1234567890
     });
 });
 
 test('buildNewItem: createdAtは第2引数で指定', () => {
     const result = buildNewItem({
-        windowId: 1, groupId: 1, title: 't', url: 'u', image: '', sortOrder: 5,
+        windowId: 1, groupId: 1, title: 't', url: 'u', image: '', sortOrder: 5
     }, 9999);
     assert.strictEqual(result.createdAt, 9999);
 });

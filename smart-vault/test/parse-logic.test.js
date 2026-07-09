@@ -9,7 +9,7 @@ const {
     calcTbw,
     calcLife,
     calcSectorCounts,
-    detectCustomType,
+    detectCustomType
 } = require('../js/parse-logic.js');
 
 // 実データ相当のサンプルを読み込み（S/N等の個人情報はダミー化済み）

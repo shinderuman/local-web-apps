@@ -53,7 +53,7 @@
     const parseBaseTitle = (title) => {
         // サブタイトル（最初の〜/～以降）を切り捨て
         const main = normalizeDigits(title).split(/[〜～]/)[0];
-        let s = main.replace(/\s+$/, '');
+        const s = main.replace(/\s+$/, '');
 
         // 末尾の「N巻」「第N巻」を除去して再帰
         const volSuffix = s.match(/[\s　]?第?[0-9]+巻$/);

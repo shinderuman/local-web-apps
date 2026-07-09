@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const {
     normalizeDigits,
     parseVolume,
-    parseBaseTitle,
+    parseBaseTitle
 } = require('../js/title-parser.js');
 
 // ============================================================
@@ -130,4 +130,3 @@ test('実データ: 我にチートを 10巻', () => {
     const base = parseBaseTitle(title);
     assert.ok(base.includes('我にチートを'), '作品名が保持されるべき: ' + base);
 });
-

@@ -5,7 +5,7 @@ const {
     formatTemp,
     formatTbw,
     formatCount,
-    formatPowerOnHours,
+    formatPowerOnHours
 } = require('../js/format-logic.js');
 
 // ============================================================

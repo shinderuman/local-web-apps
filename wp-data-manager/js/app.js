@@ -1,59 +1,59 @@
 let horses = [];
 let currentGameYear = 1973;
-let sortState = { key: 'order', asc: true };
+const sortState = { key: 'order', asc: true };
 
 const masterHorseData = {
-    1963: ["スピードシンボリ", "ワカクモ"],
-    1964: ["ヒカルタカイ", "ニットエイト", "リュウズキ", "Damascus", "Dr.Fager", "In Reality"],
-    1965: ["タケシバオー", "マーチス", "アサカオー", "ダテホーライ", "キタノダイオー", "Sir Ivor", "Dark Mirage", "Vaguely Noble", "Petingo", "ゼダーン"],
-    1966: ["メジロアサマ", "トウメイ", "Majestic Prince", "Arts and Letters", "Ack Ack", "Ta Wee", "Cougar", "Habitat", "Gallant Bloom"],
-    1968: ["Mill Reef", "My Swallow", "Brigadier Gerard", "Canonero", "ヒカルイマイ", "ナスノカオリ", "カネヒムロ", "ニホンピロムーテー", "ベルワイド"],
-    1969: ["Riverman", "Riva Ridge", "Key to the Mint", "Lyphard", "Susan's Girl", "ロングエース", "ランドプリンス", "イシノヒカル", "トクザクラ", "アチーブスター", "ハマノパレード", "ストロングエイト", "タニノチカラ", "タイテエム", "Halo", "Roberto"],
-    1970: ["ハイセイコー", "タケホープ", "ニットウチドリ", "ナスノチグサ", "Secretariat", "Forego", "Mr.Prospector", "Allez France", "Dahlia"],
-    1971: ["イットー", "キタノカチドキ", "コーネルランサー", "フジノパーシア", "Northern Taste", "Highclere", "Sagaro"],
-    1972: ["カブラヤオー", "テスコガビー", "Ruffian", "Foolish Pleasure"],
-    1973: ["トウショウボーイ", "テンポイント", "Exceller"],
-    1974: ["マルゼンスキー", "Seattle Slew", "Alleged"],
-    1975: ["John Henry", "Affirmed", "Alydar"],
-    1980: ["ミスターシービー", "ニホンピロウイナー"],
-    1981: ["シンボリルドルフ"],
-    1983: ["メジロラモーヌ", "Dancing Brave"],
-    1984: ["イナリワン", "タマモクロス"],
-    1985: ["オグリキャップ", "バンブーメモリー", "ヤエノムテキ", "スーパークリーク"],
-    1986: ["Sunday Silence", "Easy Goer"],
-    1987: ["イクノディクタス", "アイネスフウジン", "メジロパーマー"],
-    1988: ["トウカイテイオー"],
-    1989: ["ミホノブルボン", "サクラバクシンオー", "A.P.Indy"],
-    1990: ["ビワハヤヒデ", "ナリタタイシン", "ノースフライト", "ホクトベガ", "Cigar"],
-    1991: ["ナリタブライアン", "ヒシアマゾン", "サクラローレル"],
-    1992: ["マヤノトップガン", "フラワーパーク", "フジキセキ", "Lammtarra"],
-    1993: ["エアグルーヴ"],
-    1994: ["サイレンススズカ", "タイキシャトル", "メジロドーベル"],
-    1995: ["スペシャルウィーク", "グラスワンダー", "エルコンドルパサー", "セイウンスカイ"],
-    1996: ["テイエムオペラオー", "アドマイヤベガ", "ナリタトップロード", "メイショウドトウ", "Montjeu", "Dubai Millennium"],
-    1997: ["アグネスデジタル"],
-    1998: ["クロフネ", "アグネスタキオン", "Galileo"],
-    1999: ["デュランダル", "シンボリクリスエス"],
-    2000: ["ゼンノロブロイ", "Ghostzapper"],
-    2001: ["メジロマックイーン", "メジロライアン", "メジロブライト", "キングカメハメハ", "ハーツクライ"],
-    2002: ["ディープインパクト"],
-    2004: ["ドリームジャーニー", "ウオッカ", "ダイワスカーレット"],
-    2005: ["スマートファルコン"],
-    2006: ["ナカヤマフェスタ", "ブエナビスタ"],
-    2007: ["カレンチャン", "ルーラーシップ", "アパパネ"],
-    2008: ["ロードカナロア", "オルフェーヴル", "Frankel"],
-    2009: ["ゴールドシップ", "ホッコータルマエ", "ジェンティルドンナ"],
-    2010: ["コパノリッキー", "エピファネイア"],
-    2011: ["モーリス"],
-    2012: ["キタサンブラック", "サトノクラウン", "ドゥラメンテ", "American Pharoah"],
-    2013: ["サトノダイヤモンド", "Arrogate"],
-    2014: ["ウインブライト", "Enable", "レイデオロ"],
-    2015: ["アーモンドアイ", "Justify", "ゴールデンシックスティ"],
-    2016: ["グランアレグリア", "クロノジェネシス"],
-    2017: ["デアリングタクト", "コントレイル"],
-    2018: ["エフフォーリア", "Baaeed", "Flightline", "ロマンチックウォリアー"],
-    2019: ["イクノックス"],
-    2020: ["リバティアイランド", "Auguste Rodin", "Ka Ying Rising", "カーインライジング"]
+    1963: ['スピードシンボリ', 'ワカクモ'],
+    1964: ['ヒカルタカイ', 'ニットエイト', 'リュウズキ', 'Damascus', 'Dr.Fager', 'In Reality'],
+    1965: ['タケシバオー', 'マーチス', 'アサカオー', 'ダテホーライ', 'キタノダイオー', 'Sir Ivor', 'Dark Mirage', 'Vaguely Noble', 'Petingo', 'ゼダーン'],
+    1966: ['メジロアサマ', 'トウメイ', 'Majestic Prince', 'Arts and Letters', 'Ack Ack', 'Ta Wee', 'Cougar', 'Habitat', 'Gallant Bloom'],
+    1968: ['Mill Reef', 'My Swallow', 'Brigadier Gerard', 'Canonero', 'ヒカルイマイ', 'ナスノカオリ', 'カネヒムロ', 'ニホンピロムーテー', 'ベルワイド'],
+    1969: ['Riverman', 'Riva Ridge', 'Key to the Mint', 'Lyphard', 'Susan\'s Girl', 'ロングエース', 'ランドプリンス', 'イシノヒカル', 'トクザクラ', 'アチーブスター', 'ハマノパレード', 'ストロングエイト', 'タニノチカラ', 'タイテエム', 'Halo', 'Roberto'],
+    1970: ['ハイセイコー', 'タケホープ', 'ニットウチドリ', 'ナスノチグサ', 'Secretariat', 'Forego', 'Mr.Prospector', 'Allez France', 'Dahlia'],
+    1971: ['イットー', 'キタノカチドキ', 'コーネルランサー', 'フジノパーシア', 'Northern Taste', 'Highclere', 'Sagaro'],
+    1972: ['カブラヤオー', 'テスコガビー', 'Ruffian', 'Foolish Pleasure'],
+    1973: ['トウショウボーイ', 'テンポイント', 'Exceller'],
+    1974: ['マルゼンスキー', 'Seattle Slew', 'Alleged'],
+    1975: ['John Henry', 'Affirmed', 'Alydar'],
+    1980: ['ミスターシービー', 'ニホンピロウイナー'],
+    1981: ['シンボリルドルフ'],
+    1983: ['メジロラモーヌ', 'Dancing Brave'],
+    1984: ['イナリワン', 'タマモクロス'],
+    1985: ['オグリキャップ', 'バンブーメモリー', 'ヤエノムテキ', 'スーパークリーク'],
+    1986: ['Sunday Silence', 'Easy Goer'],
+    1987: ['イクノディクタス', 'アイネスフウジン', 'メジロパーマー'],
+    1988: ['トウカイテイオー'],
+    1989: ['ミホノブルボン', 'サクラバクシンオー', 'A.P.Indy'],
+    1990: ['ビワハヤヒデ', 'ナリタタイシン', 'ノースフライト', 'ホクトベガ', 'Cigar'],
+    1991: ['ナリタブライアン', 'ヒシアマゾン', 'サクラローレル'],
+    1992: ['マヤノトップガン', 'フラワーパーク', 'フジキセキ', 'Lammtarra'],
+    1993: ['エアグルーヴ'],
+    1994: ['サイレンススズカ', 'タイキシャトル', 'メジロドーベル'],
+    1995: ['スペシャルウィーク', 'グラスワンダー', 'エルコンドルパサー', 'セイウンスカイ'],
+    1996: ['テイエムオペラオー', 'アドマイヤベガ', 'ナリタトップロード', 'メイショウドトウ', 'Montjeu', 'Dubai Millennium'],
+    1997: ['アグネスデジタル'],
+    1998: ['クロフネ', 'アグネスタキオン', 'Galileo'],
+    1999: ['デュランダル', 'シンボリクリスエス'],
+    2000: ['ゼンノロブロイ', 'Ghostzapper'],
+    2001: ['メジロマックイーン', 'メジロライアン', 'メジロブライト', 'キングカメハメハ', 'ハーツクライ'],
+    2002: ['ディープインパクト'],
+    2004: ['ドリームジャーニー', 'ウオッカ', 'ダイワスカーレット'],
+    2005: ['スマートファルコン'],
+    2006: ['ナカヤマフェスタ', 'ブエナビスタ'],
+    2007: ['カレンチャン', 'ルーラーシップ', 'アパパネ'],
+    2008: ['ロードカナロア', 'オルフェーヴル', 'Frankel'],
+    2009: ['ゴールドシップ', 'ホッコータルマエ', 'ジェンティルドンナ'],
+    2010: ['コパノリッキー', 'エピファネイア'],
+    2011: ['モーリス'],
+    2012: ['キタサンブラック', 'サトノクラウン', 'ドゥラメンテ', 'American Pharoah'],
+    2013: ['サトノダイヤモンド', 'Arrogate'],
+    2014: ['ウインブライト', 'Enable', 'レイデオロ'],
+    2015: ['アーモンドアイ', 'Justify', 'ゴールデンシックスティ'],
+    2016: ['グランアレグリア', 'クロノジェネシス'],
+    2017: ['デアリングタクト', 'コントレイル'],
+    2018: ['エフフォーリア', 'Baaeed', 'Flightline', 'ロマンチックウォリアー'],
+    2019: ['イクノックス'],
+    2020: ['リバティアイランド', 'Auguste Rodin', 'Ka Ying Rising', 'カーインライジング']
 };
 
 function escapeHtml(str) {
@@ -95,7 +95,7 @@ function updateGameYear(val) {
 
 function renderFilteredHorseList() {
     const targetContainer = document.getElementById('filteredHorseList');
-    targetContainer.innerHTML = "";
+    targetContainer.innerHTML = '';
 
     const filterYear = currentGameYear - 1;
     const years = Object.keys(masterHorseData).map(Number).filter(y => y >= filterYear).sort((a, b) => a - b);
@@ -147,7 +147,7 @@ function exportJSON() {
 async function loadFile() {
     try {
         const [handle] = await window.showOpenFilePicker({
-            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
         });
         const file = await handle.getFile();
         const text = await file.text();
@@ -162,7 +162,7 @@ async function saveFile() {
     try {
         const handle = await window.showSaveFilePicker({
             suggestedName: 'horse-data.json',
-            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
         });
         const exportList = [...horses].sort((a, b) => a.order - b.order);
         const writable = await handle.createWritable();
@@ -208,14 +208,14 @@ function addData() {
         id: Date.now(),
         order: maxOrder + 1,
         name: name,
-        birthYear: year ? parseInt(year, 10) : "",
-        horseName: horseName === "" ? "種牡馬" : horseName,
+        birthYear: year ? parseInt(year, 10) : '',
+        horseName: horseName === '' ? '種牡馬' : horseName,
         otherHorseNames: [],
         isRunner: true
     });
-    document.getElementById('newName').value = "";
-    document.getElementById('newYear').value = "";
-    document.getElementById('newHorseName').value = "";
+    document.getElementById('newName').value = '';
+    document.getElementById('newYear').value = '';
+    document.getElementById('newHorseName').value = '';
     saveAndRender();
 }
 
@@ -239,9 +239,9 @@ function startEdit(id, key, element) {
     const finishEdit = () => {
         const newValue = input.value.trim();
         if (key === 'birthYear') {
-            horse[key] = newValue !== "" ? parseInt(newValue, 10) : "";
+            horse[key] = newValue !== '' ? parseInt(newValue, 10) : '';
         } else if (key === 'otherHorseNames') {
-            horse.otherHorseNames = newValue ? newValue.split(/\n/).map(s => s.trim()).filter(s => s !== "") : [];
+            horse.otherHorseNames = newValue ? newValue.split(/\n/).map(s => s.trim()).filter(s => s !== '') : [];
         } else {
             horse[key] = newValue;
         }
@@ -274,8 +274,8 @@ function toggleRunner(id) {
 function sortData(key) {
     if (sortState.key === key) { sortState.asc = !sortState.asc; } else { sortState.key = key; sortState.asc = true; }
     horses.sort((a, b) => {
-        let valA = (a[key] === "" || a[key] === null) ? (sortState.asc ? Infinity : -Infinity) : a[key];
-        let valB = (b[key] === "" || b[key] === null) ? (sortState.asc ? Infinity : -Infinity) : b[key];
+        const valA = (a[key] === '' || a[key] === null) ? (sortState.asc ? Infinity : -Infinity) : a[key];
+        const valB = (b[key] === '' || b[key] === null) ? (sortState.asc ? Infinity : -Infinity) : b[key];
         if (typeof valA === 'string') return sortState.asc ? valA.localeCompare(valB, 'ja') : valB.localeCompare(valA, 'ja');
         return sortState.asc ? valA - valB : valB - valA;
     });
@@ -284,9 +284,9 @@ function sortData(key) {
 
 function render() {
     const tbody = document.getElementById('horseTableBody');
-    tbody.innerHTML = "";
+    tbody.innerHTML = '';
     horses.forEach((h) => {
-        const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : "-";
+        const age = (h.birthYear && currentGameYear) ? (currentGameYear - h.birthYear) : '-';
         const stallion = isStallion(h);
         const otherText = (h.otherHorseNames || []).join('\n');
         const tr = document.createElement('tr');

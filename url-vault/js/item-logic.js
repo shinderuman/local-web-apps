@@ -14,7 +14,7 @@
     const shiftSortOrders = (items) => {
         return items.map(item => ({
             ...item,
-            sortOrder: (item.sortOrder || 0) + 1,
+            sortOrder: (item.sortOrder || 0) + 1
         }));
     };
 
@@ -27,7 +27,7 @@
             url: data.url,
             image: data.image,
             sortOrder: data.sortOrder,
-            createdAt: createdAt,
+            createdAt: createdAt
         };
     };
 
@@ -63,7 +63,7 @@
         buildNewItem,
         sortItems,
         isValidItemInput,
-        stripSynopsisForExport,
+        stripSynopsisForExport
     };
 
     factory(root, ITEM_LOGIC);

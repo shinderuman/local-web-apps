@@ -17,7 +17,7 @@ const runLevel = (rec) => {
         lifePercent: rec.lifePercent,
         reallocSectors: rec.reallocSectors ?? -1,
         pendingSectors: rec.pendingSectors ?? -1,
-        crcErrors: rec.crcErrors ?? -1,
+        crcErrors: rec.crcErrors ?? -1
     });
 };
 

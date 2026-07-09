@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const {
     parseVolume,
     parseBaseTitle,
-    normalizeDigits,
+    normalizeDigits
 } = require('../js/title-parser.js');
 const titles = require('./real-titles.json');
 const expected = require('./real-titles.expected.json');

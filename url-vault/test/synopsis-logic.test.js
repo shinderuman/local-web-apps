@@ -5,7 +5,7 @@ const {
     buildVolumeMap,
     selectTargetVolumes,
     tokenizeQuery,
-    shortenQuery,
+    shortenQuery
 } = require('../js/synopsis-logic.js');
 
 // parseVolumeはtitle-parser.jsに依存するため、テスト用にモック
@@ -39,7 +39,7 @@ test('buildRakutenUrl: クエリはURLエンコードされる', () => {
 test('buildVolumeMap: 各巻をvolumeキーで整理', () => {
     const items = [
         { Item: { title: '作品（1）', itemCaption: 'あらすじ1' } },
-        { Item: { title: '作品（2）', itemCaption: 'あらすじ2' } },
+        { Item: { title: '作品（2）', itemCaption: 'あらすじ2' } }
     ];
     const map = buildVolumeMap(items, mockParseVolume);
     assert.strictEqual(map[1].volume, 1);
@@ -51,7 +51,7 @@ test('buildVolumeMap: 各巻をvolumeキーで整理', () => {
 test('buildVolumeMap: itemCaptionがない場合は除外', () => {
     const items = [
         { Item: { title: '作品（1）', itemCaption: '' } },
-        { Item: { title: '作品（2）', itemCaption: 'あらすじ2' } },
+        { Item: { title: '作品（2）', itemCaption: 'あらすじ2' } }
     ];
     const map = buildVolumeMap(items, mockParseVolume);
     assert.strictEqual(map[1], undefined);
@@ -61,7 +61,7 @@ test('buildVolumeMap: itemCaptionがない場合は除外', () => {
 test('buildVolumeMap: 同巻は最初の1件のみ', () => {
     const items = [
         { Item: { title: '作品（1）', itemCaption: '1つ目' } },
-        { Item: { title: '作品（1）セット', itemCaption: '2つ目' } },
+        { Item: { title: '作品（1）セット', itemCaption: '2つ目' } }
     ];
     const map = buildVolumeMap(items, mockParseVolume);
     assert.strictEqual(map[1].caption, '1つ目');
@@ -73,7 +73,7 @@ test('buildVolumeMap: 同巻は最初の1件のみ', () => {
 
 test('selectTargetVolumes: 5巻起点→3,4,5', () => {
     const map = {
-        3: { volume: 3 }, 4: { volume: 4 }, 5: { volume: 5 },
+        3: { volume: 3 }, 4: { volume: 4 }, 5: { volume: 5 }
     };
     const result = selectTargetVolumes(map, 5);
     assert.deepStrictEqual(result.map(r => r.volume), [3, 4, 5]);
@@ -81,7 +81,7 @@ test('selectTargetVolumes: 5巻起点→3,4,5', () => {
 
 test('selectTargetVolumes: 1巻起点→1,2,3（前を詰めない）', () => {
     const map = {
-        1: { volume: 1 }, 2: { volume: 2 }, 3: { volume: 3 },
+        1: { volume: 1 }, 2: { volume: 2 }, 3: { volume: 3 }
     };
     const result = selectTargetVolumes(map, 1);
     assert.deepStrictEqual(result.map(r => r.volume), [1, 2, 3]);
@@ -89,7 +89,7 @@ test('selectTargetVolumes: 1巻起点→1,2,3（前を詰めない）', () => {
 
 test('selectTargetVolumes: 存在しない巻はスキップ', () => {
     const map = {
-        2: { volume: 2 }, 3: { volume: 3 },
+        2: { volume: 2 }, 3: { volume: 3 }
     };
     const result = selectTargetVolumes(map, 3);
     assert.deepStrictEqual(result.map(r => r.volume), [2, 3]);
