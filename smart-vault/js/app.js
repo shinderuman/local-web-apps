@@ -926,6 +926,17 @@ const createDetailsRow = (item, index) => {
     const raw = document.createElement('div');
     raw.className = 'raw-json';
     raw.innerText = item.raw;
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'btn-copy-json';
+    copyBtn.innerText = '📋 Copy';
+    copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(item.raw).then(() => {
+            copyBtn.innerText = '✓ Copied';
+            setTimeout(() => { copyBtn.innerText = '📋 Copy'; }, 1500);
+        });
+    });
+    raw.appendChild(copyBtn);
     container.appendChild(raw);
 
     td.appendChild(container);
