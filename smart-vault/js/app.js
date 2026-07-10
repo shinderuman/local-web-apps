@@ -150,6 +150,7 @@ const TOAST = {
 // 状態変数（ミュータブル）
 // ============================================================
 
+let sortableInstance = null;
 let db = (() => {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
     return Array.isArray(raw) ? raw : Object.values(raw);
@@ -456,6 +457,7 @@ const applyFilter = (type, btn) => {
     sessionStorage.setItem(FILTER_KEY, type);
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
+    updateDragEnabled();
     renderTable();
 };
 
@@ -472,6 +474,7 @@ const sortTable = (field) => {
         viewState.sortField = field;
         viewState.sortOrder = 'asc';
     }
+    updateDragEnabled();
     renderTable();
 };
 
@@ -740,13 +743,12 @@ const createMemoCell = (item) => {
     return td;
 };
 
-const createRow = (item, index) => {
+const createRow = (item) => {
     const currentType = item.customType || 'unknown';
     const isUnknown = currentType === 'unknown';
 
     const tr = document.createElement('tr');
     tr.className = isUnknown ? 'item-row unknown-type-row' : 'item-row';
-    tr.setAttribute('draggable', 'true');
     tr.setAttribute('data-id', item.id);
 
     // メーカー（編集可能・自由入力可）
@@ -830,7 +832,7 @@ const createRow = (item, index) => {
     tr.appendChild(tdInsert);
 
     // 行クリックで詳細トグル（編集可能セル・ボタン・入力要素は除外）
-    const detailsId = `details-${index}`;
+    const detailsId = `details-${item.id}`;
     tr.addEventListener('click', (e) => {
         if (e.target.closest('.clickable-cell, button, select, input, option')) return;
         toggleDetails(detailsId);
@@ -900,10 +902,10 @@ const appendReasonsBlock = (grid, reasons, actionBtn) => {
     grid.appendChild(div);
 };
 
-const createDetailsRow = (item, index) => {
+const createDetailsRow = (item) => {
     const tr = document.createElement('tr');
     tr.className = 'details-row hidden';
-    tr.id = `details-${index}`;
+    tr.id = `details-${item.id}`;
 
     const td = document.createElement('td');
     td.colSpan = 10;
@@ -984,69 +986,65 @@ const renderTable = () => {
     updateSortIndicators();
 
     let visibleCount = 0;
-    getDisplayItems().forEach((item, index) => {
+    getDisplayItems().forEach((item) => {
         const currentType = item.customType || 'unknown';
         if (viewState.filter !== 'all' && viewState.filter !== currentType) return;
         visibleCount++;
-        tbody.appendChild(createRow(item, index));
-        tbody.appendChild(createDetailsRow(item, index));
+        tbody.appendChild(createRow(item));
+        tbody.appendChild(createDetailsRow(item));
     });
 
     if (visibleCount === 0) {
         tbody.appendChild(createEmptyRow());
-    } else {
-        setupDragAndDrop();
     }
 };
 
-const setupDragAndDrop = () => {
+// ソート中はD&Dを無効化（フィルタ中は許可、全体順序の完全な保証は不要なため）
+const isSortableDisabled = () => {
+    return viewState.sortField !== '';
+};
+
+// D&Dの有効/無効をSortableインスタンスに反映
+const updateDragEnabled = () => {
+    if (sortableInstance) {
+        sortableInstance.option('disabled', isSortableDisabled());
+    }
+};
+
+// tbodyをSortable化。.item-rowだけドラッグ可能、詳細行は対象外
+const initSortable = () => {
     const tbody = document.getElementById('storageTbody');
-    let dragSrcEl = null;
-
-    tbody.querySelectorAll('.item-row').forEach(row => {
-        row.addEventListener('dragstart', (e) => {
-            dragSrcEl = e.currentTarget;
-            e.currentTarget.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-        });
-
-        row.addEventListener('dragover', (e) => {
-            e.preventDefault();
-        });
-
-        row.addEventListener('dragenter', (e) => {
-            if (e.currentTarget !== dragSrcEl) {
-                e.currentTarget.style.borderTop = '2px solid #3182ce';
-            }
-        });
-
-        row.addEventListener('dragleave', (e) => {
-            e.currentTarget.style.borderTop = '';
-        });
-
-        row.addEventListener('drop', (e) => {
-            e.stopPropagation();
-            e.currentTarget.style.borderTop = '';
-
-            if (dragSrcEl === e.currentTarget) return;
-            const srcId = Number(dragSrcEl.getAttribute('data-id'));
-            const targetId = Number(e.currentTarget.getAttribute('data-id'));
-            const srcIdx = db.findIndex(item => item.id === srcId);
-            const targetIdx = db.findIndex(item => item.id === targetId);
-            if (srcIdx === -1 || targetIdx === -1) return;
-
-            const [removed] = db.splice(srcIdx, 1);
-            db.splice(targetIdx, 0, removed);
-            saveDb();
-            viewState.sortField = '';
-            renderTable();
-        });
-
-        row.addEventListener('dragend', (e) => {
-            e.currentTarget.classList.remove('dragging');
-            tbody.querySelectorAll('.item-row').forEach(r => r.style.borderTop = '');
-        });
+    sortableInstance = Sortable.create(tbody, {
+        animation: 150,
+        draggable: '.item-row',
+        filter: '.details-row, .clickable-cell, button, select, input',
+        preventOnFilter: false,
+        disabled: isSortableDisabled(),
+        onEnd: handleSortEnd
     });
+};
+
+// 表示中アイテムの移動をdb本体の順序に反映して保存（非表示アイテムの相対順序は維持）
+const handleSortEnd = (evt) => {
+    if (evt.oldDraggableIndex === evt.newDraggableIndex) return;
+    const visibleItems = getDisplayItems().filter(item => {
+        const currentType = item.customType || 'unknown';
+        return viewState.filter === 'all' || viewState.filter === currentType;
+    });
+    const movedId = Number(evt.item.dataset.id);
+    const moved = visibleItems.splice(evt.oldDraggableIndex, 1)[0];
+    visibleItems.splice(evt.newDraggableIndex, 0, moved);
+    // db内でmovedの位置を、visibleItemsでの前後関係に合わせて再配置
+    db = db.filter(item => item.id !== movedId);
+    const visibleIds = visibleItems.map(item => item.id);
+    const movedNewIdx = visibleIds.indexOf(movedId);
+    const prevId = movedNewIdx > 0 ? visibleIds[movedNewIdx - 1] : null;
+    const insertIdx = prevId === null
+        ? 0
+        : db.findIndex(item => item.id === prevId) + 1;
+    db.splice(insertIdx, 0, moved);
+    saveDb();
+    renderTable();
 };
 
 // ============================================================
@@ -1097,6 +1095,7 @@ const restoreFilterButton = () => {
 const init = () => {
     bindStaticEvents();
     restoreFilterButton();
+    initSortable();
     renderTable();
 };
 

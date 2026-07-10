@@ -2,7 +2,7 @@ import globals from 'globals';
 
 export default [
     {
-        ignores: ['eslint.config.mjs'],
+        ignores: ['eslint.config.mjs', '**/js/lib/**/*.min.js'],
         languageOptions: {
             ecmaVersion: 'latest',
             sourceType: 'script',
@@ -30,7 +30,10 @@ export default [
                 GM_getTabs: 'readonly',
                 GM_notification: 'readonly',
                 GM_setClipboard: 'readonly',
-                GM_info: 'readonly'
+                GM_info: 'readonly',
+
+                // 外部ライブラリ（js/lib/ 配下）
+                Sortable: 'readonly'
             }
         },
         rules: {

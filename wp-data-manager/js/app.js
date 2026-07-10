@@ -79,7 +79,7 @@ const masterHorseData = {
 
 let horses = [];               // 系統データ本体
 let currentGameYear = 1973;    // ゲーム内現在年
-let dragSrcRow = null;         // ドラッグ元の行（D&D並び替え用）
+let sortableInstance = null;
 
 // ============================================================
 // モジュール関数のインポート
@@ -99,6 +99,7 @@ const {
 
 // エントリポイント: データ読込とイベント登録を行う
 const init = () => {
+    initSortable();
     loadData();
     initEvents();
 };
@@ -239,6 +240,7 @@ const sortData = (key) => {
         }
         return sortState.asc ? valA - valB : valB - valA;
     });
+    updateDragEnabled();
     render();
 };
 
@@ -356,7 +358,6 @@ const renderFilteredHorseList = () => {
 const createDragHandleCell = () => {
     const td = document.createElement('td');
     td.className = 'handle';
-    td.setAttribute('draggable', 'true');
     td.textContent = '≡';
     return td;
 };
@@ -413,11 +414,6 @@ const createDeleteCell = (id) => {
 
 // 行のドラッグ＆ドロップと、編集セル以外のクリック（現役/種牡馬トグル）を登録
 const attachRowEvents = (tr, id) => {
-    const handle = tr.querySelector('.handle');
-    handle.addEventListener('dragstart', handleDragStart);
-    tr.addEventListener('dragover', handleDragOver);
-    tr.addEventListener('drop', handleDrop);
-    handle.addEventListener('dragend', handleDragEnd);
     tr.querySelectorAll('td:not(.editable)').forEach(td => {
         if (td.querySelector('button')) return;
         td.style.cursor = 'pointer';
@@ -514,42 +510,34 @@ const saveFile = async () => {
 };
 
 // ============================================================
-// ドラッグ＆ドロップ並び替え
+// ドラッグ＆ドロップ並び替え（SortableJS）
 // ============================================================
 
-// ドラッグ開始: 元の行を記憶
-const handleDragStart = (e) => {
-    dragSrcRow = e.currentTarget.parentElement;
-    dragSrcRow.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setDragImage(dragSrcRow, 0, 0);
+// ソート中はD&Dを無効化（order昇順＝手動順のときのみ許可）
+const isManualOrder = () => {
+    return sortState.key === 'order' && sortState.asc;
 };
 
-// ドラッグ中: デフォルト動作を抑制
-const handleDragOver = (e) => {
-    if (e.preventDefault) e.preventDefault();
-    return false;
-};
-
-// ドロップ: 行を入れ替えて order を再採番
-const handleDrop = (e) => {
-    if (e.stopPropagation) e.stopPropagation();
-    const targetRow = e.currentTarget;
-    if (dragSrcRow !== targetRow) {
-        const allRows = [...document.querySelectorAll('#horseTableBody tr')];
-        const fromIndex = allRows.indexOf(dragSrcRow);
-        const toIndex = allRows.indexOf(targetRow);
-        const [movedItem] = horses.splice(fromIndex, 1);
-        horses.splice(toIndex, 0, movedItem);
-        horses.forEach((h, i) => h.order = i + 1);
-        saveAndRender();
+const updateDragEnabled = () => {
+    if (sortableInstance) {
+        sortableInstance.option('disabled', !isManualOrder());
     }
-    return false;
 };
 
-// ドラッグ終了: dragging クラスを解除
-const handleDragEnd = () => {
-    if (dragSrcRow) dragSrcRow.classList.remove('dragging');
+// tbodyをSortable化。≡ハンドルでのみドラッグ開始
+const initSortable = () => {
+    const tbody = document.getElementById('horseTableBody');
+    sortableInstance = Sortable.create(tbody, {
+        handle: '.handle',
+        animation: 150,
+        disabled: !isManualOrder(),
+        onEnd: (evt) => {
+            const [moved] = horses.splice(evt.oldIndex, 1);
+            horses.splice(evt.newIndex, 0, moved);
+            horses.forEach((h, i) => h.order = i + 1);
+            saveAndRender();
+        }
+    });
 };
 
 // ============================================================

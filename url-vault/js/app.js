@@ -56,6 +56,7 @@ const TRASH = {
 // ============================================================
 
 let db = null;
+let sortableInstance = null;
 
 // フィルタ・ソート状態
 const filterState = {
@@ -1242,7 +1243,7 @@ const createCardContent = (item) => {
 };
 
 // カード要素を生成
-const createCardElement = (item, isDragEnabled) => {
+const createCardElement = (item) => {
     const card = document.createElement('div');
     card.className = 'card';
     if (editState.editingItemId === item.id) {
@@ -1253,7 +1254,6 @@ const createCardElement = (item, isDragEnabled) => {
     } else if (isKindleUrl(item.url)) {
         card.classList.add('no-synopsis');
     }
-    card.draggable = isDragEnabled;
     card.dataset.id = item.id;
     card.tabIndex = 0;
     card.title = item.title;
@@ -1295,10 +1295,10 @@ const renderList = () => {
             items = filterDuplicates(items, filterState.dupCheckLength, parseBaseTitle);
         }
 
-        const isDragEnabled = filterState.sortKey === 'sortOrder';
         items.forEach((item) => {
-            listSection.appendChild(createCardElement(item, isDragEnabled));
+            listSection.appendChild(createCardElement(item));
         });
+        updateDragEnabled();
 
         document.getElementById('cardCount').textContent = `${items.length}件`;
     };
@@ -1310,47 +1310,18 @@ const renderList = () => {
 
 const initDragAndDrop = () => {
     const listSection = document.getElementById('listSection');
-    listSection.addEventListener('dragstart', (e) => {
-        const targetCard = e.target.closest('.card');
-        if (targetCard) {
-            targetCard.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-        }
-    });
-    listSection.addEventListener('dragend', (e) => {
-        const targetCard = e.target.closest('.card');
-        if (targetCard) {
-            targetCard.classList.remove('dragging');
-            saveNewOrder();
-        }
-    });
-    listSection.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        const draggingCard = listSection.querySelector('.dragging');
-        if (!draggingCard) return;
-        const afterElement = getDragAfterElement(listSection, e.clientX, e.clientY);
-        if (afterElement == null) {
-            listSection.appendChild(draggingCard);
-        } else {
-            listSection.insertBefore(draggingCard, afterElement);
-        }
+    sortableInstance = Sortable.create(listSection, {
+        animation: 150,
+        disabled: filterState.sortKey !== 'sortOrder',
+        onEnd: () => saveNewOrder()
     });
 };
 
-const getDragAfterElement = (container, x, y) => {
-    const draggableElements = [...container.querySelectorAll('.card:not(.dragging)')];
-    return draggableElements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offsetX = x - (box.left + box.width / 2);
-        const offsetY = y - (box.top + box.height / 2);
-        const distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-        if (x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) {
-            if (distance < closest.distance) return { distance: distance, element: child };
-        } else if (closest.element == null && distance < closest.distance) {
-            return { distance: distance, element: child };
-        }
-        return closest;
-    }, { distance: Infinity, element: null }).element;
+// ソートキー変更時にD&Dの有効/無効を切替え
+const updateDragEnabled = () => {
+    if (sortableInstance) {
+        sortableInstance.option('disabled', filterState.sortKey !== 'sortOrder');
+    }
 };
 
 const saveNewOrder = () => {
