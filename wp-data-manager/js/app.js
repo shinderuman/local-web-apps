@@ -115,7 +115,7 @@ const loadData = () => {
         document.getElementById('currentGameYear').value = currentGameYear;
     }
 
-    ['memoArea', 'csvSection', 'horseListSection', 'scheduleSection'].forEach(id => {
+    ['memoArea', 'horseListSection', 'scheduleSection'].forEach(id => {
         const visible = localStorage.getItem(id + VISIBLE_SUFFIX) === 'true';
         document.getElementById(id).style.display = visible ? 'block' : 'none';
     });
@@ -152,10 +152,8 @@ const registerScheduleCheckboxes = () => {
     document.getElementById('scheduleSection').addEventListener('change', saveCheckboxes);
 };
 
-// JSON入出力・ファイル読込/保存の4ボタン
+// ファイル読込/保存の2ボタン
 const registerIoButtons = () => {
-    document.getElementById('importBtn').addEventListener('click', importJSON);
-    document.getElementById('exportBtn').addEventListener('click', exportJSON);
     document.getElementById('loadFileBtn').addEventListener('click', loadFile);
     document.getElementById('saveFileBtn').addEventListener('click', saveFile);
 };
@@ -452,31 +450,8 @@ const loadCheckboxes = () => {
 };
 
 // ============================================================
-// JSON入出力
+// ファイル入出力
 // ============================================================
-
-// JSON形式のインポート（テキストエリア）
-const importJSON = () => {
-    const text = document.getElementById('ioTextarea').value.trim();
-    if (!text) return;
-    try {
-        const parsed = JSON.parse(text);
-        if (!Array.isArray(parsed)) {
-            alert('データ構造が不正です');
-            return;
-        }
-        horses = parsed;
-        saveAndRender();
-    } catch {
-        alert('JSONのパースに失敗しました');
-    }
-};
-
-// JSON形式のエクスポート（テキストエリア）
-const exportJSON = () => {
-    const exportList = [...horses].sort((a, b) => a.order - b.order);
-    document.getElementById('ioTextarea').value = JSON.stringify(exportList, null, 2);
-};
 
 // ファイルからJSONを読込
 const loadFile = async () => {
@@ -486,7 +461,19 @@ const loadFile = async () => {
         });
         const file = await handle.getFile();
         const text = await file.text();
-        horses = JSON.parse(text);
+        let parsed;
+        try {
+            parsed = JSON.parse(text);
+        } catch {
+            alert('JSONのパースに失敗しました');
+            return;
+        }
+        if (!Array.isArray(parsed) || !parsed.every(h => h && typeof h.id !== 'undefined' && typeof h.name !== 'undefined')) {
+            alert('データ構造が不正です（id, name が必須です）');
+            return;
+        }
+        if (!confirm('復元を実行しますか？\n既存のデータはすべて置き換えられます。')) return;
+        horses = parsed;
         saveAndRender();
     } catch (e) {
         if (e.name !== 'AbortError') console.error('ファイルの読み込みに失敗しました', e);

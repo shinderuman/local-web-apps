@@ -1356,17 +1356,6 @@ const fetchAllData = (callback) => {
     tx.oncomplete = () => callback(backupData);
 };
 
-const handleExport = () => {
-    fetchAllData((backupData) => {
-        const jsonString = JSON.stringify(backupData);
-        const textarea = document.getElementById('ioTextarea');
-        textarea.value = jsonString;
-        navigator.clipboard.writeText(jsonString).then(() => textarea.select()).catch(err => {
-            console.error('クリップボードへのコピーに失敗しました', err);
-        });
-    });
-};
-
 const handleSaveFile = () => {
     fetchAllData(async (backupData) => {
         try {
@@ -1410,19 +1399,6 @@ const importData = (parsedData) => {
         initApp();
     };
     return true;
-};
-
-const handleImport = () => {
-    const jsonString = document.getElementById('ioTextarea').value.trim();
-    if (!jsonString) return;
-    let parsedData;
-    try {
-        parsedData = JSON.parse(jsonString);
-    } catch {
-        alert('JSONのパースに失敗しました。');
-        return;
-    }
-    importData(parsedData);
 };
 
 const handleLoadFile = async () => {
@@ -1590,7 +1566,5 @@ document.getElementById('toggleAddPositionBtn').addEventListener('click', () => 
 });
 
 // インポート・エクスポート
-document.getElementById('exportBtn').addEventListener('click', handleExport);
-document.getElementById('importBtn').addEventListener('click', handleImport);
 document.getElementById('exportFileBtn').addEventListener('click', handleSaveFile);
 document.getElementById('importFileBtn').addEventListener('click', handleLoadFile);

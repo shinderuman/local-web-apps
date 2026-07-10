@@ -385,15 +385,22 @@ const importBackup = (event) => {
         try {
             const importedData = JSON.parse(e.target.result);
             const importedArr = Array.isArray(importedData) ? importedData : Object.values(importedData);
-            importedArr.forEach(newRec => {
-                const idx = db.findIndex(item => item.serial === newRec.serial);
-                if (idx !== -1) db[idx] = newRec;
-                else db.push(newRec);
-            });
+            const isValid = importedArr.every(r => r && typeof r === 'object' && typeof r.healthLevel !== 'undefined');
+            if (!isValid) {
+                showToast(TOAST.IMPORT_FAIL);
+                document.getElementById('fileInput').value = '';
+                return;
+            }
+            if (!confirm('復元を実行しますか？\n既存のデータはすべて置き換えられます。')) {
+                document.getElementById('fileInput').value = '';
+                return;
+            }
+            db = importedArr;
             saveDb();
             renderTable();
             showToast(TOAST.IMPORTED);
-        } catch {
+        } catch (err) {
+            console.error('importBackup失敗:', err);
             showToast(TOAST.IMPORT_FAIL);
         }
         document.getElementById('fileInput').value = '';
