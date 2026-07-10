@@ -172,6 +172,15 @@ button:hover {
 .btn-secondary:hover {
     background-color: #2d3748;
 }
+/* 選択0件時のダウンロードボタン: 操作不可を示す薄い見た目（クリック自体は可能） */
+.btn-dimmed {
+    background-color: #cbd5e0;
+    color: #a0aec0;
+    cursor: default;
+}
+.btn-dimmed:hover {
+    background-color: #cbd5e0;
+}
 .btn-success {
     background-color: #38a169;
     color: #fff;
@@ -406,6 +415,14 @@ tr.unknown-type-row.row-updated {
 .model-cell {
     font-weight: 500;
 }
+/* S/N列: 省略表示・控えめなグレー（ブラウザ検索ヒット用、title属性で全文表示） */
+.serial-cell {
+    color: #718096;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 
 /* 小型ボタン（詳細内の消去ボタン等） */
 .btn-mini {
@@ -527,4 +544,9 @@ tr.unknown-type-row.row-updated {
 .btn-add-empty:hover {
     background-color: transparent;
     color: #718096;
+}
+
+/* 選択中行のハイライト（hover・unknown-type-row より優先するため !important） */
+tr.item-row.row-selected {
+    background-color: #ebf8ff !important;
 }

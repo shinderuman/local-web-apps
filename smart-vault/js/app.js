@@ -48,11 +48,12 @@ const SORT_INDEX_MAP = {
     'vendor': 0,
     'size_bytes': 1,
     'model': 2,
-    'customType': 3,
-    'healthLevel': 4,
-    'lifePercent': 5,
-    'tbw_val': 6,
-    'hours_val': 7
+    'serial': 3,
+    'customType': 4,
+    'healthLevel': 5,
+    'lifePercent': 6,
+    'tbw_val': 7,
+    'hours_val': 8
 };
 
 // データ取得コマンド・バックアップファイル名
@@ -143,7 +144,9 @@ const TOAST = {
     IMPORT_FAIL: 'エラー: 不正なファイル構造です',
     SAVED: 'ファイルを保存しました',
     SAVE_FAIL: 'エラー: 保存に失敗しました',
-    CMD_COPIED: 'コマンドをクリップボードにコピーしました'
+    CMD_COPIED: 'コマンドをクリップボードにコピーしました',
+    EXPORTED_FILE: '選択中のレコードを .json で出力しました',
+    EXPORT_NO_SELECTION: 'レコードが選択されていません'
 };
 
 // ============================================================
@@ -166,7 +169,9 @@ const viewState = {
 // UI状態
 const uiState = {
     toastTimer: null,
-    highlightTimer: null
+    highlightTimer: null,
+    selectedIds: new Set(),
+    openDetailId: null
 };
 
 // ============================================================
@@ -181,6 +186,7 @@ const { computeHealthLevel } = window.HEALTH_LOGIC;
 const {
     formatHours, formatTemp, formatTbw, formatCount
 } = window.FORMAT_LOGIC;
+const { buildSmartJsonArray } = window.EXPORT_LOGIC;
 
 // ============================================================
 // S.M.A.R.T. パース（モジュールを束ねてレコード生成）
@@ -485,8 +491,10 @@ const sortTable = (field) => {
     renderTable();
 };
 
+// 詳細の開閉を uiState で管理（renderTable 後も開閉状態を維持するため）
 const toggleDetails = (id) => {
-    const el = document.getElementById(id);
+    uiState.openDetailId = (uiState.openDetailId === id) ? null : id;
+    const el = document.getElementById(`details-${id}`);
     if (el) el.classList.toggle('hidden');
 };
 
@@ -506,6 +514,27 @@ const copyCommandText = () => {
     navigator.clipboard.writeText(SMART_COMMAND).then(() => {
         showToast(TOAST.CMD_COPIED);
     });
+};
+
+// 文字列を .json ファイルとしてブラウザダウンロード（保存ダイアログなし、ダウンロード一覧へ落下）
+const downloadJsonFile = (content, filename) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+};
+
+// 選択中レコードの生JSONを1つの .json に結合してダウンロード
+const exportSelectedToJson = () => {
+    const selected = db.filter(item => uiState.selectedIds.has(item.id));
+    const content = buildSmartJsonArray(selected);
+    if (!content) {
+        showToast(TOAST.EXPORT_NO_SELECTION);
+        return;
+    }
+    downloadJsonFile(content, 'smart-selected.json');
+    showToast(TOAST.EXPORTED_FILE);
 };
 
 // ============================================================
@@ -750,6 +779,38 @@ const createMemoCell = (item) => {
     return td;
 };
 
+// 表示中アイテム一覧を返す（フィルタ適用済み）
+const getVisibleItems = () => {
+    return getDisplayItems().filter(item => {
+        const currentType = item.customType || 'unknown';
+        return viewState.filter === 'all' || viewState.filter === currentType;
+    });
+};
+
+// 指定IDの選択状態をトグル（Cmd/Ctrl+クリックで呼ばれる）
+const toggleRowSelection = (id) => {
+    if (uiState.selectedIds.has(id)) {
+        uiState.selectedIds.delete(id);
+    } else {
+        uiState.selectedIds.add(id);
+    }
+    renderTable();
+};
+
+// 選択をすべて解除（通常クリック時に呼ぶ。エクスプローラ/Excelと同じ挙動）
+const clearSelection = () => {
+    if (uiState.selectedIds.size === 0) return;
+    uiState.selectedIds.clear();
+    renderTable();
+};
+
+// 選択中ダウンロードボタンの見た目を更新（選択0件＝グレーアウト、選択あり＝通常色）
+const updateExportButtonState = () => {
+    const btn = document.getElementById('exportSelectedBtn');
+    if (!btn) return;
+    btn.classList.toggle('btn-dimmed', uiState.selectedIds.size === 0);
+};
+
 const createRow = (item) => {
     const currentType = item.customType || 'unknown';
     const isUnknown = currentType === 'unknown';
@@ -757,6 +818,7 @@ const createRow = (item) => {
     const tr = document.createElement('tr');
     tr.className = isUnknown ? 'item-row unknown-type-row' : 'item-row';
     tr.setAttribute('data-id', item.id);
+    if (uiState.selectedIds.has(item.id)) tr.classList.add('row-selected');
 
     // メーカー（編集可能・自由入力可）
     const tdVendor = document.createElement('td');
@@ -784,6 +846,16 @@ const createRow = (item) => {
         (e) => enableTextEdit(item.id, e.currentTarget, 'model')
     ));
     tr.appendChild(tdModel);
+
+    // シリアルナンバー（編集可能・省略表示・ブラウザ検索ヒット用）
+    const tdSerial = document.createElement('td');
+    tdSerial.className = 'serial-cell';
+    tdSerial.appendChild(createEditableCell(
+        item.serial || '—',
+        (e) => enableTextEdit(item.id, e.currentTarget, 'serial')
+    ));
+    if (item.serial) tdSerial.title = item.serial;
+    tr.appendChild(tdSerial);
 
     // 分類（編集可能）
     const tdType = document.createElement('td');
@@ -838,11 +910,16 @@ const createRow = (item) => {
     tdInsert.appendChild(insertBtn);
     tr.appendChild(tdInsert);
 
-    // 行クリックで詳細トグル（編集可能セル・ボタン・入力要素は除外）
-    const detailsId = `details-${item.id}`;
+    // 行クリックで詳細トグル、Cmd/Ctrl+クリックで選択トグル
+    // 通常クリック時の選択解除は document のクリックハンドラで一元処理
+    // 編集可能セル・ボタン・入力要素は除外
     tr.addEventListener('click', (e) => {
         if (e.target.closest('.clickable-cell, button, select, input, option')) return;
-        toggleDetails(detailsId);
+        if (e.metaKey || e.ctrlKey) {
+            toggleRowSelection(item.id);
+            return;
+        }
+        toggleDetails(item.id);
     });
 
     return tr;
@@ -911,11 +988,11 @@ const appendReasonsBlock = (grid, reasons, actionBtn) => {
 
 const createDetailsRow = (item) => {
     const tr = document.createElement('tr');
-    tr.className = 'details-row hidden';
+    tr.className = uiState.openDetailId === item.id ? 'details-row' : 'details-row hidden';
     tr.id = `details-${item.id}`;
 
     const td = document.createElement('td');
-    td.colSpan = 10;
+    td.colSpan = 11;
 
     const container = document.createElement('div');
     container.className = 'details-container';
@@ -969,7 +1046,7 @@ const createDetailsRow = (item) => {
 const createEmptyRow = () => {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 10;
+    td.colSpan = 11;
     td.style.cssText = 'text-align:center; color:#a0aec0; padding:30px;';
 
     const msg = document.createElement('span');
@@ -991,6 +1068,7 @@ const renderTable = () => {
     tbody.innerHTML = '';
     updateCounters();
     updateSortIndicators();
+    updateExportButtonState();
 
     let visibleCount = 0;
     getDisplayItems().forEach((item) => {
@@ -1034,10 +1112,7 @@ const initSortable = () => {
 // 表示中アイテムの移動をdb本体の順序に反映して保存（非表示アイテムの相対順序は維持）
 const handleSortEnd = (evt) => {
     if (evt.oldDraggableIndex === evt.newDraggableIndex) return;
-    const visibleItems = getDisplayItems().filter(item => {
-        const currentType = item.customType || 'unknown';
-        return viewState.filter === 'all' || viewState.filter === currentType;
-    });
+    const visibleItems = getVisibleItems();
     const movedId = Number(evt.item.dataset.id);
     const moved = visibleItems.splice(evt.oldDraggableIndex, 1)[0];
     visibleItems.splice(evt.newDraggableIndex, 0, moved);
@@ -1078,6 +1153,9 @@ const bindStaticEvents = () => {
     document.getElementById('exportBtn').addEventListener('click', exportBackup);
     document.getElementById('fileInput').addEventListener('change', importBackup);
 
+    // 選択系: 選択中ダウンロード（行の選択はCmd/Ctrl+クリック）
+    document.getElementById('exportSelectedBtn').addEventListener('click', exportSelectedToJson);
+
     // アコーディオン・コマンドコピー
     document.getElementById('accordionToggle').addEventListener('click', toggleAccordion);
     document.getElementById('commandCode').addEventListener('click', copyCommandText);
@@ -1090,6 +1168,13 @@ const bindStaticEvents = () => {
     // ソートヘッダ
     document.querySelectorAll('th[data-sort]').forEach(th => {
         th.addEventListener('click', () => sortTable(th.dataset.sort));
+    });
+
+    // 選択解除: JSON出力ボタンとCmd/Ctrl+クリック以外の全クリックで選択を解除
+    document.addEventListener('click', (e) => {
+        if (e.metaKey || e.ctrlKey) return;
+        if (e.target.closest('#exportSelectedBtn')) return;
+        clearSelection();
     });
 };
 
