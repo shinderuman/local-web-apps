@@ -4,18 +4,30 @@
 
 ((root, factory) => {
 
-    // 履歴配列から最安値（最小price）を返す。空配列は null
-    const calcMinPrice = (children) => {
-        const prices = (children || []).map(c => Number(c.price)).filter(p => !isNaN(p));
-        if (prices.length === 0) return null;
-        return Math.min(...prices);
+    // 有効なprice（数値）を持つ履歴だけを返す
+    const validHistories = (children) => {
+        return (children || []).filter(c => !isNaN(Number(c.price)));
     };
 
-    // 履歴配列から最高値（最大price）を返す。空配列は null
-    const calcMaxPrice = (children) => {
-        const prices = (children || []).map(c => Number(c.price)).filter(p => !isNaN(p));
-        if (prices.length === 0) return null;
-        return Math.max(...prices);
+    // 履歴から最安値/最高値のサマリを1走査で算出して返す
+    // { min, max, minHistories, maxHistories, latestMinDate }
+    const calcPriceSummary = (children) => {
+        const valid = validHistories(children);
+        if (valid.length === 0) {
+            return { min: null, max: null, minHistories: [], maxHistories: [], latestMinDate: null };
+        }
+        let min = Infinity;
+        let max = -Infinity;
+        valid.forEach(c => {
+            const p = Number(c.price);
+            if (p < min) min = p;
+            if (p > max) max = p;
+        });
+        const minHistories = valid.filter(c => Number(c.price) === min);
+        const maxHistories = valid.filter(c => Number(c.price) === max);
+        const minDates = minHistories.map(c => c.date).filter(Boolean);
+        const latestMinDate = minDates.length === 0 ? null : minDates.sort().reverse()[0];
+        return { min, max, minHistories, maxHistories, latestMinDate };
     };
 
     // 履歴配列から重複排除した店名配列を返す（空文字除外）
@@ -88,8 +100,7 @@
     };
 
     const PRICE_LOGIC = {
-        calcMinPrice,
-        calcMaxPrice,
+        calcPriceSummary,
         getAllStores,
         sortHistories,
         sortProducts,

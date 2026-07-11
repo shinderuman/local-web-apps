@@ -278,6 +278,22 @@ tr.item-row.dragging {
     color: #a0aec0;
 }
 
+/* 最安値の店名: 緑太字で強調（履歴テーブル内の値段セルはサイズ抑えめ） */
+.min-store {
+    color: #38a169;
+    font-weight: bold;
+}
+.history-table .price-min,
+.history-table .price-max {
+    font-size: 15px;
+}
+
+/* 購入日セル: 控えめなグレー（参考情報） */
+.date-cell {
+    color: #718096;
+    white-space: nowrap;
+}
+
 /* 購入店一覧: 控えめなグレー */
 .stores-cell {
     color: #718096;

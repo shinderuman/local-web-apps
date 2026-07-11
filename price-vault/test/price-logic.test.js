@@ -1,8 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-    calcMinPrice,
-    calcMaxPrice,
+    calcPriceSummary,
     getAllStores,
     sortHistories,
     sortProducts,
@@ -14,32 +13,49 @@ const {
 } = require('../js/price-logic.js');
 
 // ============================================================
-// calcMinPrice / calcMaxPrice
+// calcPriceSummary: 最安値/最高値サマリの1走査算出
 // ============================================================
-test('calcMinPrice: 履歴配列の最小priceを返す', () => {
-    const children = [{ price: 198 }, { price: 98 }, { price: 250 }];
-    assert.strictEqual(calcMinPrice(children), 98);
+test('calcPriceSummary: min/max/各履歴/最新日付を返す', () => {
+    const children = [
+        { price: 198, store: 'A', date: '2025-01-01' },
+        { price: 98, store: 'B', date: '2025-02-01' },
+        { price: 250, store: 'C', date: '2025-03-01' }
+    ];
+    const s = calcPriceSummary(children);
+    assert.strictEqual(s.min, 98);
+    assert.strictEqual(s.max, 250);
+    assert.strictEqual(s.minHistories.length, 1);
+    assert.strictEqual(s.minHistories[0].store, 'B');
+    assert.strictEqual(s.maxHistories.length, 1);
+    assert.strictEqual(s.maxHistories[0].store, 'C');
+    assert.strictEqual(s.latestMinDate, '2025-02-01');
 });
 
-test('calcMaxPrice: 履歴配列の最大priceを返す', () => {
-    const children = [{ price: 198 }, { price: 98 }, { price: 250 }];
-    assert.strictEqual(calcMaxPrice(children), 250);
+test('calcPriceSummary: 最安値同額が複数なら全て抽出し最新日付を返す', () => {
+    const children = [
+        { price: 98, store: 'B', date: '2025-01-01' },
+        { price: 98, store: 'D', date: '2025-04-01' },
+        { price: 250, store: 'C', date: '2025-03-01' }
+    ];
+    const s = calcPriceSummary(children);
+    assert.strictEqual(s.minHistories.length, 2);
+    assert.strictEqual(s.latestMinDate, '2025-04-01');
 });
 
-test('calcMinPrice/calcMaxPrice: 空配列は null', () => {
-    assert.strictEqual(calcMinPrice([]), null);
-    assert.strictEqual(calcMaxPrice([]), null);
+test('calcPriceSummary: 空配列は null と空配列', () => {
+    const s = calcPriceSummary([]);
+    assert.strictEqual(s.min, null);
+    assert.strictEqual(s.max, null);
+    assert.deepStrictEqual(s.minHistories, []);
+    assert.deepStrictEqual(s.maxHistories, []);
+    assert.strictEqual(s.latestMinDate, null);
 });
 
-test('calcMinPrice/calcMaxPrice: 履歴1件は同値', () => {
-    const children = [{ price: 150 }];
-    assert.strictEqual(calcMinPrice(children), 150);
-    assert.strictEqual(calcMaxPrice(children), 150);
-});
-
-test('calcMinPrice: 非数値priceを除外', () => {
+test('calcPriceSummary: 非数値priceを除外', () => {
     const children = [{ price: 'abc' }, { price: 100 }, { price: 200 }];
-    assert.strictEqual(calcMinPrice(children), 100);
+    const s = calcPriceSummary(children);
+    assert.strictEqual(s.min, 100);
+    assert.strictEqual(s.max, 200);
 });
 
 // ============================================================
