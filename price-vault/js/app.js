@@ -61,13 +61,14 @@ const uiState = {
 // ============================================================
 
 const {
-    calcPriceSummary, getAllStores, sortHistories,
+    calcPriceSummary, getAllStores,
     sortProducts, filterByCategory,
     isValidProductInput, isValidHistoryInput,
     buildNewProduct, buildNewHistory
 } = window.PRICE_LOGIC;
 const { extractCategories, countProductsByCategory } = window.CATEGORY_LOGIC;
 const { validateImportData } = window.EXPORT_LOGIC;
+const { createPriceSpan, createMinStoreSpans, makeTextCell, makePriceCell, makeStoreCell, createEmptyRow, createHistoryTable, createDetailsRow } = window.DOM_HELPERS;
 
 // ============================================================
 // IndexedDB ヘルパ
@@ -303,30 +304,6 @@ const saveProduct = async () => {
 // レンダリング（商品一覧）
 // ============================================================
 
-// 強調クラス付きの金額spanを生成。valueがnullなら「—」の空クラスspan
-const createPriceSpan = (value, cls) => {
-    const span = document.createElement('span');
-    if (value === null) {
-        span.className = 'price-empty';
-        span.textContent = '—';
-    } else {
-        span.className = cls;
-        span.textContent = '¥' + value;
-    }
-    return span;
-};
-
-// 最安値の店名span群を生成（空なら null）
-const createMinStoreSpans = (stores) => {
-    if (stores.length === 0) return null;
-    return stores.map(s => {
-        const span = document.createElement('span');
-        span.className = 'min-store';
-        span.textContent = s;
-        return span;
-    });
-};
-
 const createProductRow = (product) => {
     const tr = document.createElement('tr');
     tr.className = 'item-row';
@@ -398,38 +375,6 @@ const createProductRow = (product) => {
     return tr;
 };
 
-// テキストセルを生成
-const makeTextCell = (text, cls = '') => {
-    const td = document.createElement('td');
-    td.textContent = text;
-    if (cls) td.className = cls;
-    return td;
-};
-
-// 履歴の値段セルを生成（最安=緑/最高=赤を強調）
-const makePriceCell = (price, isMin, isMax) => {
-    const td = document.createElement('td');
-    if (isMin) td.className = 'price-min';
-    else if (isMax) td.className = 'price-max';
-    td.textContent = '¥' + price;
-    return td;
-};
-
-// 履歴の店セルを生成（最安値の店なら強調span）
-const makeStoreCell = (store, isMin) => {
-    const td = document.createElement('td');
-    const txt = store || '—';
-    if (isMin && store) {
-        const span = document.createElement('span');
-        span.className = 'min-store';
-        span.textContent = txt;
-        td.appendChild(span);
-    } else {
-        td.textContent = txt;
-    }
-    return td;
-};
-
 // 履歴削除アイコンセルを生成（行クリックのモーダルを開かず直接削除確認）
 const makeHistoryDeleteCell = (productId, idx) => {
     const delBtn = document.createElement('button');
@@ -464,73 +409,6 @@ const createHistoryRow = (h, idx, productId, isMin, isMax) => {
 };
 
 // 履歴テーブルを生成（ヘッダ + ソート済み履歴行）
-const createHistoryTable = (product) => {
-    const summary = calcPriceSummary(product.children);
-    const minIds = new Set(summary.minHistories);
-    const maxIds = new Set(summary.maxHistories);
-    const table = document.createElement('table');
-    table.className = 'history-table';
-
-    const thead = document.createElement('thead');
-    const headRow = document.createElement('tr');
-    ['日付', '値段', '店', 'グラム単価', 'メモ', ''].forEach((label) => {
-        const th = document.createElement('th');
-        th.textContent = label;
-        headRow.appendChild(th);
-    });
-    thead.appendChild(headRow);
-    table.appendChild(thead);
-
-    const tbody = document.createElement('tbody');
-    sortHistories(product.children).forEach((h) => {
-        const idx = product.children.indexOf(h);
-        tbody.appendChild(createHistoryRow(h, idx, product.id, minIds.has(h), maxIds.has(h)));
-    });
-    table.appendChild(tbody);
-    return table;
-};
-
-const createDetailsRow = (product) => {
-    const tr = document.createElement('tr');
-    tr.className = viewState.openDetailId === product.id ? 'details-row' : 'details-row hidden';
-    tr.id = `details-${product.id}`;
-
-    const td = document.createElement('td');
-    td.colSpan = 7;
-
-    const container = document.createElement('div');
-    container.className = 'details-container';
-
-    const title = document.createElement('div');
-    title.className = 'details-title';
-    title.innerText = '購入履歴（新しい順）';
-    container.appendChild(title);
-
-    const histories = sortHistories(product.children);
-    if (histories.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'history-empty';
-        empty.innerText = '履歴がありません';
-        container.appendChild(empty);
-    } else {
-        container.appendChild(createHistoryTable(product));
-    }
-
-    td.appendChild(container);
-    tr.appendChild(td);
-    return tr;
-};
-
-const createEmptyRow = () => {
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = 7;
-    td.className = 'empty-message';
-    td.innerText = '商品が登録されていません。上部のフォームから登録してください。';
-    tr.appendChild(td);
-    return tr;
-};
-
 const renderList = async () => {
     const tbody = document.getElementById('storageTbody');
     tbody.innerHTML = '';
@@ -540,13 +418,20 @@ const renderList = async () => {
     const sorted = sortProducts(filtered, viewState.sortKey);
 
     if (sorted.length === 0) {
-        tbody.appendChild(createEmptyRow());
+        tbody.appendChild(createEmptyRow(7));
         return;
     }
 
     sorted.forEach(product => {
         tbody.appendChild(createProductRow(product));
-        tbody.appendChild(createDetailsRow(product));
+        // 第3引数: createHistoryTable に app.js の createHistoryRow（イベント結びつけ保持）を注入
+        tbody.appendChild(createDetailsRow(
+            product,
+            viewState.openDetailId === product.id,
+            (p) => {
+                return createHistoryTable(p, createHistoryRow);
+            }
+        ));
     });
 };
 
