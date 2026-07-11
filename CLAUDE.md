@@ -22,7 +22,9 @@
 - 副作用のない入出力関数（localStorage/IndexedDB/共有状態/Date.now に依存しない）は `js/*-logic.js` または `js/*-helpers.js` への切り出しを**強く推奨**する
   - `document.createElement` 等 DOM API を使う関数も、引数のみから結果を導出し状態に依存しなければ純粋関数扱い（`js/dom-helpers.js` 等）として切り出す
   - 切り出しは可読性・テスト容易性・再利用性の観点から app.js 肥大化を防ぐために推奨される。迷ったら切り出す
-- DOMイベントの結びつけ・共有状態・localStorage/IndexedDB に依存する関数は `app.js` に置く
+- app.js に残すのは**モジュールトップレベルで状態（db/horses/viewState 等）を直接参照・更新する関数のみ**。これが唯一の境界線
+  - イベントハンドラの結びつけ（`addEventListener`）だけが理由で app.js 残しにしてはならない。コールバック（`onXxx`）を引数で注入すれば dom-helpers に切り出せる
+  - 関数が `db`/`horses`/`viewState`/`localStorage`/`Date.now` 等を直接触らないなら、状態参照も引数注入で切れるため切り出し対象
 - モジュールは IIFE + UMD 構造（`module.exports` / `window.XXX_LOGIC` の両エクスポート）。先頭3行コメント、各関数上に1行コメント
 - `app.js` は `const { ... } = window.XXX_LOGIC` で必要な関数のみ分割代入
 - `index.html` で純粋関数モジュールを `app.js` より先に読み込む

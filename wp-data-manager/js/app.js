@@ -92,6 +92,7 @@ const {
     parseEditValue,
     getEditOriginalValue
 } = window.HORSE_LOGIC;
+const { createDragHandleCell, createOrderCell, createNameCell, createAgeCell, createEditableCell, createDeleteCell, attachRowEvents } = window.DOM_HELPERS;
 
 // ============================================================
 // 初期化
@@ -311,11 +312,11 @@ const render = () => {
         tr.appendChild(createOrderCell(h.order));
         tr.appendChild(createNameCell(h.name));
         tr.appendChild(createAgeCell(age));
-        tr.appendChild(createEditableCell(h.id, 'birthYear', h.birthYear, false));
-        tr.appendChild(createEditableCell(h.id, 'horseName', h.horseName, false));
-        tr.appendChild(createEditableCell(h.id, 'otherHorseNames', escapeHtml(otherText).replace(/\n/g, '<br>'), true));
-        tr.appendChild(createDeleteCell(h.id));
-        attachRowEvents(tr, h.id);
+        tr.appendChild(createEditableCell(h.id, 'birthYear', h.birthYear, startEdit));
+        tr.appendChild(createEditableCell(h.id, 'horseName', h.horseName, startEdit));
+        tr.appendChild(createEditableCell(h.id, 'otherHorseNames', otherText, startEdit));
+        tr.appendChild(createDeleteCell(h.id, deleteData));
+        attachRowEvents(tr, h.id, toggleRunner);
         tbody.appendChild(tr);
     });
 };
@@ -329,7 +330,12 @@ const renderFilteredHorseList = () => {
     const years = Object.keys(masterHorseData).map(Number).filter(y => y >= filterYear).sort((a, b) => a - b);
 
     if (years.length === 0) {
-        targetContainer.innerHTML = `<div style="color:#666; font-size:14px; padding:10px;">${filterYear}年以降の該当データはありません。</div>`;
+        const msg = document.createElement('div');
+        msg.style.color = '#666';
+        msg.style.fontSize = '14px';
+        msg.style.padding = '10px';
+        msg.textContent = `${filterYear}年以降の該当データはありません。`;
+        targetContainer.appendChild(msg);
         return;
     }
 
@@ -350,78 +356,6 @@ const renderFilteredHorseList = () => {
         card.appendChild(ul);
         targetContainer.appendChild(card);
     });
-};
-
-// ドラッグ用のハンドルセル（≡）を生成
-const createDragHandleCell = () => {
-    const td = document.createElement('td');
-    td.className = 'handle';
-    td.textContent = '≡';
-    return td;
-};
-
-// 順序表示セルを生成（クリック不可）
-const createOrderCell = (order) => {
-    const td = document.createElement('td');
-    td.style.color = '#666';
-    td.style.fontWeight = 'bold';
-    td.style.textAlign = 'center';
-    td.textContent = order;
-    return td;
-};
-
-// 系統名セルを生成（クリックでトグル）
-const createNameCell = (name) => {
-    const td = document.createElement('td');
-    td.className = 'name-cell';
-    td.textContent = name;
-    return td;
-};
-
-// 年齢セルを生成（クリックでトグル）
-const createAgeCell = (age) => {
-    const td = document.createElement('td');
-    td.className = 'age-cell';
-    td.textContent = age;
-    return td;
-};
-
-// 編集可能セルを生成。isHtml=trueならinnerHTMLで改行タグ等を反映
-const createEditableCell = (id, key, value, isHtml) => {
-    const td = document.createElement('td');
-    td.className = 'editable' + (key === 'otherHorseNames' ? ' other-cell' : '');
-    if (isHtml) {
-        td.innerHTML = value;
-    } else {
-        td.textContent = value;
-    }
-    td.addEventListener('click', () => startEdit(id, key, td));
-    return td;
-};
-
-// 削除ボタンセルを生成
-const createDeleteCell = (id) => {
-    const td = document.createElement('td');
-    const btn = document.createElement('button');
-    btn.className = 'delete-btn';
-    btn.textContent = '削除';
-    btn.addEventListener('click', () => deleteData(id));
-    td.appendChild(btn);
-    return td;
-};
-
-// 行のドラッグ＆ドロップと、編集セル以外のクリック（現役/種牡馬トグル）を登録
-const attachRowEvents = (tr, id) => {
-    tr.querySelectorAll('td:not(.editable)').forEach(td => {
-        if (td.querySelector('button')) return;
-        td.style.cursor = 'pointer';
-        td.addEventListener('click', () => toggleRunner(id));
-    });
-};
-
-// HTMLエスケープ（XSS対策）
-const escapeHtml = (str) => {
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 };
 
 // ============================================================
