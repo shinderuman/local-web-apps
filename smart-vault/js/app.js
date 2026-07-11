@@ -23,9 +23,6 @@ const TYPE_LABELS = {
     'unknown': '不明'
 };
 
-// 状態レベルの表示名（添字 = レベル、末尾 = 手動登録）
-const LEVEL_LABELS = ['L0 正常', 'L1 注意', 'L2 警告', 'L3 危険', '手動'];
-
 // メーカー選択肢（プルダウン）
 const CORE_VENDORS = [
     'ADATA', 'Apple', 'Crucial', 'HGST', 'HITACHI', 'Intel', 'Kingston',
@@ -44,13 +41,14 @@ const VENDOR_OPTIONS = [
 const TYPE_OPTIONS = Object.keys(TYPE_LABELS).map(key => ({ label: TYPE_LABELS[key], value: key }));
 
 // ソート列とテーブルヘッダ位置の対応（メモ列はソート不可）
+// 列順: メーカー(0) 容量(1) モデル名(2) S/N(3) 分類(4) 状態(5=Score) 残り寿命(6) 総書込量(7) 通電時間(8)
 const SORT_INDEX_MAP = {
     'vendor': 0,
     'size_bytes': 1,
     'model': 2,
     'serial': 3,
     'customType': 4,
-    'healthLevel': 5,
+    'severityScore': 5,
     'lifePercent': 6,
     'tbw_val': 7,
     'hours_val': 8
@@ -226,8 +224,8 @@ const parseSmartJson = (rawText, existingRecord = null) => {
     const detected = detectCustomType(protocol, model, deviceType, existingType);
     const customType = detected === 'unknown' ? manualTypeFromFilter() : detected;
 
-    const { level: healthLevel, reasons: healthReasons } = computeHealthLevel(data, {
-        customType, health, hours_val: hoursVal, lifePercent, reallocSectors, pendingSectors, crcErrors
+    const { level: healthLevel, reasons: healthReasons, score: severityScore } = computeHealthLevel(data, {
+        customType, health, hours_val: hoursVal, lifePercent, reallocSectors, pendingSectors, crcErrors, tbw_val: tbwVal
     });
 
     return {
@@ -253,6 +251,7 @@ const parseSmartJson = (rawText, existingRecord = null) => {
         pendingSectors,
         crcErrors,
         healthLevel,
+        severityScore,
         healthReasons,
         updatedAt: new Date().toLocaleString(),
         memo,
@@ -290,7 +289,7 @@ const createManualRecord = (customType = 'unknown') => ({
     reallocSectors: 0,
     pendingSectors: 0,
     crcErrors: 0,
-    healthLevel: LEVEL_LABELS.length - 1,
+    severityScore: null,
     healthReasons: [],
     updatedAt: new Date().toLocaleString(),
     memo: '',
@@ -710,8 +709,9 @@ const getDisplayItems = () => {
     if (!viewState.sortField) return items;
 
     items.sort((a, b) => {
-        const vA = a[viewState.sortField];
-        const vB = b[viewState.sortField];
+        // null/undefined は数値比較では -1 扱い（手動レコードの severityScore:null 対策）
+        const vA = a[viewState.sortField] ?? -1;
+        const vB = b[viewState.sortField] ?? -1;
         if (typeof vA === 'number' && typeof vB === 'number') {
             return viewState.sortOrder === 'asc' ? vA - vB : vB - vA;
         }
@@ -751,13 +751,18 @@ const formatHoursCycle = (powerOnHours, powerCycleCount) => {
     return '';
 };
 
-// 状態レベルバッジを生成（手動登録は青バッジ・判定理由なし）
+// 状態レベルバッジを生成: L番号 + Score 融合表示（手動登録は青バッジ「手動」）
 const createLevelBadge = (item) => {
-    const hl = item.isManual ? LEVEL_LABELS.length - 1 : (item.healthLevel ?? 0);
     const badge = document.createElement('span');
-    badge.className = item.isManual ? 'level-badge level-manual' : `level-badge level-${hl}`;
-    if (!item.isManual) badge.title = item.healthReasons.join('\n');
-    badge.innerText = LEVEL_LABELS[hl];
+    if (item.isManual) {
+        badge.className = 'level-badge level-manual';
+        badge.innerText = '手動';
+        return badge;
+    }
+    const hl = item.healthLevel ?? 0;
+    badge.className = `level-badge level-${hl}`;
+    badge.title = item.healthReasons.join('\n');
+    badge.innerText = `L${hl} ${item.severityScore ?? 0}`;
     return badge;
 };
 
@@ -865,7 +870,7 @@ const createRow = (item) => {
     ));
     tr.appendChild(tdType);
 
-    // 状態レベル（編集不可）
+    // 状態レベル（L番号 + Score 融合バッジ・編集不可）
     const tdLevel = document.createElement('td');
     tdLevel.appendChild(createLevelBadge(item));
     tr.appendChild(tdLevel);

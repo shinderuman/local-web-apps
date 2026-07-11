@@ -385,20 +385,32 @@ tr.unknown-type-row.row-updated {
     color: #22543d;
 }
 .level-1 {
+    background-color: #e2f0ce;
+    color: #22543d;
+}
+.level-2 {
     background-color: #feebc8;
     color: #7b341e;
 }
-.level-2 {
+.level-3 {
     background-color: #fbd38d;
     color: #7c2d12;
 }
-.level-3 {
+.level-4 {
+    background-color: #f6ad55;
+    color: #7c2d12;
+}
+.level-5 {
+    background-color: #ed8936;
+    color: #fff;
+}
+.level-6 {
     background-color: #fed7d7;
     color: #742a2a;
 }
 .level-manual {
-    background-color: #bee3f8;
-    color: #2a4365;
+    background-color: #a0aec0;
+    color: #fff;
 }
 
 .bad-count {
