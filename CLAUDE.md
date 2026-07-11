@@ -25,3 +25,14 @@
 - `app.js` は `const { ... } = window.XXX_LOGIC` で必要な関数のみ分割代入
 - `index.html` で純粋関数モジュールを `app.js` より先に読み込む
 - 依存する純粋関数は引数で注入（require順への依存を避ける）
+
+## ストレージ層（localStorage / IndexedDB）
+
+- 新規アプリ作成時は、データの規模・内容に応じて都度判断する（どちらかに固定しない）
+  - `localStorage`: 同期APIで実装が単純。設定値・フラグ・小規模なテキストデータ向け。容量上限約5MB・JSONシリアライズコスト・部分更新不可の制約あり
+  - `IndexedDB`: 非同期APIで定形コード（open/onupgradeneeded/transaction）が必要。画像（Blob/Base64）・長期蓄積データ・親子ストア構造向け。容量・構造化データで優位
+- 既存アプリの採用実績（判断の参照元）
+  - `localStorage`: smart-vault, wp-data-manager（テキスト中心の小規模データ）
+  - `IndexedDB`: url-vault, price-vault（複数ストア構造 / 親子ネストデータの永続蓄積）
+- 判断は仕様書・ユーザー指示を最優先する（既存アプリの傾向から自動決定しない）
+
