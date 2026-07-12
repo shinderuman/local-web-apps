@@ -25,45 +25,39 @@ const TOAST = {
     SAVE_FAIL: 'エラー: 保存に失敗しました'
 };
 
+// View に渡す固定定数（TIMING/UNCATEGORIZED/NEW_CATEGORY_VALUE）
+const VIEW_CONSTANTS = {
+    TIMING,
+    UNCATEGORIZED,
+    NEW_CATEGORY_VALUE
+};
+
 // ============================================================
 // 状態変数（ミュータブル）
 // ============================================================
 
-const { viewState, editState, uiState } = window.PRICE_STATE;
+const { viewState, editState } = window.PRICE_STATE;
 
 // ============================================================
-// モジュール（純粋関数）のインポート
+// モジュールのインポート
 // ============================================================
 
 const {
-    sortProducts, filterByCategory,
     isValidProductInput, isValidHistoryInput,
     buildNewProduct, buildNewHistory
 } = window.PRICE_LOGIC;
-const { extractCategories, countProductsByCategory } = window.CATEGORY_LOGIC;
 const { validateImportData } = window.EXPORT_LOGIC;
-const {
-    createEmptyRow, createHistoryTable, createDetailsRow,
-    createProductRow, createHistoryRow
-} = window.DOM_HELPERS;
 const {
     getAllProducts, getProduct, putProduct, deleteProductDb, clearProducts
 } = window.PRICE_DB;
+const {
+    showToast, toggleDetails, renderCategoryTabs,
+    updateCategorySelect, renderList, fillHistoryModal, closeHistoryModal
+} = window.PRICE_VIEW;
 
 // ============================================================
 // UIヘルパ
 // ============================================================
-
-const showToast = (message) => {
-    const toast = document.getElementById('toastNotification');
-    toast.innerText = message;
-    toast.classList.add('show');
-
-    if (uiState.toastTimer) clearTimeout(uiState.toastTimer);
-    uiState.toastTimer = setTimeout(() => {
-        toast.classList.remove('show');
-    }, TIMING.TOAST_DURATION);
-};
 
 // 今日の日付を YYYY-MM-DD で返す
 const todayStr = () => {
@@ -78,42 +72,22 @@ const defaultCategoryFromTab = () => {
     return viewState.selectedCategory === 'all' ? UNCATEGORIZED : viewState.selectedCategory;
 };
 
-// 詳細の開閉を viewState で管理（再描画後も維持）
-const toggleDetails = (id) => {
-    viewState.openDetailId = (viewState.openDetailId === id) ? null : id;
-    const el = document.getElementById(`details-${id}`);
-    if (el) el.classList.toggle('hidden');
-};
-
-// ============================================================
-// カテゴリタブ描画
-// ============================================================
-
-const renderCategoryTabs = async () => {
+// 一覧とカテゴリタブとプルダウンをまとめて再描画（DB取得→View描画のオーケストレーション）
+const refreshDataView = async () => {
     const products = await getAllProducts();
-    const container = document.getElementById('filterContainer');
-    container.innerHTML = '';
-
-    // 「すべて」固定
-    const allBtn = document.createElement('button');
-    allBtn.className = 'filter-btn' + (viewState.selectedCategory === 'all' ? ' active' : '');
-    allBtn.dataset.filter = 'all';
-    allBtn.innerText = `すべて (${products.length})`;
-    allBtn.addEventListener('click', () => selectCategory('all'));
-    container.appendChild(allBtn);
-
-    // ユーザーカテゴリ（商品から動的抽出）
-    extractCategories(products).forEach(cat => {
-        const btn = document.createElement('button');
-        btn.className = 'filter-btn' + (viewState.selectedCategory === cat ? ' active' : '');
-        btn.dataset.filter = cat;
-        btn.innerText = `${cat} (${countProductsByCategory(products, cat)})`;
-        btn.addEventListener('click', () => selectCategory(cat));
-        container.appendChild(btn);
+    renderCategoryTabs(products, VIEW_CONSTANTS, selectCategory);
+    updateCategorySelect(products, VIEW_CONSTANTS, defaultCategoryFromTab());
+    renderList(products, VIEW_CONSTANTS, {
+        onDeleteProduct: deleteProduct,
+        onToggleDetails: toggleDetails,
+        onOpenHistoryModal: openHistoryModal,
+        onDeleteHistory: deleteHistory
     });
-
-    updateCategorySelect();
 };
+
+// ============================================================
+// カテゴリタブ選択
+// ============================================================
 
 // カテゴリタブ選択（選択状態を更新して一覧とプルダウンを再描画）
 const selectCategory = (category) => {
@@ -124,26 +98,6 @@ const selectCategory = (category) => {
 // ============================================================
 // 登録フォーム
 // ============================================================
-
-// カテゴリプルダウンを再構築（既存カテゴリ＋「新規追加」。選択中タブをデフォルト）
-const updateCategorySelect = async () => {
-    const products = await getAllProducts();
-    const select = document.getElementById('inputCategory');
-    const current = defaultCategoryFromTab();
-
-    select.innerHTML = '';
-    extractCategories(products).forEach(cat => {
-        select.add(new Option(cat, cat, false, cat === current));
-    });
-    // 未分類と新規追加
-    if (!extractCategories(products).includes(current)) {
-        select.add(new Option(current, current, true, true));
-    }
-    select.add(new Option('＋ 新規カテゴリ追加', NEW_CATEGORY_VALUE));
-
-    document.getElementById('inputCategoryNew').classList.add('hidden');
-    document.getElementById('inputCategoryNew').value = '';
-};
 
 // カテゴリプルダウン変更時（新規追加なら入力欄を表示）
 const onCategorySelectChange = () => {
@@ -183,13 +137,14 @@ const readFormCategory = () => {
 };
 
 // 登録フォームをリセット（買った店は連続登録のため残す。日付・カテゴリはデフォルトに戻す）
-const resetForm = () => {
+const resetForm = async () => {
     document.getElementById('inputName').value = '';
     document.getElementById('inputPrice').value = '';
     document.getElementById('inputUnitPrice').value = '';
     document.getElementById('inputMemo').value = '';
     document.getElementById('inputDate').value = todayStr();
-    updateCategorySelect();
+    const products = await getAllProducts();
+    updateCategorySelect(products, VIEW_CONSTANTS, defaultCategoryFromTab());
     document.getElementById('inputName').focus();
 };
 
@@ -200,7 +155,7 @@ const saveProduct = async () => {
     const date = document.getElementById('inputDate').value || todayStr();
 
     if (!isValidProductInput(name) || !isValidHistoryInput(priceRaw, date)) {
-        showToast(TOAST.INPUT_INVALID);
+        showToast(TOAST.INPUT_INVALID, VIEW_CONSTANTS);
         return;
     }
 
@@ -212,54 +167,18 @@ const saveProduct = async () => {
     if (existing) {
         existing.children.push(history);
         await putProduct(existing);
-        showToast(TOAST.UPDATED);
+        showToast(TOAST.UPDATED, VIEW_CONSTANTS);
     } else {
         const product = buildNewProduct(
             { name, category, sortOrder: products.length, children: [history] },
             Date.now()
         );
         await putProduct(product);
-        showToast(TOAST.SAVED);
+        showToast(TOAST.SAVED, VIEW_CONSTANTS);
     }
 
-    resetForm();
+    await resetForm();
     refreshDataView();
-};
-
-// ============================================================
-// レンダリング（商品一覧）
-// ============================================================
-
-const renderList = async () => {
-    const tbody = document.getElementById('storageTbody');
-    tbody.innerHTML = '';
-
-    const products = await getAllProducts();
-    const filtered = filterByCategory(products, viewState.selectedCategory);
-    const sorted = sortProducts(filtered, viewState.sortKey);
-
-    if (sorted.length === 0) {
-        tbody.appendChild(createEmptyRow(7));
-        return;
-    }
-
-    // createHistoryTable に渡す行生成関数: createHistoryRow に openHistoryModal/deleteHistory を部分適用
-    const buildHistoryTable = (p) => {
-        return createHistoryTable(p, (h, idx, productId, isMin, isMax) => {
-            return createHistoryRow(h, idx, productId, isMin, isMax, openHistoryModal, deleteHistory);
-        });
-    };
-
-    sorted.forEach(product => {
-        tbody.appendChild(createProductRow(product, deleteProduct, toggleDetails, UNCATEGORIZED));
-        tbody.appendChild(createDetailsRow(product, viewState.openDetailId === product.id, buildHistoryTable));
-    });
-};
-
-// 一覧とカテゴリタブとプルダウンをまとめて再描画
-const refreshDataView = async () => {
-    await renderCategoryTabs();
-    await renderList();
 };
 
 // ============================================================
@@ -270,7 +189,7 @@ const deleteProduct = async (id) => {
     const ok = confirm('この商品を削除しますか？（全購入履歴も一括削除されます）');
     if (!ok) return;
     await deleteProductDb(id);
-    showToast(TOAST.DELETED);
+    showToast(TOAST.DELETED, VIEW_CONSTANTS);
     refreshDataView();
 };
 
@@ -286,7 +205,7 @@ const deleteHistory = async (productId, index) => {
     } else {
         await putProduct(product);
     }
-    showToast(TOAST.DELETED);
+    showToast(TOAST.DELETED, VIEW_CONSTANTS);
     closeHistoryModal();
     refreshDataView();
 };
@@ -298,27 +217,7 @@ const deleteHistory = async (productId, index) => {
 const openHistoryModal = async (productId, index) => {
     const product = await getProduct(productId);
     if (!product) return;
-    const history = product.children[index];
-    if (!history) return;
-
-    editState.editingProductId = productId;
-    editState.editingHistoryIndex = index;
-
-    document.getElementById('modalTitle').innerText = `${product.name} の履歴を編集`;
-    document.getElementById('editName').value = product.name;
-    document.getElementById('editPrice').value = history.price;
-    document.getElementById('editStore').value = history.store || '';
-    document.getElementById('editUnitPrice').value = history.unitPrice || '';
-    document.getElementById('editDate').value = history.date;
-    document.getElementById('editMemo').value = history.memo || '';
-
-    document.getElementById('historyModal').classList.remove('hidden');
-};
-
-const closeHistoryModal = () => {
-    document.getElementById('historyModal').classList.add('hidden');
-    editState.editingProductId = null;
-    editState.editingHistoryIndex = null;
+    fillHistoryModal(product, index);
 };
 
 // モーダルの保存（商品名変更は商品レコード、それ以外は履歴更新）
@@ -329,7 +228,7 @@ const saveHistoryEdit = async () => {
     const priceRaw = document.getElementById('editPrice').value.trim();
     const date = document.getElementById('editDate').value;
     if (!isValidHistoryInput(priceRaw, date)) {
-        showToast(TOAST.INPUT_INVALID);
+        showToast(TOAST.INPUT_INVALID, VIEW_CONSTANTS);
         return;
     }
 
@@ -346,7 +245,7 @@ const saveHistoryEdit = async () => {
     });
     await putProduct(product);
 
-    showToast(TOAST.HISTORY_UPDATED);
+    showToast(TOAST.HISTORY_UPDATED, VIEW_CONSTANTS);
     closeHistoryModal();
     refreshDataView();
 };
@@ -370,6 +269,7 @@ const initDragAndDrop = () => {
 const saveNewOrder = async (evt) => {
     if (evt.oldDraggableIndex === evt.newDraggableIndex) return;
     const products = await getAllProducts();
+    const { filterByCategory, sortProducts } = window.PRICE_LOGIC;
     const filtered = filterByCategory(products, viewState.selectedCategory);
     const sorted = sortProducts(filtered, viewState.sortKey);
     const moved = sorted.splice(evt.oldDraggableIndex, 1)[0];
@@ -398,11 +298,11 @@ const exportBackup = async () => {
         const writable = await handle.createWritable();
         await writable.write(JSON.stringify(products, null, 2));
         await writable.close();
-        showToast(TOAST.SAVED_FILE);
+        showToast(TOAST.SAVED_FILE, VIEW_CONSTANTS);
     } catch (e) {
         if (e.name !== 'AbortError') {
             console.error('ファイルの保存に失敗しました', e);
-            showToast(TOAST.SAVE_FAIL);
+            showToast(TOAST.SAVE_FAIL, VIEW_CONSTANTS);
         }
     }
 };
@@ -410,7 +310,7 @@ const exportBackup = async () => {
 const importData = async (parsed) => {
     const arr = validateImportData(parsed);
     if (!arr) {
-        showToast(TOAST.IMPORT_FAIL);
+        showToast(TOAST.IMPORT_FAIL, VIEW_CONSTANTS);
         return;
     }
     if (!confirm('復元を実行しますか？\n既存のデータはすべて置き換えられます。')) return;
@@ -420,7 +320,7 @@ const importData = async (parsed) => {
         await putProduct(product);
     }
     viewState.selectedCategory = 'all';
-    showToast(TOAST.IMPORTED);
+    showToast(TOAST.IMPORTED, VIEW_CONSTANTS);
     refreshDataView();
 };
 
@@ -435,7 +335,7 @@ const importBackup = (event) => {
             await importData(parsed);
         } catch (err) {
             console.error('importBackup失敗:', err);
-            showToast(TOAST.IMPORT_FAIL);
+            showToast(TOAST.IMPORT_FAIL, VIEW_CONSTANTS);
         }
         document.getElementById('fileInput').value = '';
     };
@@ -470,9 +370,15 @@ const bindEvents = () => {
     });
 
     // ソートヘッダ（商品名のみ）
-    document.querySelector('th[data-sort="name"]').addEventListener('click', () => {
+    document.querySelector('th[data-sort="name"]').addEventListener('click', async () => {
         viewState.sortKey = viewState.sortKey === 'name' ? 'createdAt' : 'name';
-        renderList();
+        const products = await getAllProducts();
+        renderList(products, VIEW_CONSTANTS, {
+            onDeleteProduct: deleteProduct,
+            onToggleDetails: toggleDetails,
+            onOpenHistoryModal: openHistoryModal,
+            onDeleteHistory: deleteHistory
+        });
     });
 };
 
