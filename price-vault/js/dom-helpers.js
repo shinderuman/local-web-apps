@@ -142,7 +142,8 @@
     // 商品一覧の親行を生成
     // onDeleteProduct: 削除ボタン押下時に呼ぶコールバック（app.js の deleteProduct を注入）
     // onToggleDetails: 行クリック（ボタン以外）時に呼ぶコールバック（app.js の toggleDetails を注入）
-    const createProductRow = (product, onDeleteProduct, onToggleDetails) => {
+    // uncategorized: カテゴリ未設定時の表示名（app.js の UNCATEGORIZED 定数を注入）
+    const createProductRow = (product, onDeleteProduct, onToggleDetails, uncategorized) => {
         const tr = document.createElement('tr');
         tr.className = 'item-row';
         tr.setAttribute('data-id', product.id);
@@ -167,9 +168,9 @@
         tdMax.appendChild(createPriceSpan(summary.max, 'price-max'));
         tr.appendChild(tdMax);
 
-        // カテゴリ（空なら UNCATEGORIZED。app.js 定数と同名の運用）
+        // カテゴリ（空なら引数で受け取った未分類ラベル）
         const tdCat = document.createElement('td');
-        tdCat.innerText = product.category || '未分類';
+        tdCat.innerText = product.category || uncategorized;
         tr.appendChild(tdCat);
 
         // 最安値の店（同額の店が複数あれば全て、強調）。なければ「—」

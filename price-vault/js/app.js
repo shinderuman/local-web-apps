@@ -327,7 +327,7 @@ const renderList = async () => {
     };
 
     sorted.forEach(product => {
-        tbody.appendChild(createProductRow(product, deleteProduct, toggleDetails));
+        tbody.appendChild(createProductRow(product, deleteProduct, toggleDetails, UNCATEGORIZED));
         tbody.appendChild(createDetailsRow(product, viewState.openDetailId === product.id, buildHistoryTable));
     });
 };
