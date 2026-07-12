@@ -29,23 +29,7 @@ const TOAST = {
 // 状態変数（ミュータブル）
 // ============================================================
 
-// 表示状態（選択カテゴリ・ソート・開閉中ID）
-const viewState = {
-    selectedCategory: 'all',
-    sortKey: 'name',
-    openDetailId: null
-};
-
-// 編集状態（モーダル編集中の商品ID・履歴インデックス）
-const editState = {
-    editingProductId: null,
-    editingHistoryIndex: null
-};
-
-// UI状態
-const uiState = {
-    toastTimer: null
-};
+const { viewState, editState, uiState } = window.PRICE_STATE;
 
 // ============================================================
 // モジュール（純粋関数）のインポート
