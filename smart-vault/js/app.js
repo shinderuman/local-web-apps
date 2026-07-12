@@ -2,10 +2,6 @@
 // 定数
 // ============================================================
 
-// ストレージ・セッションキー
-const STORAGE_KEY = 'storage_smart_assets';
-const FILTER_KEY = 'smart_vault_filter';
-
 // タイムアウト（ミリ秒）
 const TIMING = {
     TOAST_DURATION: 2500,
@@ -151,26 +147,9 @@ const TOAST = {
 // 状態変数（ミュータブル）
 // ============================================================
 
-let sortableInstance = null;
-let db = (() => {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-    return Array.isArray(raw) ? raw : Object.values(raw);
-})();
-
-// 表示状態（フィルタ・ソート）
-const viewState = {
-    filter: sessionStorage.getItem(FILTER_KEY) || 'all',
-    sortField: '',
-    sortOrder: 'asc'
-};
-
-// UI状態
-const uiState = {
-    toastTimer: null,
-    highlightTimer: null,
-    selectedIds: new Set(),
-    openDetailId: null
-};
+let db = window.SMART_DB.loadDb();
+const { viewState, uiState } = window.SMART_STATE;
+viewState.filter = window.SMART_DB.loadFilter();
 
 // ============================================================
 // モジュール（純粋関数）のインポート
@@ -265,7 +244,7 @@ const parseSmartJson = (rawText, existingRecord = null) => {
 };
 
 const saveDb = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+    window.SMART_DB.saveDb(db);
 };
 
 // S.M.A.R.T.未取得の手動登録レコードを生成（customType は選択中フィルタから決定）
@@ -470,7 +449,7 @@ const updateCounters = () => {
 
 const applyFilter = (type, btn) => {
     viewState.filter = type;
-    sessionStorage.setItem(FILTER_KEY, type);
+    window.SMART_DB.saveFilter(type);
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     updateDragEnabled();
@@ -966,15 +945,16 @@ const isSortableDisabled = () => {
 
 // D&Dの有効/無効をSortableインスタンスに反映
 const updateDragEnabled = () => {
-    if (sortableInstance) {
-        sortableInstance.option('disabled', isSortableDisabled());
+    const instance = window.SMART_STATE.sortableInstance;
+    if (instance) {
+        instance.option('disabled', isSortableDisabled());
     }
 };
 
 // tbodyをSortable化。.item-rowだけドラッグ可能、詳細行は対象外
 const initSortable = () => {
     const tbody = document.getElementById('storageTbody');
-    sortableInstance = Sortable.create(tbody, {
+    window.SMART_STATE.sortableInstance = Sortable.create(tbody, {
         animation: 150,
         draggable: '.item-row',
         filter: '.details-row, .clickable-cell, button, select, input',
