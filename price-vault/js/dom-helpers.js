@@ -3,13 +3,13 @@
 // Node: module.exports にエクスポート
 // ※ document.createElement を使うが、状態(localStorage/IndexedDB/Date.now)に依存せず
 //    引数のみから要素を生成するため純粋関数モジュールとして切り出す
-// ※ calcPriceSummary/sortHistories は PRICE_LOGIC に依存
+// ※ calcPriceSummary/sortHistories/getAllStores は PRICE_LOGIC に依存
 
 ((root, factory) => {
 
     const PRICE_LOGIC = (typeof window !== 'undefined' ? window.PRICE_LOGIC : null)
         || (typeof require === 'function' ? require('./price-logic.js') : null);
-    const { calcPriceSummary, sortHistories } = PRICE_LOGIC;
+    const { calcPriceSummary, sortHistories, getAllStores } = PRICE_LOGIC;
 
     // 強調クラス付きの金額spanを生成。valueがnullなら「—」の空クラスspan
     const createPriceSpan = (value, cls) => {
@@ -139,6 +139,117 @@
         return tr;
     };
 
+    // 商品一覧の親行を生成
+    // onDeleteProduct: 削除ボタン押下時に呼ぶコールバック（app.js の deleteProduct を注入）
+    // onToggleDetails: 行クリック（ボタン以外）時に呼ぶコールバック（app.js の toggleDetails を注入）
+    const createProductRow = (product, onDeleteProduct, onToggleDetails) => {
+        const tr = document.createElement('tr');
+        tr.className = 'item-row';
+        tr.setAttribute('data-id', product.id);
+
+        // 最安値/最高値サマリ（1走査）。店名・購入日もここから導出
+        const summary = calcPriceSummary(product.children);
+        const minStoreSpans = createMinStoreSpans(getAllStores(summary.minHistories));
+
+        // 商品名
+        const tdName = document.createElement('td');
+        tdName.className = 'name-cell';
+        tdName.innerText = product.name;
+        tr.appendChild(tdName);
+
+        // 最安値（緑強調）
+        const tdMin = document.createElement('td');
+        tdMin.appendChild(createPriceSpan(summary.min, 'price-min'));
+        tr.appendChild(tdMin);
+
+        // 最高値（赤強調）
+        const tdMax = document.createElement('td');
+        tdMax.appendChild(createPriceSpan(summary.max, 'price-max'));
+        tr.appendChild(tdMax);
+
+        // カテゴリ（空なら UNCATEGORIZED。app.js 定数と同名の運用）
+        const tdCat = document.createElement('td');
+        tdCat.innerText = product.category || '未分類';
+        tr.appendChild(tdCat);
+
+        // 最安値の店（同額の店が複数あれば全て、強調）。なければ「—」
+        const tdStores = document.createElement('td');
+        tdStores.className = 'stores-cell';
+        if (minStoreSpans) {
+            minStoreSpans.forEach((span, i) => {
+                if (i > 0) tdStores.appendChild(document.createTextNode(' / '));
+                tdStores.appendChild(span);
+            });
+        } else {
+            tdStores.innerText = '—';
+        }
+        tr.appendChild(tdStores);
+
+        // 購入日（最安値の購入日のうち最新。参考情報）
+        const tdDate = document.createElement('td');
+        tdDate.className = 'date-cell';
+        tdDate.innerText = summary.latestMinDate || '—';
+        tr.appendChild(tdDate);
+
+        // 削除ボタン（親レコード削除＝子履歴も一括）
+        const tdDel = document.createElement('td');
+        tdDel.className = 'delete-cell';
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn-delete-row';
+        delBtn.title = 'この商品を削除（履歴も一括削除）';
+        delBtn.innerText = '×';
+        delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onDeleteProduct(product.id);
+        });
+        tdDel.appendChild(delBtn);
+        tr.appendChild(tdDel);
+
+        // 行クリック（ボタン以外）で詳細トグル
+        tr.addEventListener('click', (e) => {
+            if (e.target.closest('button')) return;
+            onToggleDetails(product.id);
+        });
+
+        return tr;
+    };
+
+    // 履歴削除アイコンセルを生成（行クリックのモーダルを開かず直接削除確認）
+    // onDeleteHistory: クリック時に呼ぶコールバック（app.js の deleteHistory を注入）
+    const makeHistoryDeleteCell = (productId, idx, onDeleteHistory) => {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn-delete-row';
+        delBtn.title = 'この履歴を削除';
+        delBtn.innerText = '×';
+        delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onDeleteHistory(productId, idx);
+        });
+        const td = document.createElement('td');
+        td.className = 'delete-cell';
+        td.appendChild(delBtn);
+        return td;
+    };
+
+    // 履歴1行を生成（値段/店は最安・最高に応じて強調）
+    // onOpenHistoryModal: 行クリック時に呼ぶコールバック（app.js の openHistoryModal を注入）
+    // onDeleteHistory: 履歴削除ボタン押下時に呼ぶコールバック（app.js の deleteHistory を注入）
+    const createHistoryRow = (h, idx, productId, isMin, isMax, onOpenHistoryModal, onDeleteHistory) => {
+        const row = document.createElement('tr');
+        row.addEventListener('click', () => onOpenHistoryModal(productId, idx));
+
+        const cells = [
+            makeTextCell(h.date),
+            makePriceCell(h.price, isMin, isMax),
+            makeStoreCell(h.store, isMin),
+            makeTextCell(h.unitPrice || '—'),
+            makeTextCell(h.memo || '—', 'history-memo')
+        ];
+        cells.forEach(c => row.appendChild(c));
+        row.appendChild(makeHistoryDeleteCell(productId, idx, onDeleteHistory));
+        return row;
+    };
+
     const DOM_HELPERS = {
         createPriceSpan,
         makeTextCell,
@@ -147,7 +258,10 @@
         createMinStoreSpans,
         createEmptyRow,
         createHistoryTable,
-        createDetailsRow
+        createDetailsRow,
+        createProductRow,
+        makeHistoryDeleteCell,
+        createHistoryRow
     };
 
     factory(root, DOM_HELPERS);
