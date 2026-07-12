@@ -1252,6 +1252,19 @@ document.getElementById('searchInput').addEventListener('input', (e) => {
     renderList();
 });
 
+// 検索欄へのペースト: 2行（タイトル＋URL）ならURL行を排除し、
+// 1行目のタイトルをあらすじ検索と同じ短縮処理（parseBaseTitle）で検索
+document.getElementById('searchInput').addEventListener('paste', (e) => {
+    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+    const lines = pastedText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    if (lines.length < 2) return;
+    e.preventDefault();
+    const searchQuery = parseBaseTitle(lines[0]);
+    e.target.value = searchQuery;
+    filterState.searchQuery = searchQuery;
+    renderList();
+});
+
 // セレクトボックス
 document.getElementById('itemWindowSelect').addEventListener('change', updateGroupSelectBox);
 
