@@ -2,12 +2,6 @@
 // 定数
 // ============================================================
 
-// IndexedDB設定
-const DB = {
-    NAME: 'HighDensityTabManagerDB_v2',
-    VERSION: 1
-};
-
 // ソート設定
 const SORT_OPTIONS = [
     { key: 'sortOrder', label: '手動順' },
@@ -48,37 +42,9 @@ const TRASH = {
 // 状態変数（ミュータブル）
 // ============================================================
 
+// IndexedDB 接続（URL_DB.open 完了後に代入）
 let db = null;
-let sortableInstance = null;
-
-// フィルタ・ソート状態
-const filterState = {
-    selectedWindowId: null,
-    selectedGroupId: null,
-    sortKey: 'sortOrder',
-    sortAsc: true,
-    searchQuery: '',
-    renderId: 0,
-    selectedGroupByWindow: {}, // ウィンドウごとの最終選択グループID { windowId: groupId }
-    dupCheckEnabled: false, // 重複チェックON（表示中リストの重複候補のみ表示）
-    dupCheckLength: 6 // 重複判定の作品名先頭文字数
-};
-
-// アイテム編集状態
-const editState = {
-    imageDataBase64: '',
-    addPositionTop: true,
-    editingItemId: null, // 編集中のアイテムID（null=新規作成モード）
-    isEditMode: false // ✏ 編集モード（ウィンドウ・グループ・アイテム編集のトグル）
-};
-
-// UI状態
-const uiState = {
-    synopsisPanelItemId: null, // 右ペイン表示中のアイテムID（トグル用）
-    toastTimer: null, // トーストの自動消滅タイマー
-    toastVisible: false, // トースト表示中フラグ
-    blurEnabled: false // サムネぼかし有効フラグ
-};
+const { filterState, editState, uiState } = window.URL_STATE;
 
 // ============================================================
 // モジュール関数のインポート
@@ -1069,7 +1035,7 @@ const renderList = () => {
 
 const initDragAndDrop = () => {
     const listSection = document.getElementById('listSection');
-    sortableInstance = Sortable.create(listSection, {
+    window.URL_STATE.sortableInstance = Sortable.create(listSection, {
         animation: 150,
         disabled: filterState.sortKey !== 'sortOrder',
         onEnd: () => saveNewOrder()
@@ -1078,8 +1044,9 @@ const initDragAndDrop = () => {
 
 // ソートキー変更時にD&Dの有効/無効を切替え
 const updateDragEnabled = () => {
-    if (sortableInstance) {
-        sortableInstance.option('disabled', filterState.sortKey !== 'sortOrder');
+    const instance = window.URL_STATE.sortableInstance;
+    if (instance) {
+        instance.option('disabled', filterState.sortKey !== 'sortOrder');
     }
 };
 
@@ -1187,17 +1154,11 @@ const handleLoadFile = async () => {
 const pasteArea = document.getElementById('pasteArea');
 const preview = document.getElementById('preview');
 
-const request = indexedDB.open(DB.NAME, DB.VERSION);
-request.onupgradeneeded = (e) => {
-    db = e.target.result;
-    db.createObjectStore('windows', { keyPath: 'id', autoIncrement: true });
-    db.createObjectStore('groups', { keyPath: 'id', autoIncrement: true });
-    db.createObjectStore('items', { keyPath: 'id', autoIncrement: true });
-};
-request.onsuccess = (e) => {
-    db = e.target.result;
+// IndexedDB 初期化（準備完了後に db に接続を代入し initApp を呼ぶ）
+window.URL_DB.open((connection) => {
+    db = connection;
     initApp();
-};
+});
 
 // ============================================================
 // イベントリスナー登録
