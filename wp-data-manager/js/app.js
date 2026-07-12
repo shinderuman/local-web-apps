@@ -78,7 +78,7 @@ const masterHorseData = {
 // ============================================================
 
 let horses = [];               // 系統データ本体
-let currentGameYear = 1973;    // ゲーム内現在年
+let currentGameYear = 1968;    // ゲーム内現在年
 let sortableInstance = null;
 
 // ============================================================
