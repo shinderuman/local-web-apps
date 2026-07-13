@@ -185,6 +185,10 @@ const {
     formatHours, formatTemp, formatTbw, formatCount
 } = window.FORMAT_LOGIC;
 const { buildSmartJsonArray } = window.EXPORT_LOGIC;
+const {
+    countRecordsByType, getNextSortState, sortRecords,
+    filterRecordsByType, reorderRecordsByVisiblePosition, isValidSmartRecordList
+} = window.RECORD_LOGIC;
 
 // ============================================================
 // S.M.A.R.T. パース（モジュールを束ねてレコード生成）
@@ -390,8 +394,7 @@ const importBackup = (event) => {
         try {
             const importedData = JSON.parse(e.target.result);
             const importedArr = Array.isArray(importedData) ? importedData : Object.values(importedData);
-            const isValid = importedArr.every(r => r && typeof r === 'object' && typeof r.healthLevel !== 'undefined');
-            if (!isValid) {
+            if (!isValidSmartRecordList(importedArr)) {
                 showToast(TOAST.IMPORT_FAIL);
                 document.getElementById('fileInput').value = '';
                 return;
@@ -451,13 +454,7 @@ const showToast = (message) => {
 };
 
 const updateCounters = () => {
-    const counts = {};
-    FILTER_TYPES.forEach(t => { counts[t] = 0; });
-    db.forEach(item => {
-        counts['all']++;
-        const type = item.customType || 'unknown';
-        if (counts[type] !== undefined) counts[type]++;
-    });
+    const counts = countRecordsByType(db, FILTER_TYPES);
     FILTER_TYPES.forEach(key => {
         const el = document.getElementById(`count-${key}`);
         if (el) el.innerText = counts[key];
@@ -474,18 +471,7 @@ const applyFilter = (type, btn) => {
 };
 
 const sortTable = (field) => {
-    if (viewState.sortField === field) {
-        // 昇順 → 降順 → 解除（手動順）の3状態トグル
-        if (viewState.sortOrder === 'asc') {
-            viewState.sortOrder = 'desc';
-        } else {
-            viewState.sortField = '';
-            viewState.sortOrder = 'asc';
-        }
-    } else {
-        viewState.sortField = field;
-        viewState.sortOrder = 'asc';
-    }
+    Object.assign(viewState, getNextSortState(viewState, field));
     updateDragEnabled();
     renderTable();
 };
@@ -705,21 +691,7 @@ const enableHoursCycleEdit = (id, container) => {
 
 // ソート済み表示対象配列を返す
 const getDisplayItems = () => {
-    const items = [...db];
-    if (!viewState.sortField) return items;
-
-    items.sort((a, b) => {
-        // null/undefined は数値比較では -1 扱い（手動レコードの severityScore:null 対策）
-        const vA = a[viewState.sortField] ?? -1;
-        const vB = b[viewState.sortField] ?? -1;
-        if (typeof vA === 'number' && typeof vB === 'number') {
-            return viewState.sortOrder === 'asc' ? vA - vB : vB - vA;
-        }
-        const strA = String(vA || '');
-        const strB = String(vB || '');
-        return viewState.sortOrder === 'asc' ? strA.localeCompare(strB, 'ja') : strB.localeCompare(strA, 'ja');
-    });
-    return items;
+    return sortRecords(db, viewState.sortField, viewState.sortOrder);
 };
 
 const updateSortIndicators = () => {
@@ -786,10 +758,7 @@ const createMemoCell = (item) => {
 
 // 表示中アイテム一覧を返す（フィルタ適用済み）
 const getVisibleItems = () => {
-    return getDisplayItems().filter(item => {
-        const currentType = item.customType || 'unknown';
-        return viewState.filter === 'all' || viewState.filter === currentType;
-    });
+    return filterRecordsByType(getDisplayItems(), viewState.filter);
 };
 
 // 指定IDの選択状態をトグル（Cmd/Ctrl+クリックで呼ばれる）
@@ -1075,16 +1044,13 @@ const renderTable = () => {
     updateSortIndicators();
     updateExportButtonState();
 
-    let visibleCount = 0;
-    getDisplayItems().forEach((item) => {
-        const currentType = item.customType || 'unknown';
-        if (viewState.filter !== 'all' && viewState.filter !== currentType) return;
-        visibleCount++;
+    const visibleItems = getVisibleItems();
+    visibleItems.forEach((item) => {
         tbody.appendChild(createRow(item));
         tbody.appendChild(createDetailsRow(item));
     });
 
-    if (visibleCount === 0) {
+    if (visibleItems.length === 0) {
         tbody.appendChild(createEmptyRow());
     }
 };
@@ -1119,17 +1085,13 @@ const handleSortEnd = (evt) => {
     if (evt.oldDraggableIndex === evt.newDraggableIndex) return;
     const visibleItems = getVisibleItems();
     const movedId = Number(evt.item.dataset.id);
-    const moved = visibleItems.splice(evt.oldDraggableIndex, 1)[0];
-    visibleItems.splice(evt.newDraggableIndex, 0, moved);
-    // db内でmovedの位置を、visibleItemsでの前後関係に合わせて再配置
-    db = db.filter(item => item.id !== movedId);
-    const visibleIds = visibleItems.map(item => item.id);
-    const movedNewIdx = visibleIds.indexOf(movedId);
-    const prevId = movedNewIdx > 0 ? visibleIds[movedNewIdx - 1] : null;
-    const insertIdx = prevId === null
-        ? 0
-        : db.findIndex(item => item.id === prevId) + 1;
-    db.splice(insertIdx, 0, moved);
+    db = reorderRecordsByVisiblePosition(
+        db,
+        visibleItems,
+        movedId,
+        evt.oldDraggableIndex,
+        evt.newDraggableIndex
+    );
     saveDb();
     renderTable();
 };
