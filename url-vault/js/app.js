@@ -1249,6 +1249,9 @@ const createCardElement = (item) => {
     if (editState.editingItemId === item.id) {
         card.classList.add('editing-image');
     }
+    if (uiState.synopsisPanelItemId === item.id) {
+        card.classList.add('synopsis-active');
+    }
     if (hasSynopsis(item)) {
         card.classList.add('has-synopsis');
     } else if (isKindleUrl(item.url)) {
