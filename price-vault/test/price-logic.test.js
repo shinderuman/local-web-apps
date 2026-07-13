@@ -9,7 +9,11 @@ const {
     isValidProductInput,
     isValidHistoryInput,
     buildNewProduct,
-    buildNewHistory
+    buildNewHistory,
+    appendProductHistory,
+    removeProductHistory,
+    updateProductHistory,
+    reorderProducts
 } = require('../js/price-logic.js');
 
 // ============================================================
@@ -193,4 +197,40 @@ test('buildNewHistory: memo省略時は空文字', () => {
     const data = { price: '100', store: '', unitPrice: '', date: '2025-01-01' };
     const result = buildNewHistory(data);
     assert.strictEqual(result.memo, '');
+});
+
+// ============================================================
+// 商品・履歴操作
+// ============================================================
+
+test('appendProductHistory: 履歴を追加し、元の商品を変更しない', () => {
+    const product = { name: 'ピーマン', children: [{ price: 100 }] };
+    const result = appendProductHistory(product, { price: 120 });
+
+    assert.deepStrictEqual(result.children, [{ price: 100 }, { price: 120 }]);
+    assert.deepStrictEqual(product.children, [{ price: 100 }]);
+});
+
+test('removeProductHistory: 指定位置の履歴を削除し、元の商品を変更しない', () => {
+    const product = { children: [{ price: 100 }, { price: 120 }] };
+    const result = removeProductHistory(product, 0);
+
+    assert.deepStrictEqual(result.children, [{ price: 120 }]);
+    assert.deepStrictEqual(product.children, [{ price: 100 }, { price: 120 }]);
+});
+
+test('updateProductHistory: 商品名と指定位置の履歴を更新し、元の商品を変更しない', () => {
+    const product = { name: '旧名', children: [{ price: 100 }, { price: 120 }] };
+    const result = updateProductHistory(product, '新名', 1, { price: 150 });
+
+    assert.deepStrictEqual(result, { name: '新名', children: [{ price: 100 }, { price: 150 }] });
+    assert.deepStrictEqual(product, { name: '旧名', children: [{ price: 100 }, { price: 120 }] });
+});
+
+test('reorderProducts: 指定位置へ移動してsortOrderを振り直し、元配列を変更しない', () => {
+    const products = [{ id: 1, sortOrder: 2 }, { id: 2, sortOrder: 1 }, { id: 3, sortOrder: 0 }];
+    const result = reorderProducts(products, 2, 0);
+
+    assert.deepStrictEqual(result, [{ id: 3, sortOrder: 0 }, { id: 1, sortOrder: 1 }, { id: 2, sortOrder: 2 }]);
+    assert.deepStrictEqual(products, [{ id: 1, sortOrder: 2 }, { id: 2, sortOrder: 1 }, { id: 3, sortOrder: 0 }]);
 });

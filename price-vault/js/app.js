@@ -64,7 +64,9 @@ const {
     calcPriceSummary, getAllStores, sortHistories,
     sortProducts, filterByCategory,
     isValidProductInput, isValidHistoryInput,
-    buildNewProduct, buildNewHistory
+    buildNewProduct, buildNewHistory,
+    appendProductHistory, removeProductHistory,
+    updateProductHistory, reorderProducts
 } = window.PRICE_LOGIC;
 const { extractCategories, countProductsByCategory } = window.CATEGORY_LOGIC;
 const { validateImportData } = window.EXPORT_LOGIC;
@@ -283,8 +285,7 @@ const saveProduct = async () => {
     const existing = products.find(p => p.name.trim() === name);
 
     if (existing) {
-        existing.children.push(history);
-        await putProduct(existing);
+        await putProduct(appendProductHistory(existing, history));
         showToast(TOAST.UPDATED);
     } else {
         const product = buildNewProduct(
@@ -574,11 +575,11 @@ const deleteHistory = async (productId, index) => {
     if (!product) return;
     if (!confirm('この履歴を削除しますか？')) return;
 
-    product.children.splice(index, 1);
-    if (product.children.length === 0) {
+    const updatedProduct = removeProductHistory(product, index);
+    if (updatedProduct.children.length === 0) {
         await deleteProductDb(productId);
     } else {
-        await putProduct(product);
+        await putProduct(updatedProduct);
     }
     showToast(TOAST.DELETED);
     closeHistoryModal();
@@ -630,15 +631,18 @@ const saveHistoryEdit = async () => {
     const product = await getProduct(editingProductId);
     if (!product) return;
 
-    product.name = document.getElementById('editName').value.trim() || product.name;
-    product.children[editingHistoryIndex] = buildNewHistory({
-        price: priceRaw,
-        store: document.getElementById('editStore').value.trim(),
-        unitPrice: document.getElementById('editUnitPrice').value.trim(),
-        date,
-        memo: document.getElementById('editMemo').value
-    });
-    await putProduct(product);
+    await putProduct(updateProductHistory(
+        product,
+        document.getElementById('editName').value.trim(),
+        editingHistoryIndex,
+        buildNewHistory({
+            price: priceRaw,
+            store: document.getElementById('editStore').value.trim(),
+            unitPrice: document.getElementById('editUnitPrice').value.trim(),
+            date,
+            memo: document.getElementById('editMemo').value
+        })
+    ));
 
     showToast(TOAST.HISTORY_UPDATED);
     closeHistoryModal();
@@ -666,11 +670,8 @@ const saveNewOrder = async (evt) => {
     const products = await getAllProducts();
     const filtered = filterByCategory(products, viewState.selectedCategory);
     const sorted = sortProducts(filtered, viewState.sortKey);
-    const moved = sorted.splice(evt.oldDraggableIndex, 1)[0];
-    sorted.splice(evt.newDraggableIndex, 0, moved);
-    sorted.forEach((p, i) => { p.sortOrder = i; });
-    for (const p of sorted) {
-        await putProduct(p);
+    for (const product of reorderProducts(sorted, evt.oldDraggableIndex, evt.newDraggableIndex)) {
+        await putProduct(product);
     }
     refreshDataView();
 };

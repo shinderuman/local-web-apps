@@ -99,6 +99,33 @@
         };
     };
 
+    // 商品へ履歴を追加した新しい商品オブジェクトを返す
+    const appendProductHistory = (product, history) => {
+        return { ...product, children: [...product.children, history] };
+    };
+
+    // 指定位置の履歴を除外した新しい商品オブジェクトを返す
+    const removeProductHistory = (product, index) => {
+        const children = [...product.children];
+        children.splice(index, 1);
+        return { ...product, children };
+    };
+
+    // 商品名と指定位置の履歴を更新した新しい商品オブジェクトを返す
+    const updateProductHistory = (product, name, index, history) => {
+        const children = [...product.children];
+        children[index] = history;
+        return { ...product, name: name || product.name, children };
+    };
+
+    // 指定位置へ移動し、表示順に合わせてsortOrderを振り直す
+    const reorderProducts = (products, oldIndex, newIndex) => {
+        const reordered = [...products];
+        const moved = reordered.splice(oldIndex, 1)[0];
+        reordered.splice(newIndex, 0, moved);
+        return reordered.map((product, index) => ({ ...product, sortOrder: index }));
+    };
+
     const PRICE_LOGIC = {
         calcPriceSummary,
         getAllStores,
@@ -108,7 +135,11 @@
         isValidProductInput,
         isValidHistoryInput,
         buildNewProduct,
-        buildNewHistory
+        buildNewHistory,
+        appendProductHistory,
+        removeProductHistory,
+        updateProductHistory,
+        reorderProducts
     };
 
     factory(root, PRICE_LOGIC);
