@@ -40,12 +40,107 @@
         return horse[key];
     };
 
+    // フォーム入力と既存レコードから新しい系統レコードを組み立てる
+    const createHorse = (input, horses, id) => {
+        const maxOrder = horses.length > 0 ? Math.max(...horses.map(horse => horse.order)) : 0;
+        return {
+            id,
+            order: maxOrder + 1,
+            name: input.name,
+            birthYear: input.birthYear ? parseInt(input.birthYear, 10) : '',
+            horseName: input.horseName || '種牡馬',
+            otherHorseNames: [],
+            isRunner: true
+        };
+    };
+
+    // 指定IDの系統を除外した新しい配列を返す
+    const removeHorse = (horses, id) => horses.filter(horse => horse.id !== id);
+
+    // 指定IDの系統の1項目だけを非破壊で更新する
+    const updateHorseValue = (horses, id, key, value) => {
+        return horses.map(horse => horse.id === id ? { ...horse, [key]: value } : horse);
+    };
+
+    // 年齢条件を満たす場合だけ指定系統の現役状態を反転する
+    const toggleHorseRunner = (horses, id, currentYear) => {
+        const horse = horses.find(item => item.id === id);
+        if (!horse) return horses;
+        const age = calcAge(horse, currentYear);
+        if (age !== null && age >= STALLION_AGE_THRESHOLD) return horses;
+        return updateHorseValue(horses, id, 'isRunner', !horse.isRunner);
+    };
+
+    // ヘッダクリック後のソート状態を返す
+    const getNextSortState = (sortState, key) => {
+        if (sortState.key === key) return { key, asc: !sortState.asc };
+        return { key, asc: true };
+    };
+
+    // 指定列と方向で系統を非破壊に並べ替える
+    const sortHorses = (horses, key, asc) => {
+        return [...horses].sort((a, b) => {
+            const valA = a[key];
+            const valB = b[key];
+            const emptyA = valA === '' || valA === null || valA === undefined;
+            const emptyB = valB === '' || valB === null || valB === undefined;
+            if (emptyA || emptyB) {
+                if (emptyA && emptyB) return 0;
+                if (emptyA) return asc ? 1 : -1;
+                return asc ? -1 : 1;
+            }
+            if (typeof valA === 'string' || typeof valB === 'string') {
+                const comparison = String(valA).localeCompare(String(valB), 'ja');
+                return asc ? comparison : -comparison;
+            }
+            return asc ? valA - valB : valB - valA;
+        });
+    };
+
+    // 指定位置へ移動し、表示順に合わせてorderを連番へ振り直す
+    const reorderHorses = (horses, oldIndex, newIndex) => {
+        const reordered = [...horses];
+        const [moved] = reordered.splice(oldIndex, 1);
+        reordered.splice(newIndex, 0, moved);
+        return reordered.map((horse, index) => ({ ...horse, order: index + 1 }));
+    };
+
+    // ゲーム内年の前年以降に誕生する史実馬を年別グループに整形する
+    const listHistoricalHorseGroups = (masterHorseData, currentGameYear) => {
+        const filterYear = currentGameYear - 1;
+        return Object.keys(masterHorseData)
+            .map(Number)
+            .filter(year => year >= filterYear)
+            .sort((a, b) => a - b)
+            .map(year => ({ year, horses: [...masterHorseData[year]] }));
+    };
+
+    // 読み込んだデータが最低限の系統レコード配列かを判定する
+    const isValidHorseList = (data) => {
+        return Array.isArray(data) && data.every(horse => horse
+            && typeof horse.id !== 'undefined'
+            && typeof horse.name !== 'undefined');
+    };
+
+    // 手動順が表示されているかを判定する
+    const isManualSort = (sortState) => sortState.key === 'order' && sortState.asc;
+
     const HORSE_LOGIC = {
         STALLION_AGE_THRESHOLD,
         calcAge,
         isStallion,
         parseEditValue,
-        getEditOriginalValue
+        getEditOriginalValue,
+        createHorse,
+        removeHorse,
+        updateHorseValue,
+        toggleHorseRunner,
+        getNextSortState,
+        sortHorses,
+        reorderHorses,
+        listHistoricalHorseGroups,
+        isValidHorseList,
+        isManualSort
     };
 
     factory(root, HORSE_LOGIC);

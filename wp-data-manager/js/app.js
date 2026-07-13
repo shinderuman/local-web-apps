@@ -86,11 +86,20 @@ let sortableInstance = null;
 // ============================================================
 
 const {
-    STALLION_AGE_THRESHOLD,
     isStallion,
     calcAge,
     parseEditValue,
-    getEditOriginalValue
+    getEditOriginalValue,
+    createHorse,
+    removeHorse,
+    updateHorseValue,
+    toggleHorseRunner,
+    getNextSortState,
+    sortHorses,
+    reorderHorses,
+    listHistoricalHorseGroups,
+    isValidHorseList,
+    isManualSort
 } = window.HORSE_LOGIC;
 
 // ============================================================
@@ -200,16 +209,8 @@ const addData = () => {
     const year = document.getElementById('newYear').value.trim();
     const horseName = document.getElementById('newHorseName').value.trim();
     if (!name) return;
-    const maxOrder = horses.length > 0 ? Math.max(...horses.map(h => h.order)) : 0;
-    horses.push({
-        id: Date.now(),
-        order: maxOrder + 1,
-        name: name,
-        birthYear: year ? parseInt(year, 10) : '',
-        horseName: horseName === '' ? '種牡馬' : horseName,
-        otherHorseNames: [],
-        isRunner: true
-    });
+    const horse = createHorse({ name, birthYear: year, horseName }, horses, Date.now());
+    horses = [...horses, horse];
     document.getElementById('newName').value = '';
     document.getElementById('newYear').value = '';
     document.getElementById('newHorseName').value = '';
@@ -218,37 +219,23 @@ const addData = () => {
 
 // 指定IDの系統を削除
 const deleteData = (id) => {
-    horses = horses.filter(h => h.id !== id);
+    horses = removeHorse(horses, id);
     saveAndRender();
 };
 
 // 指定キーでソート（同キー再クリックで昇降切替）
 const sortData = (key) => {
-    if (sortState.key === key) {
-        sortState.asc = !sortState.asc;
-    } else {
-        sortState.key = key;
-        sortState.asc = true;
-    }
-    horses.sort((a, b) => {
-        const valA = (a[key] === '' || a[key] === null) ? (sortState.asc ? Infinity : -Infinity) : a[key];
-        const valB = (b[key] === '' || b[key] === null) ? (sortState.asc ? Infinity : -Infinity) : b[key];
-        if (typeof valA === 'string') {
-            return sortState.asc ? valA.localeCompare(valB, 'ja') : valB.localeCompare(valA, 'ja');
-        }
-        return sortState.asc ? valA - valB : valB - valA;
-    });
+    Object.assign(sortState, getNextSortState(sortState, key));
+    horses = sortHorses(horses, sortState.key, sortState.asc);
     updateDragEnabled();
     render();
 };
 
 // 現役/種牡馬のトグル（閾値以上は固定でトグル不可）
 const toggleRunner = (id) => {
-    const h = horses.find(h => h.id === id);
-    if (!h) return;
-    const age = calcAge(h, currentGameYear);
-    if (age !== null && age >= STALLION_AGE_THRESHOLD) return;
-    h.isRunner = !h.isRunner;
+    const updated = toggleHorseRunner(horses, id, currentGameYear);
+    if (updated === horses) return;
+    horses = updated;
     saveAndRender();
 };
 
@@ -279,7 +266,7 @@ const startEdit = (id, key, element) => {
     element.appendChild(input);
     input.focus();
     const finishEdit = () => {
-        horse[key] = parseEditValue(key, input.value.trim());
+        horses = updateHorseValue(horses, id, key, parseEditValue(key, input.value.trim()));
         saveAndRender();
     };
     input.onblur = finishEdit;
@@ -303,7 +290,6 @@ const render = () => {
     horses.forEach((h) => {
         const age = calcAge(h, currentGameYear) ?? '-';
         const stallion = isStallion(h, currentGameYear);
-        const otherText = (h.otherHorseNames || []).join('\n');
         const tr = document.createElement('tr');
         tr.dataset.id = h.id;
         if (!stallion) tr.classList.add('runner-row');
@@ -311,9 +297,9 @@ const render = () => {
         tr.appendChild(createOrderCell(h.order));
         tr.appendChild(createNameCell(h.name));
         tr.appendChild(createAgeCell(age));
-        tr.appendChild(createEditableCell(h.id, 'birthYear', h.birthYear, false));
-        tr.appendChild(createEditableCell(h.id, 'horseName', h.horseName, false));
-        tr.appendChild(createEditableCell(h.id, 'otherHorseNames', escapeHtml(otherText).replace(/\n/g, '<br>'), true));
+        tr.appendChild(createEditableCell(h.id, 'birthYear', h.birthYear));
+        tr.appendChild(createEditableCell(h.id, 'horseName', h.horseName));
+        tr.appendChild(createEditableCell(h.id, 'otherHorseNames', h.otherHorseNames || []));
         tr.appendChild(createDeleteCell(h.id));
         attachRowEvents(tr, h.id);
         tbody.appendChild(tr);
@@ -326,14 +312,14 @@ const renderFilteredHorseList = () => {
     targetContainer.innerHTML = '';
 
     const filterYear = currentGameYear - 1;
-    const years = Object.keys(masterHorseData).map(Number).filter(y => y >= filterYear).sort((a, b) => a - b);
+    const groups = listHistoricalHorseGroups(masterHorseData, currentGameYear);
 
-    if (years.length === 0) {
+    if (groups.length === 0) {
         targetContainer.innerHTML = `<div style="color:#666; font-size:14px; padding:10px;">${filterYear}年以降の該当データはありません。</div>`;
         return;
     }
 
-    years.forEach(year => {
+    groups.forEach(({ year, horses: historicalHorses }) => {
         const card = document.createElement('div');
         card.className = 'year-card';
 
@@ -342,7 +328,7 @@ const renderFilteredHorseList = () => {
         card.appendChild(title);
 
         const ul = document.createElement('ul');
-        masterHorseData[year].forEach(horse => {
+        historicalHorses.forEach(horse => {
             const li = document.createElement('li');
             li.textContent = horse;
             ul.appendChild(li);
@@ -386,12 +372,15 @@ const createAgeCell = (age) => {
     return td;
 };
 
-// 編集可能セルを生成。isHtml=trueならinnerHTMLで改行タグ等を反映
-const createEditableCell = (id, key, value, isHtml) => {
+// 編集可能セルを生成。複数の他牧場馬名は改行要素で安全に表示する
+const createEditableCell = (id, key, value) => {
     const td = document.createElement('td');
     td.className = 'editable' + (key === 'otherHorseNames' ? ' other-cell' : '');
-    if (isHtml) {
-        td.innerHTML = value;
+    if (key === 'otherHorseNames') {
+        value.forEach((name, index) => {
+            if (index > 0) td.appendChild(document.createElement('br'));
+            td.appendChild(document.createTextNode(name));
+        });
     } else {
         td.textContent = value;
     }
@@ -417,11 +406,6 @@ const attachRowEvents = (tr, id) => {
         td.style.cursor = 'pointer';
         td.addEventListener('click', () => toggleRunner(id));
     });
-};
-
-// HTMLエスケープ（XSS対策）
-const escapeHtml = (str) => {
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 };
 
 // ============================================================
@@ -468,7 +452,7 @@ const loadFile = async () => {
             alert('JSONのパースに失敗しました');
             return;
         }
-        if (!Array.isArray(parsed) || !parsed.every(h => h && typeof h.id !== 'undefined' && typeof h.name !== 'undefined')) {
+        if (!isValidHorseList(parsed)) {
             alert('データ構造が不正です（id, name が必須です）');
             return;
         }
@@ -487,7 +471,7 @@ const saveFile = async () => {
             suggestedName: 'horse-data.json',
             types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
         });
-        const exportList = [...horses].sort((a, b) => a.order - b.order);
+        const exportList = sortHorses(horses, 'order', true);
         const writable = await handle.createWritable();
         await writable.write(JSON.stringify(exportList, null, 2));
         await writable.close();
@@ -502,7 +486,7 @@ const saveFile = async () => {
 
 // ソート中はD&Dを無効化（order昇順＝手動順のときのみ許可）
 const isManualOrder = () => {
-    return sortState.key === 'order' && sortState.asc;
+    return isManualSort(sortState);
 };
 
 const updateDragEnabled = () => {
@@ -519,9 +503,7 @@ const initSortable = () => {
         animation: 150,
         disabled: !isManualOrder(),
         onEnd: (evt) => {
-            const [moved] = horses.splice(evt.oldIndex, 1);
-            horses.splice(evt.newIndex, 0, moved);
-            horses.forEach((h, i) => h.order = i + 1);
+            horses = reorderHorses(horses, evt.oldIndex, evt.newIndex);
             saveAndRender();
         }
     });
