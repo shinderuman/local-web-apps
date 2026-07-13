@@ -26,7 +26,6 @@ wp-data-manager/
 └── js/
     ├── app.js              — メインロジック（DOM・localStorage・状態）
     ├── horse-logic.js      — 系統データの純粋関数
-    ├── dom-helpers.js      — DOM要素生成ヘルパ（状態非依存の純粋関数）
     └── lib/sortable.min.js — ドラッグ＆ドロップライブラリ
 ```
 

@@ -71,7 +71,6 @@ price-vault/
 │   ├── price-logic.js          — 価格計算・ソート・バリデーション（純粋関数）
 │   ├── category-logic.js       — カテゴリ抽出・件数カウント（純粋関数）
 │   ├── export-logic.js         — インポートデータ検証（純粋関数）
-│   ├── dom-helpers.js          — DOM要素生成ヘルパ（状態非依存の純粋関数）
 │   └── lib/sortable.min.js     — ドラッグ＆ドロップライブラリ
 ├── test/                       — 純粋関数のユニットテスト（node --test）
 └── README.md

@@ -185,10 +185,6 @@ const {
     formatHours, formatTemp, formatTbw, formatCount
 } = window.FORMAT_LOGIC;
 const { buildSmartJsonArray } = window.EXPORT_LOGIC;
-const {
-    createEditableCell, formatHoursCycle, createLevelBadge, createMemoCell,
-    appendDetailField, appendReasonsBlock, createEmptyRow
-} = window.DOM_HELPERS;
 
 // ============================================================
 // S.M.A.R.T. パース（モジュールを束ねてレコード生成）
@@ -736,6 +732,58 @@ const updateSortIndicators = () => {
 };
 
 // 編集可能セル（clickable-cell）を生成
+const createEditableCell = (text, onEdit) => {
+    const cell = document.createElement('div');
+    cell.className = 'clickable-cell';
+    cell.innerText = text;
+    cell.addEventListener('click', onEdit);
+    return cell;
+};
+
+// 通電時間 / 電源回数の表示文字列（未入力項目は省略、両方未入力なら空）
+const formatHoursCycle = (powerOnHours, powerCycleCount) => {
+    const hasHours = powerOnHours && powerOnHours !== '不明';
+    const cycleNum = typeof powerCycleCount === 'number' ? powerCycleCount : 0;
+    const hasCycle = typeof powerCycleCount === 'number' && cycleNum > 0;
+    if (hasHours && hasCycle) return `${powerOnHours} / ${cycleNum}回`;
+    if (hasHours) return powerOnHours;
+    if (hasCycle) return `${cycleNum}回`;
+    return '';
+};
+
+// 状態レベルバッジを生成: L番号 + Score 融合表示（手動登録は青バッジ「手動」）
+const createLevelBadge = (item) => {
+    const badge = document.createElement('span');
+    if (item.isManual) {
+        badge.className = 'level-badge level-manual';
+        badge.innerText = '手動';
+        return badge;
+    }
+    const hl = item.healthLevel ?? 0;
+    badge.className = `level-badge level-${hl}`;
+    badge.title = item.healthReasons.join('\n');
+    badge.innerText = `L${hl} ${item.severityScore ?? 0}`;
+    return badge;
+};
+
+// メモセルを生成
+const createMemoCell = (item) => {
+    const td = document.createElement('td');
+    const memoCell = document.createElement('div');
+    memoCell.className = 'clickable-cell';
+    if (item.memo) {
+        memoCell.innerText = item.memo;
+    } else {
+        const ph = document.createElement('span');
+        ph.className = 'memo-placeholder';
+        ph.innerText = 'クリックして入力';
+        memoCell.appendChild(ph);
+    }
+    memoCell.addEventListener('click', () => enableTextEdit(item.id, memoCell, 'memo'));
+    td.appendChild(memoCell);
+    return td;
+};
+
 // 表示中アイテム一覧を返す（フィルタ適用済み）
 const getVisibleItems = () => {
     return getDisplayItems().filter(item => {
@@ -854,7 +902,7 @@ const createRow = (item) => {
     tr.appendChild(tdHours);
 
     // メモ（編集可能）
-    tr.appendChild(createMemoCell(item, enableTextEdit));
+    tr.appendChild(createMemoCell(item));
 
     // 行挿入ボタン（右端の「＋」、クリックでこの行の直後に手動レコード挿入）
     const tdInsert = document.createElement('td');
@@ -880,6 +928,67 @@ const createRow = (item) => {
     });
 
     return tr;
+};
+
+// 詳細グリッドに「ラベル: 値」のフィールドを追加
+const appendDetailField = (grid, label, value) => {
+    const div = document.createElement('div');
+    const strong = document.createElement('strong');
+    strong.innerText = label + ': ';
+    div.appendChild(strong);
+    div.append(value);
+    grid.appendChild(div);
+};
+
+// 詳細グリッドに判定理由ブロックを追加（右端に消去ボタンを配置）
+// 判定理由1行をノード配列に変換: 既知キーワードはツールチップ付きspanに、それ以外はテキストに
+const createReasonNodes = (reason) => {
+    const nodes = [];
+    let rest = reason;
+    while (rest.length > 0) {
+        // 出現位置が最も早いキーワードを探す
+        const match = REASON_GLOSSARY
+            .map(g => ({ g, idx: rest.indexOf(g.key) }))
+            .filter(m => m.idx !== -1)
+            .sort((a, b) => a.idx - b.idx)[0];
+        if (!match) {
+            nodes.push(document.createTextNode(rest));
+            break;
+        }
+        if (match.idx > 0) {
+            nodes.push(document.createTextNode(rest.slice(0, match.idx)));
+        }
+        const span = document.createElement('span');
+        span.className = 'reason-keyword';
+        span.tabIndex = 0;
+        span.title = match.g.desc;
+        span.innerText = match.g.key;
+        nodes.push(span);
+        rest = rest.slice(match.idx + match.g.key.length);
+    }
+    return nodes;
+};
+
+const appendReasonsBlock = (grid, reasons, actionBtn) => {
+    const div = document.createElement('div');
+    div.className = 'reason-block';
+    // ラベル行（ラベル左詰め、ボタン右詰め）
+    const header = document.createElement('div');
+    header.className = 'reason-header';
+    const strong = document.createElement('strong');
+    strong.innerText = '判定理由:';
+    header.appendChild(strong);
+    if (actionBtn) header.appendChild(actionBtn);
+    div.appendChild(header);
+    // 理由本文（各理由を1行に、キーワードはツールチップ付きspanに）
+    const body = document.createElement('span');
+    reasons.forEach((reason, i) => {
+        if (i > 0) body.appendChild(document.createElement('br'));
+        body.append(document.createTextNode('・'));
+        createReasonNodes(reason).forEach(node => body.appendChild(node));
+    });
+    div.appendChild(body);
+    grid.appendChild(div);
 };
 
 const createDetailsRow = (item) => {
@@ -914,7 +1023,7 @@ const createDetailsRow = (item) => {
     delBtn.className = 'btn-danger btn-mini';
     delBtn.innerText = 'このストレージを消去';
     delBtn.addEventListener('click', () => deleteItem(item.id));
-    appendReasonsBlock(grid, item.healthReasons, delBtn, REASON_GLOSSARY);
+    appendReasonsBlock(grid, item.healthReasons, delBtn);
     container.appendChild(grid);
 
     const raw = document.createElement('div');
@@ -938,6 +1047,27 @@ const createDetailsRow = (item) => {
     return tr;
 };
 
+// 0件時の行: メッセージ＋新規追加ボタン（分類は選択中フィルタで登録）
+const createEmptyRow = () => {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 11;
+    td.style.cssText = 'text-align:center; color:#a0aec0; padding:30px;';
+
+    const msg = document.createElement('span');
+    msg.innerText = '該当するディスクがありません。';
+    td.appendChild(msg);
+
+    const btn = document.createElement('button');
+    btn.className = 'btn-add-empty';
+    btn.innerText = '＋ 新規追加';
+    btn.addEventListener('click', () => addManualRecordToEnd());
+    td.appendChild(btn);
+
+    tr.appendChild(td);
+    return tr;
+};
+
 const renderTable = () => {
     const tbody = document.getElementById('storageTbody');
     tbody.innerHTML = '';
@@ -955,7 +1085,7 @@ const renderTable = () => {
     });
 
     if (visibleCount === 0) {
-        tbody.appendChild(createEmptyRow(addManualRecordToEnd));
+        tbody.appendChild(createEmptyRow());
     }
 };
 

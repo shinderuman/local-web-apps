@@ -15,6 +15,13 @@ const SORT_OPTIONS = [
     { key: 'createdAt', label: '登録順' }
 ];
 
+// 画像処理設定
+const IMAGE = {
+    MAX_W: 440,
+    MAX_H: 620,
+    JPEG_QUALITY: 0.7
+};
+
 // タイムアウト・間隔（ミリ秒）
 const TIMING = {
     TOAST_DURATION: 3000,
@@ -116,13 +123,6 @@ const {
     serializeUIState,
     deserializeUIState
 } = window.UI_LOGIC;
-const {
-    appendFilterIcons, createCardElement, renderSynopsisContent, renderSynopsisForm,
-    renderSortButtonRow, startFilterEditInput
-} = window.DOM_HELPERS;
-const {
-    trimBackground, resizeToJpeg
-} = window.IMAGE_HELPERS;
 
 // ============================================================
 // アプリ初期化・データビュー更新
@@ -472,6 +472,57 @@ const renderSaveBtn = () => {
 // 画像処理ユーティリティ
 // ============================================================
 
+const sampleColor = (data, width, x, y) => {
+    const i = (y * width + x) * 4;
+    return (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+};
+
+const trimBackground = (img) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+
+    const { data, width } = ctx.getImageData(0, 0, img.width, img.height);
+    const midY = Math.floor(img.height / 2);
+    const margin = Math.max(1, Math.floor(width * 0.01));
+
+    const bgColorLeft = sampleColor(data, width, margin, midY);
+    const bgColorRight = sampleColor(data, width, width - 1 - margin, midY);
+
+    let trimLeft = margin;
+    let trimRight = margin;
+    while (trimLeft < width - 1) {
+        if (sampleColor(data, width, trimLeft, midY) !== bgColorLeft) break;
+        trimLeft++;
+    }
+    while (trimRight < width - trimLeft - 1) {
+        if (sampleColor(data, width, width - 1 - trimRight, midY) !== bgColorRight) break;
+        trimRight++;
+    }
+
+    return { trimLeft, trimmedW: width - trimLeft - trimRight, trimmedH: img.height };
+};
+
+const resizeToJpeg = (img, trimLeft, trimW, trimH) => {
+    let w = trimW;
+    let h = trimH;
+
+    if (w > IMAGE.MAX_W || h > IMAGE.MAX_H) {
+        const ratio = Math.min(IMAGE.MAX_W / w, IMAGE.MAX_H / h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, trimLeft, 0, trimW, trimH, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', IMAGE.JPEG_QUALITY);
+};
+
 // ============================================================
 // あらすじ取得（楽天ブックスAPI）
 // ============================================================
@@ -586,6 +637,95 @@ const updateSynopsis = async (itemId, title, url, explicitVolume) => {
 
 // あらすじモーダル表示
 // 右ペインにあらすじ表示。editedStateがあればその値を入力欄に引き継ぐ
+// あらすじ本文（各巻のあらすじ）を描画
+const renderSynopsisContent = (item, bodyEl) => {
+    if (!hasSynopsis(item)) {
+        const empty = document.createElement('p');
+        empty.className = 'synopsis-empty';
+        if (isKindleUrl(item.url)) {
+            empty.textContent = 'あらすじが取得されていません';
+        } else {
+            empty.textContent = 'あらすじが取得されていません（Kindleドメインのみ取得可能）';
+        }
+        bodyEl.appendChild(empty);
+        return;
+    }
+    item.synopsis.forEach(s => {
+        const wrap = document.createElement('div');
+        wrap.className = 'synopsis-volume';
+        const t = document.createElement('p');
+        t.className = 'synopsis-volume-title';
+        t.textContent = `${s.volume}巻`;
+        wrap.appendChild(t);
+        const text = document.createElement('p');
+        text.className = 'synopsis-volume-text';
+        text.textContent = s.caption;
+        wrap.appendChild(text);
+        bodyEl.appendChild(wrap);
+    });
+};
+
+// 再取得ボタンを生成
+const createRefetchButton = (item, titleInput, volInput) => {
+    const btn = document.createElement('button');
+    btn.textContent = hasSynopsis(item) ? '再取得' : '取得';
+    btn.className = 'synopsis-fetch-btn';
+    btn.onclick = async () => {
+        const editedTitle = titleInput.value.trim();
+        const editedVolume = volInput.value.trim();
+        if (!editedTitle) return;
+        btn.disabled = true;
+        btn.textContent = '取得中...';
+        await updateSynopsis(item.id, editedTitle, item.url, editedVolume);
+        db.transaction(['items'], 'readonly').objectStore('items').get(item.id).onsuccess = (ev) => {
+            if (ev.target.result) {
+                showSynopsisPanel(ev.target.result, { title: editedTitle, volume: editedVolume });
+            }
+        };
+    };
+    return btn;
+};
+
+// あらすじ編集フォーム（タイトル・巻数・再取得ボタン）を描画
+const renderSynopsisForm = (item, bodyEl, editedState) => {
+    if (!isKindleUrl(item.url)) return;
+
+    const formWrap = document.createElement('div');
+    formWrap.className = 'synopsis-form';
+
+    const titleLabel = document.createElement('label');
+    titleLabel.textContent = 'タイトル（取得に使う作品名）';
+    titleLabel.htmlFor = 'synopsisTitleInput';
+    formWrap.appendChild(titleLabel);
+
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.id = 'synopsisTitleInput';
+    titleInput.className = 'synopsis-input';
+    titleInput.value = editedState ? editedState.title : item.title;
+    formWrap.appendChild(titleInput);
+
+    const volLabel = document.createElement('label');
+    volLabel.textContent = '巻数';
+    volLabel.htmlFor = 'synopsisVolumeInput';
+
+    const volInput = document.createElement('input');
+    volInput.type = 'number';
+    volInput.id = 'synopsisVolumeInput';
+    volInput.className = 'synopsis-input synopsis-volume-input';
+    volInput.value = editedState ? editedState.volume : parseVolume(item.title);
+
+    const refetchBtn = createRefetchButton(item, titleInput, volInput);
+
+    const volRow = document.createElement('div');
+    volRow.className = 'synopsis-vol-row';
+    volRow.appendChild(volLabel);
+    volRow.appendChild(volInput);
+    volRow.appendChild(refetchBtn);
+    formWrap.appendChild(volRow);
+
+    bodyEl.appendChild(formWrap);
+};
 
 const showSynopsisPanel = (item, editedState) => {
     const panel = document.getElementById('synopsisPanel');
@@ -607,20 +747,7 @@ const showSynopsisPanel = (item, editedState) => {
     titleEl.textContent = item.title;
     bodyEl.innerHTML = '';
     renderSynopsisContent(item, bodyEl);
-    // あらすじフォーム: 再取得コールバック（updateSynopsis）、取得後コールバック（showSynopsisPanel）、
-    // 最新アイテム取得コールバック（db の items get を Promise 化）を注入
-    renderSynopsisForm(
-        item,
-        bodyEl,
-        editedState,
-        updateSynopsis,
-        showSynopsisPanel,
-        (itemId) => new Promise((resolve) => {
-            db.transaction(['items'], 'readonly').objectStore('items').get(itemId).onsuccess = (ev) => {
-                resolve(ev.target.result);
-            };
-        })
-    );
+    renderSynopsisForm(item, bodyEl, editedState);
 
     panel.style.display = 'flex';
     panel.classList.remove('synopsis-panel-open');
@@ -780,28 +907,33 @@ const handleTwoLinePaste = (e) => {
 // ソートボタン
 // ============================================================
 
-// ソート状態切替: filterState を更新し、ソートボタンとリストを再描画
-const onSortChange = (opt) => {
-    if (filterState.sortKey === opt.key && opt.key !== 'sortOrder') {
-        filterState.sortAsc = !filterState.sortAsc;
-    } else {
-        filterState.sortKey = opt.key;
-        filterState.sortAsc = true;
-    }
-    saveUIState();
-    renderSortButtons();
-    renderList();
-};
-
-// ソートボタン描画ラッパ: 現在のソート状態と固定コールバックを dom-helpers に渡す
 const renderSortButtons = () => {
-    renderSortButtonRow(
-        document.getElementById('sortRow'),
-        filterState.sortKey,
-        filterState.sortAsc,
-        SORT_OPTIONS,
-        onSortChange
-    );
+    const sortRow = document.getElementById('sortRow');
+    sortRow.innerHTML = '';
+    SORT_OPTIONS.forEach(opt => {
+        const btn = document.createElement('button');
+        const isActive = filterState.sortKey === opt.key;
+        btn.className = `sort-btn ${isActive ? 'active' : ''}`;
+        btn.textContent = opt.label;
+        if (isActive && opt.key !== 'sortOrder') {
+            const arrow = document.createElement('span');
+            arrow.className = 'arrow';
+            arrow.textContent = filterState.sortAsc ? '▲' : '▼';
+            btn.appendChild(arrow);
+        }
+        btn.onclick = () => {
+            if (filterState.sortKey === opt.key && opt.key !== 'sortOrder') {
+                filterState.sortAsc = !filterState.sortAsc;
+            } else {
+                filterState.sortKey = opt.key;
+                filterState.sortAsc = true;
+            }
+            saveUIState();
+            renderSortButtons();
+            renderList();
+        };
+        sortRow.appendChild(btn);
+    });
 };
 
 // ============================================================
@@ -826,6 +958,27 @@ const applyFilterChange = (windowId, groupId) => {
 const changeWindow = (windowId) => {
     const remembered = getRememberedGroup(filterState.selectedGroupByWindow, windowId);
     applyFilterChange(windowId, remembered);
+};
+
+// フィルタ編集/削除アイコンのクリック共通処理
+const onFilterIconClick = (e, handler) => {
+    e.stopPropagation();
+    handler();
+};
+
+// フィルタボタンに編集・削除アイコンを付与（共通）
+const appendFilterIcons = (btn, editHandler, deleteHandler) => {
+    const editIcon = document.createElement('span');
+    editIcon.className = 'icon edit-icon';
+    editIcon.textContent = '✏';
+    editIcon.onclick = (e) => onFilterIconClick(e, editHandler);
+    btn.appendChild(editIcon);
+
+    const delIcon = document.createElement('span');
+    delIcon.className = 'icon delete-icon';
+    delIcon.textContent = '×';
+    delIcon.onclick = (e) => onFilterIconClick(e, deleteHandler);
+    btn.appendChild(delIcon);
 };
 
 const renderFilters = () => {
@@ -915,25 +1068,50 @@ const renderGroupFilters = (tx) => {
 // フィルタボタンの名前編集・削除
 // ============================================================
 
-// フィルタ名編集確定: db の windows/groups ストアの name を更新し再描画
-const commitFilterEdit = (id, storeName, newName) => {
-    const tx = db.transaction([storeName], 'readwrite');
-    tx.objectStore(storeName).get(id).onsuccess = (e) => {
-        const data = e.target.result;
-        if (data) {
-            data.name = newName;
-            tx.objectStore(storeName).put(data);
+const startEditFilter = (id, storeName, currentName, btnElement) => {
+    let finished = false;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'edit-input';
+    input.value = currentName;
+    btnElement.textContent = '';
+    btnElement.appendChild(input);
+    input.focus();
+
+    const finishEdit = () => {
+        if (finished) return;
+        finished = true;
+        const newName = input.value.trim();
+        if (newName && newName !== currentName) {
+            const tx = db.transaction([storeName], 'readwrite');
+            tx.objectStore(storeName).get(id).onsuccess = (e) => {
+                const data = e.target.result;
+                if (data) {
+                    data.name = newName;
+                    tx.objectStore(storeName).put(data);
+                }
+            };
+            tx.oncomplete = () => {
+                refreshDataView();
+                syncItemSelects();
+            };
+        } else {
+            refreshDataView();
         }
     };
-    tx.oncomplete = () => {
-        refreshDataView();
-        syncItemSelects();
-    };
-};
 
-// フィルタ名インライン編集開始ラッパ: input生成は dom-helpers に、確定時の db 更新はコールバックで注入
-const startEditFilter = (id, storeName, currentName, btnElement) => {
-    startFilterEditInput(id, storeName, currentName, btnElement, commitFilterEdit, refreshDataView);
+    input.onblur = finishEdit;
+    input.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+            input.onblur = null;
+            finishEdit();
+        }
+        if (e.key === 'Escape') {
+            finished = true;
+            input.onblur = null;
+            refreshDataView();
+        }
+    };
 };
 
 const deleteWindow = (id, name) => {
@@ -1028,18 +1206,81 @@ const moveToTrash = (itemId) => {
     tx.oncomplete = () => renderList();
 };
 
-// カード要素生成に渡す固定コールバック群（renderList で毎商品呼ぶため外で束ねる）
-const createCardWithState = (item) => {
-    return createCardElement(
-        item,
-        editState.editingItemId,
-        editState.isEditMode,
-        uiState.blurEnabled,
-        startItemEdit,
-        showToast,
-        showSynopsisPanel,
-        moveToTrash
-    );
+// 削除ボタンを生成
+const createDeleteButton = (itemId) => {
+    const btn = document.createElement('button');
+    btn.className = 'delete-icon-btn';
+    btn.textContent = '×';
+    btn.onclick = () => moveToTrash(itemId);
+    return btn;
+};
+
+// カードの画像領域を生成
+const createCardImage = (item) => {
+    const imgBox = document.createElement('div');
+    imgBox.className = 'card-img-box';
+    if (item.image) {
+        const img = document.createElement('img');
+        img.className = 'card-img';
+        img.src = item.image;
+        if (uiState.blurEnabled) {
+            img.classList.add('blurred');
+        }
+        imgBox.appendChild(img);
+    }
+    return imgBox;
+};
+
+// カードのコンテンツ（タイトル）領域を生成
+const createCardContent = (item) => {
+    const content = document.createElement('div');
+    content.className = 'card-content';
+    const title = document.createElement('p');
+    title.className = 'card-title';
+    title.textContent = item.title;
+    content.appendChild(title);
+    return content;
+};
+
+// カード要素を生成
+const createCardElement = (item) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    if (editState.editingItemId === item.id) {
+        card.classList.add('editing-image');
+    }
+    if (hasSynopsis(item)) {
+        card.classList.add('has-synopsis');
+    } else if (isKindleUrl(item.url)) {
+        card.classList.add('no-synopsis');
+    }
+    card.dataset.id = item.id;
+    card.tabIndex = 0;
+    card.title = item.title;
+
+    // シングルクリックでリンクオープン、右クリックであらすじ表示（右ペイン）
+    card.onclick = (e) => {
+        if (e.target.closest('.delete-icon-btn')) return;
+        if (editState.isEditMode) {
+            startItemEdit(item);
+            return;
+        }
+        window.open(item.url, '_blank', 'noopener,noreferrer');
+    };
+    card.oncontextmenu = (e) => {
+        if (editState.isEditMode) return;
+        e.preventDefault();
+        if (!isKindleUrl(item.url)) {
+            showToast('このカードはあらすじ非対応（Kindleドメインのみ）', { error: true });
+            return;
+        }
+        showSynopsisPanel(item);
+    };
+
+    card.appendChild(createDeleteButton(item.id));
+    card.appendChild(createCardImage(item));
+    card.appendChild(createCardContent(item));
+    return card;
 };
 
 const renderList = () => {
@@ -1055,7 +1296,7 @@ const renderList = () => {
         }
 
         items.forEach((item) => {
-            listSection.appendChild(createCardWithState(item));
+            listSection.appendChild(createCardElement(item));
         });
         updateDragEnabled();
 
