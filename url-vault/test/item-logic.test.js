@@ -18,6 +18,12 @@ test('calcNextSortOrder: 末尾追加時は既存の最大sortOrder+1', () => {
     assert.strictEqual(calcNextSortOrder(items, false), 3);
 });
 
+test('calcNextSortOrder: sortOrderが飛んでいても最大値の次を返す', () => {
+    const items = [{ sortOrder: 0 }, { sortOrder: 3 }, { sortOrder: 5 }];
+
+    assert.strictEqual(calcNextSortOrder(items, false), 6);
+});
+
 test('calcNextSortOrder: 先頭追加時は0', () => {
     const items = [{ sortOrder: 0 }, { sortOrder: 1 }, { sortOrder: 2 }];
     assert.strictEqual(calcNextSortOrder(items, true), 0);

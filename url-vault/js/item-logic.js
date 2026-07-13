@@ -4,10 +4,10 @@
 
 ((root, factory) => {
 
-    // 新規アイテムのsortOrderを計算
-    // 先頭追加時は0、末尾追加時は既存アイテム数
+    // 先頭追加時は0、末尾追加時は既存の最大sortOrder+1を返す
     const calcNextSortOrder = (items, addPositionTop) => {
-        return addPositionTop ? 0 : items.length;
+        if (addPositionTop || items.length === 0) return 0;
+        return Math.max(...items.map(item => item.sortOrder ?? 0)) + 1;
     };
 
     // 先頭追加時に既存アイテムのsortOrderを+1した新しい配列を返す（非破壊）
