@@ -9,6 +9,10 @@
 - 実行時はディレクトリ指定ではなく **glob でファイルを指定**する（`node --test "test/*.test.js"`、対象ディレクトリ内で実行）
 - テストは `node:test` + `node:assert` の標準ランナーのみ。`test()` を使い `describe`/`it` は使わない
 
+## 手動並び順のテスト
+
+- `sortOrder` や `order` を計算・更新する純粋関数には、連番だけでなく欠番を含む入力のテストを追加する
+
 ## ESLint
 
 - 設定ファイル：リポジトリルートの `eslint.config.mjs`（ESLint9 flat config）
@@ -35,4 +39,3 @@
   - `localStorage`: smart-vault, wp-data-manager（テキスト中心の小規模データ）
   - `IndexedDB`: url-vault, price-vault（複数ストア構造 / 親子ネストデータの永続蓄積）
 - 判断は仕様書・ユーザー指示を最優先する（既存アプリの傾向から自動決定しない）
-
