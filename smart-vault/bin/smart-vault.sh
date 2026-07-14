@@ -32,7 +32,7 @@ while true; do
         exit 1
     fi
 
-    options=()
+    options=("接続情報を更新")
     for dev in "${dev_list[@]}"; do
         disk_info=$(diskutil info "$dev")
         size=$(echo "$disk_info" | grep "Disk Size:" | sed -E 's/.*Disk Size:[[:space:]]+([^[:space:]]+[[:space:]]+[^[:space:]]+).*/\1/')
@@ -97,7 +97,14 @@ while true; do
         exit 0
     fi
 
-    target_device="${dev_list[$cursor]}"
+    if [ "$cursor" -eq 0 ]; then
+        echo "接続情報を更新します..."
+        echo "-------------------------------------"
+        echo ""
+        continue
+    fi
+
+    target_device="${dev_list[$((cursor - 1))]}"
     echo "$target_device の S.M.A.R.T. 情報を取得中..."
 
     # 一時ファイルの作成
