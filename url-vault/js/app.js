@@ -358,13 +358,19 @@ const saveItemEdit = (winSelect, groupSelect, titleInput, urlInput) => {
             endItemEdit();
             return;
         }
-        data.windowId = parseInt(winSelect.value);
-        data.groupId = parseInt(groupSelect.value);
-        data.title = titleInput.value;
-        data.url = urlInput.value;
-        if (editState.imageDataBase64) {
-            data.image = editState.imageDataBase64;
+        const newWindowId = parseInt(winSelect.value);
+        const newGroupId = parseInt(groupSelect.value);
+        // ウィンドウまたはグループの移動時は新規追加と同じ位置へ再割り当て
+        const moved = data.windowId !== newWindowId || data.groupId !== newGroupId;
+        if (moved) {
+            assignSortOrderAtInsertPosition(store, newGroupId, (sortOrder) => {
+                data.sortOrder = sortOrder;
+                applyItemEditFields(data, newWindowId, newGroupId, titleInput, urlInput);
+                store.put(data);
+            });
+            return;
         }
+        applyItemEditFields(data, newWindowId, newGroupId, titleInput, urlInput);
         store.put(data);
     };
     tx.oncomplete = () => {
@@ -373,32 +379,52 @@ const saveItemEdit = (winSelect, groupSelect, titleInput, urlInput) => {
         const savedUrl = urlInput.value;
         endItemEdit();
         renderList();
-        // Kindleドメインかつあらすじ未取得なら取得
-        const tx2 = db.transaction(['items'], 'readonly');
-        tx2.objectStore('items').get(savedId).onsuccess = (ev) => {
-            const d = ev.target.result;
-            if (d && !hasSynopsis(d)) {
-                updateSynopsis(savedId, savedTitle, savedUrl);
-            }
-        };
+        fetchSynopsisIfMissing(savedId, savedTitle, savedUrl);
     };
+};
+
+// 指定アイテムがKindleドメインかつあらすじ未取得なら取得する
+const fetchSynopsisIfMissing = (itemId, title, url) => {
+    const tx = db.transaction(['items'], 'readonly');
+    tx.objectStore('items').get(itemId).onsuccess = (ev) => {
+        const d = ev.target.result;
+        if (d && !hasSynopsis(d)) {
+            updateSynopsis(itemId, title, url);
+        }
+    };
+};
+
+// 追加位置設定に従い対象グループ内のsortOrderを計算する（先頭追加時は既存をシフト）
+const assignSortOrderAtInsertPosition = (store, groupId, callback) => {
+    store.getAll().onsuccess = (e) => {
+        const groupItems = e.target.result.filter(item => item.groupId === groupId);
+        if (editState.addPositionTop) {
+            shiftSortOrders(groupItems).forEach(item => store.put(item));
+        }
+        callback(calcNextSortOrder(groupItems, editState.addPositionTop));
+    };
+};
+
+// 編集アイテムの表示フィールド（sortOrder以外）を上書きする
+const applyItemEditFields = (data, newWindowId, newGroupId, titleInput, urlInput) => {
+    data.windowId = newWindowId;
+    data.groupId = newGroupId;
+    data.title = titleInput.value;
+    data.url = urlInput.value;
+    if (editState.imageDataBase64) {
+        data.image = editState.imageDataBase64;
+    }
 };
 
 // 新規アイテムを保存
 const saveItemNew = (winSelect, groupSelect, titleInput, urlInput) => {
     const tx = db.transaction(['items'], 'readwrite');
     const store = tx.objectStore('items');
-    store.getAll().onsuccess = (e) => {
-        const currentGroupItems = e.target.result.filter(item => item.groupId === parseInt(groupSelect.value));
-
-        if (editState.addPositionTop) {
-            shiftSortOrders(currentGroupItems).forEach(item => store.put(item));
-        }
-
-        const sortOrder = calcNextSortOrder(currentGroupItems, editState.addPositionTop);
+    const newGroupId = parseInt(groupSelect.value);
+    assignSortOrderAtInsertPosition(store, newGroupId, (sortOrder) => {
         const data = buildNewItem({
             windowId: parseInt(winSelect.value),
-            groupId: parseInt(groupSelect.value),
+            groupId: newGroupId,
             title: titleInput.value,
             url: urlInput.value,
             image: editState.imageDataBase64,
@@ -412,7 +438,7 @@ const saveItemNew = (winSelect, groupSelect, titleInput, urlInput) => {
             renderList({ resetScroll: true });
             updateSynopsis(newId, data.title, data.url);
         };
-    };
+    });
 };
 
 const saveItem = () => {
