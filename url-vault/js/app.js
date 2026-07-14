@@ -135,14 +135,14 @@ const initApp = () => {
     updateSelectBoxes();
     renderSortButtons();
     renderFilters();
-    renderList();
+    renderList({ resetScroll: true });
     initDragAndDrop();
 };
 
 const refreshDataView = () => {
     updateSelectBoxes();
     renderFilters();
-    renderList();
+    renderList({ resetScroll: true });
 };
 
 // ============================================================
@@ -181,7 +181,7 @@ const toggleDupCheck = () => {
     filterState.dupCheckEnabled = !filterState.dupCheckEnabled;
     updateDupCheckBtn();
     saveUIState();
-    renderList();
+    renderList({ resetScroll: true });
 };
 
 // 重複判定の先頭文字数を変更
@@ -189,7 +189,7 @@ const changeDupCheckLength = (value) => {
     const n = parseInt(value, 10);
     filterState.dupCheckLength = isNaN(n) || n < 1 ? 1 : n;
     saveUIState();
-    renderList();
+    renderList({ resetScroll: true });
 };
 
 const saveUIState = () => {
@@ -409,7 +409,7 @@ const saveItemNew = (winSelect, groupSelect, titleInput, urlInput) => {
             const newId = ev.target.result;
             clearItemForm();
             titleInput.focus();
-            renderList();
+            renderList({ resetScroll: true });
             updateSynopsis(newId, data.title, data.url);
         };
     };
@@ -930,7 +930,7 @@ const renderSortButtons = () => {
             }
             saveUIState();
             renderSortButtons();
-            renderList();
+            renderList({ resetScroll: true });
         };
         sortRow.appendChild(btn);
     });
@@ -951,7 +951,7 @@ const applyFilterChange = (windowId, groupId) => {
     hideSynopsisPanel();
     saveUIState();
     renderFilters();
-    renderList();
+    renderList({ resetScroll: true });
 };
 
 // ウィンドウ切替: 最後に選んだグループを復元（無効ならnull）
@@ -1181,7 +1181,7 @@ const emptyTrash = () => {
         const store = tx2.objectStore('items');
         trashItems.forEach(item => store.delete(item.id));
         tx2.oncomplete = () => {
-            renderList();
+            renderList({ resetScroll: true });
             showToast(`ゴミ箱を空にしました（${trashItems.length}件削除）`);
         };
     };
@@ -1286,9 +1286,29 @@ const createCardElement = (item) => {
     return card;
 };
 
-const renderList = () => {
+// カード一覧を items の順序・内容に一致させる差分更新（スクロール位置維持のため全破棄しない）
+const reconcileList = (listSection, items) => {
+    const existing = new Map();
+    listSection.querySelectorAll(':scope > .card').forEach((el) => {
+        existing.set(el.dataset.id, el);
+    });
+
+    items.forEach((item) => {
+        const idStr = String(item.id);
+        const fresh = createCardElement(item);
+        const old = existing.get(idStr);
+        if (old) {
+            old.replaceWith(fresh);
+            existing.delete(idStr);
+        }
+        listSection.appendChild(fresh);
+    });
+
+    existing.forEach((el) => el.remove());
+};
+
+const renderList = ({ resetScroll = false } = {}) => {
     const listSection = document.getElementById('listSection');
-    listSection.innerHTML = '';
 
     const tx = db.transaction(['items'], 'readonly');
     tx.objectStore('items').getAll().onsuccess = (e) => {
@@ -1298,10 +1318,13 @@ const renderList = () => {
             items = filterDuplicates(items, filterState.dupCheckLength, parseBaseTitle);
         }
 
-        items.forEach((item) => {
-            listSection.appendChild(createCardElement(item));
-        });
+        reconcileList(listSection, items);
         updateDragEnabled();
+
+        // 内容が変わる操作ではスクロールを先頭へ戻す（内容不変の再描画では維持）
+        if (resetScroll) {
+            listSection.parentElement.scrollTop = 0;
+        }
 
         document.getElementById('cardCount').textContent = `${items.length}件`;
     };
@@ -1493,7 +1516,7 @@ document.getElementById('toggleBlurBtn').addEventListener('click', () => {
 // 検索
 document.getElementById('searchInput').addEventListener('input', (e) => {
     filterState.searchQuery = e.target.value.trim();
-    renderList();
+    renderList({ resetScroll: true });
 });
 
 // 検索欄へのペースト: 2行（タイトル＋URL）ならURL行を排除し、
@@ -1506,7 +1529,7 @@ document.getElementById('searchInput').addEventListener('paste', (e) => {
     const searchQuery = parseBaseTitle(lines[0]);
     e.target.value = searchQuery;
     filterState.searchQuery = searchQuery;
-    renderList();
+    renderList({ resetScroll: true });
 });
 
 // セレクトボックス
