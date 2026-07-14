@@ -753,6 +753,9 @@ const showSynopsisPanel = (item, editedState) => {
     panel.classList.remove('synopsis-panel-open');
     void panel.offsetWidth;
     panel.classList.add('synopsis-panel-open');
+
+    // パネル展開でカード一覧の幅が縮み対象カードが押し出されるのを補正する
+    if (activeCard) activeCard.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 };
 
 const hideSynopsisPanel = () => {
