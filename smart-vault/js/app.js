@@ -184,7 +184,7 @@ const { computeHealthLevel } = window.HEALTH_LOGIC;
 const {
     formatHours, formatTemp, formatTbw, formatCount
 } = window.FORMAT_LOGIC;
-const { buildSmartJsonArray } = window.EXPORT_LOGIC;
+const { compactRaw, prettifyRaw, buildSmartJsonArray } = window.JSON_NORMALIZE_LOGIC;
 const {
     countRecordsByType, getNextSortState, sortRecords,
     filterRecordsByType, reorderRecordsByVisiblePosition, isValidSmartRecordList
@@ -260,7 +260,7 @@ const parseSmartJson = (rawText, existingRecord = null) => {
         updatedAt: new Date().toLocaleString(),
         memo,
         customType,
-        raw: rawText
+        raw: compactRaw(rawText)
     };
 };
 
@@ -997,7 +997,7 @@ const createDetailsRow = (item) => {
 
     const raw = document.createElement('div');
     raw.className = 'raw-json';
-    raw.innerText = item.raw;
+    raw.innerText = prettifyRaw(item.raw);
 
     const copyBtn = document.createElement('button');
     copyBtn.className = 'btn-copy-json';

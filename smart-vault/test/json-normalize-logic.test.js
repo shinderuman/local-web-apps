@@ -1,6 +1,55 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { buildSmartJsonArray } = require('../js/export-logic.js');
+const { compactRaw, prettifyRaw, buildSmartJsonArray } = require('../js/json-normalize-logic.js');
+
+// ============================================================
+// compactRaw: JSON文字列のcompact化
+// ============================================================
+test('compactRaw: インデント付きJSONをcompact化', () => {
+    const indented = '{\n  "a": 1,\n  "b": 2\n}';
+    assert.strictEqual(compactRaw(indented), '{"a":1,"b":2}');
+});
+
+test('compactRaw: compact済みのJSONはそのまま', () => {
+    const compact = '{"a":1,"b":2}';
+    assert.strictEqual(compactRaw(compact), '{"a":1,"b":2}');
+});
+
+test('compactRaw: 空文字列はそのまま', () => {
+    assert.strictEqual(compactRaw(''), '');
+});
+
+test('compactRaw: 不正JSONは入力をそのまま返す', () => {
+    const broken = '{broken json';
+    assert.strictEqual(compactRaw(broken), broken);
+});
+
+// ============================================================
+// prettifyRaw: JSON文字列のインデント整形
+// ============================================================
+test('prettifyRaw: compactJSONをインデント付きに整形', () => {
+    const result = prettifyRaw('{"a":1,"b":2}');
+    assert.ok(result.includes('"a": 1'));
+    assert.ok(result.includes('\n'));
+});
+
+test('prettifyRaw: 空文字列はそのまま', () => {
+    assert.strictEqual(prettifyRaw(''), '');
+});
+
+test('prettifyRaw: 不正JSONは入力をそのまま返す', () => {
+    const broken = '{broken json';
+    assert.strictEqual(prettifyRaw(broken), broken);
+});
+
+// ============================================================
+// 往復: compact → prettify で意味を保持
+// ============================================================
+test('往復: prettifyRaw(compactRaw(x)) で元のJSONオブジェクトを保持', () => {
+    const original = '{\n  "serial_number": "ABC",\n  "size": 100\n}';
+    const round = prettifyRaw(compactRaw(original));
+    assert.deepStrictEqual(JSON.parse(round), JSON.parse(original));
+});
 
 // ============================================================
 // buildSmartJsonArray: raw結合
