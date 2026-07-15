@@ -1,7 +1,6 @@
 // UI状態のシリアライズ/デシリアライズ純粋関数（ブラウザ/Node両方で利用）
 
 ((root, factory) => {
-
     // UI状態オブジェクトをJSON文字列にシリアライズ
     const serializeUIState = (state) => {
         return JSON.stringify(state);

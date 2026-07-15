@@ -3,12 +3,19 @@
 // Node: module.exports にエクスポート
 
 ((root, factory) => {
-
     // 指標ごとの4段階閾値テーブル（値の単位: Seq帯域=MiB/s, IOPS=個, レイテンシ=ms）
     // 各グループ [理想, 正常, 少し遅い] の下限（この値以上なら該当段階、未満は次段階）
     const BENCH_THRESHOLDS = {
-        seqBwMiB: { nvme: [3500, 2000, 1000], sata: [500, 300, 150], hdd: [150, 100, 60] },
-        randIops: { nvme: [200000, 100000, 30000], sata: [60000, 30000, 10000], hdd: [150, 80, 40] },
+        seqBwMiB: {
+            nvme: [3500, 2000, 1000],
+            sata: [500, 300, 150],
+            hdd: [150, 100, 60]
+        },
+        randIops: {
+            nvme: [200000, 100000, 30000],
+            sata: [60000, 30000, 10000],
+            hdd: [150, 80, 40]
+        },
         latencyMs: { nvme: [0.1, 0.5, 2], sata: [0.2, 1, 5], hdd: [10, 20, 40] }
     };
 
@@ -84,7 +91,12 @@
     const getBenchGroup = (customType) => {
         if (customType === 'nvme') return 'nvme';
         if (customType === 'sata-ssd' || customType === 'emmc') return 'sata';
-        if (customType === 'hdd-25' || customType === 'hdd-35' || customType === 'sshd') return 'hdd';
+        if (
+            customType === 'hdd-25' ||
+            customType === 'hdd-35' ||
+            customType === 'sshd'
+        )
+            return 'hdd';
         return null;
     };
 
@@ -109,7 +121,11 @@
     const rateSeqBw = (bwBytes, customType) => {
         const group = getBenchGroup(customType);
         if (!group) return null;
-        return rateByThresholds(bwBytes / (1024 * 1024), BENCH_THRESHOLDS.seqBwMiB[group], true);
+        return rateByThresholds(
+            bwBytes / (1024 * 1024),
+            BENCH_THRESHOLDS.seqBwMiB[group],
+            true
+        );
     };
 
     // Rand IOPSの評価
@@ -123,7 +139,11 @@
     const rateLatency = (latencyNs, customType) => {
         const group = getBenchGroup(customType);
         if (!group) return null;
-        return rateByThresholds(latencyNs / 1e6, BENCH_THRESHOLDS.latencyMs[group], false);
+        return rateByThresholds(
+            latencyNs / 1e6,
+            BENCH_THRESHOLDS.latencyMs[group],
+            false
+        );
     };
 
     const BENCH_LOGIC = {

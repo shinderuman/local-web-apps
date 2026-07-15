@@ -21,13 +21,86 @@ const sortState = {
 // 年代別の史実馬マスターデータ（生年: [馬名...])
 const masterHorseData = {
     1963: ['スピードシンボリ', 'ワカクモ'],
-    1964: ['ヒカルタカイ', 'ニットエイト', 'リュウズキ', 'Damascus', 'Dr.Fager', 'In Reality'],
-    1965: ['タケシバオー', 'マーチス', 'アサカオー', 'ダテホーライ', 'キタノダイオー', 'Sir Ivor', 'Dark Mirage', 'Vaguely Noble', 'Petingo', 'ゼダーン'],
-    1966: ['メジロアサマ', 'トウメイ', 'Majestic Prince', 'Arts and Letters', 'Ack Ack', 'Ta Wee', 'Cougar', 'Habitat', 'Gallant Bloom'],
-    1968: ['Mill Reef', 'My Swallow', 'Brigadier Gerard', 'Canonero', 'ヒカルイマイ', 'ナスノカオリ', 'カネヒムロ', 'ニホンピロムーテー', 'ベルワイド'],
-    1969: ['Riverman', 'Riva Ridge', 'Key to the Mint', 'Lyphard', 'Susan\'s Girl', 'ロングエース', 'ランドプリンス', 'イシノヒカル', 'トクザクラ', 'アチーブスター', 'ハマノパレード', 'ストロングエイト', 'タニノチカラ', 'タイテエム', 'Halo', 'Roberto'],
-    1970: ['ハイセイコー', 'タケホープ', 'ニットウチドリ', 'ナスノチグサ', 'Secretariat', 'Forego', 'Mr.Prospector', 'Allez France', 'Dahlia'],
-    1971: ['イットー', 'キタノカチドキ', 'コーネルランサー', 'フジノパーシア', 'Northern Taste', 'Highclere', 'Sagaro'],
+    1964: [
+        'ヒカルタカイ',
+        'ニットエイト',
+        'リュウズキ',
+        'Damascus',
+        'Dr.Fager',
+        'In Reality'
+    ],
+    1965: [
+        'タケシバオー',
+        'マーチス',
+        'アサカオー',
+        'ダテホーライ',
+        'キタノダイオー',
+        'Sir Ivor',
+        'Dark Mirage',
+        'Vaguely Noble',
+        'Petingo',
+        'ゼダーン'
+    ],
+    1966: [
+        'メジロアサマ',
+        'トウメイ',
+        'Majestic Prince',
+        'Arts and Letters',
+        'Ack Ack',
+        'Ta Wee',
+        'Cougar',
+        'Habitat',
+        'Gallant Bloom'
+    ],
+    1968: [
+        'Mill Reef',
+        'My Swallow',
+        'Brigadier Gerard',
+        'Canonero',
+        'ヒカルイマイ',
+        'ナスノカオリ',
+        'カネヒムロ',
+        'ニホンピロムーテー',
+        'ベルワイド'
+    ],
+    1969: [
+        'Riverman',
+        'Riva Ridge',
+        'Key to the Mint',
+        'Lyphard',
+        "Susan's Girl",
+        'ロングエース',
+        'ランドプリンス',
+        'イシノヒカル',
+        'トクザクラ',
+        'アチーブスター',
+        'ハマノパレード',
+        'ストロングエイト',
+        'タニノチカラ',
+        'タイテエム',
+        'Halo',
+        'Roberto'
+    ],
+    1970: [
+        'ハイセイコー',
+        'タケホープ',
+        'ニットウチドリ',
+        'ナスノチグサ',
+        'Secretariat',
+        'Forego',
+        'Mr.Prospector',
+        'Allez France',
+        'Dahlia'
+    ],
+    1971: [
+        'イットー',
+        'キタノカチドキ',
+        'コーネルランサー',
+        'フジノパーシア',
+        'Northern Taste',
+        'Highclere',
+        'Sagaro'
+    ],
     1972: ['カブラヤオー', 'テスコガビー', 'Ruffian', 'Foolish Pleasure'],
     1973: ['トウショウボーイ', 'テンポイント', 'Exceller'],
     1974: ['マルゼンスキー', 'Seattle Slew', 'Alleged'],
@@ -36,23 +109,52 @@ const masterHorseData = {
     1981: ['シンボリルドルフ'],
     1983: ['メジロラモーヌ', 'Dancing Brave'],
     1984: ['イナリワン', 'タマモクロス'],
-    1985: ['オグリキャップ', 'バンブーメモリー', 'ヤエノムテキ', 'スーパークリーク'],
+    1985: [
+        'オグリキャップ',
+        'バンブーメモリー',
+        'ヤエノムテキ',
+        'スーパークリーク'
+    ],
     1986: ['Sunday Silence', 'Easy Goer'],
     1987: ['イクノディクタス', 'アイネスフウジン', 'メジロパーマー'],
     1988: ['トウカイテイオー'],
     1989: ['ミホノブルボン', 'サクラバクシンオー', 'A.P.Indy'],
-    1990: ['ビワハヤヒデ', 'ナリタタイシン', 'ノースフライト', 'ホクトベガ', 'Cigar'],
+    1990: [
+        'ビワハヤヒデ',
+        'ナリタタイシン',
+        'ノースフライト',
+        'ホクトベガ',
+        'Cigar'
+    ],
     1991: ['ナリタブライアン', 'ヒシアマゾン', 'サクラローレル'],
     1992: ['マヤノトップガン', 'フラワーパーク', 'フジキセキ', 'Lammtarra'],
     1993: ['エアグルーヴ'],
     1994: ['サイレンススズカ', 'タイキシャトル', 'メジロドーベル'],
-    1995: ['スペシャルウィーク', 'グラスワンダー', 'エルコンドルパサー', 'セイウンスカイ'],
-    1996: ['テイエムオペラオー', 'アドマイヤベガ', 'ナリタトップロード', 'メイショウドトウ', 'Montjeu', 'Dubai Millennium'],
+    1995: [
+        'スペシャルウィーク',
+        'グラスワンダー',
+        'エルコンドルパサー',
+        'セイウンスカイ'
+    ],
+    1996: [
+        'テイエムオペラオー',
+        'アドマイヤベガ',
+        'ナリタトップロード',
+        'メイショウドトウ',
+        'Montjeu',
+        'Dubai Millennium'
+    ],
     1997: ['アグネスデジタル'],
     1998: ['クロフネ', 'アグネスタキオン', 'Galileo'],
     1999: ['デュランダル', 'シンボリクリスエス'],
     2000: ['ゼンノロブロイ', 'Ghostzapper'],
-    2001: ['メジロマックイーン', 'メジロライアン', 'メジロブライト', 'キングカメハメハ', 'ハーツクライ'],
+    2001: [
+        'メジロマックイーン',
+        'メジロライアン',
+        'メジロブライト',
+        'キングカメハメハ',
+        'ハーツクライ'
+    ],
     2002: ['ディープインパクト'],
     2004: ['ドリームジャーニー', 'ウオッカ', 'ダイワスカーレット'],
     2005: ['スマートファルコン'],
@@ -62,7 +164,12 @@ const masterHorseData = {
     2009: ['ゴールドシップ', 'ホッコータルマエ', 'ジェンティルドンナ'],
     2010: ['コパノリッキー', 'エピファネイア'],
     2011: ['モーリス'],
-    2012: ['キタサンブラック', 'サトノクラウン', 'ドゥラメンテ', 'American Pharoah'],
+    2012: [
+        'キタサンブラック',
+        'サトノクラウン',
+        'ドゥラメンテ',
+        'American Pharoah'
+    ],
     2013: ['サトノダイヤモンド', 'Arrogate'],
     2014: ['ウインブライト', 'Enable', 'レイデオロ'],
     2015: ['アーモンドアイ', 'Justify', 'ゴールデンシックスティ'],
@@ -70,15 +177,20 @@ const masterHorseData = {
     2017: ['デアリングタクト', 'コントレイル'],
     2018: ['エフフォーリア', 'Baaeed', 'Flightline', 'ロマンチックウォリアー'],
     2019: ['イクノックス'],
-    2020: ['リバティアイランド', 'Auguste Rodin', 'Ka Ying Rising', 'カーインライジング']
+    2020: [
+        'リバティアイランド',
+        'Auguste Rodin',
+        'Ka Ying Rising',
+        'カーインライジング'
+    ]
 };
 
 // ============================================================
 // 状態変数（ミュータブル）
 // ============================================================
 
-let horses = [];               // 系統データ本体
-let currentGameYear = 1968;    // ゲーム内現在年
+let horses = []; // 系統データ本体
+let currentGameYear = 1968; // ゲーム内現在年
 let sortableInstance = null;
 
 // ============================================================
@@ -124,7 +236,7 @@ const loadData = () => {
         document.getElementById('currentGameYear').value = currentGameYear;
     }
 
-    ['memoArea', 'horseListSection', 'scheduleSection'].forEach(id => {
+    ['memoArea', 'horseListSection', 'scheduleSection'].forEach((id) => {
         const visible = localStorage.getItem(id + VISIBLE_SUFFIX) === 'true';
         document.getElementById(id).style.display = visible ? 'block' : 'none';
     });
@@ -146,19 +258,23 @@ const initEvents = () => {
 
 // トグルボタン: data-target のsection表示を切替
 const registerToggleButtons = () => {
-    document.querySelectorAll('.toggle-btn').forEach(btn => {
+    document.querySelectorAll('.toggle-btn').forEach((btn) => {
         btn.addEventListener('click', () => toggleElement(btn.dataset.target));
     });
 };
 
 // ゲーム内年入力: 変更でリスト再描画
 const registerGameYearInput = () => {
-    document.getElementById('currentGameYear').addEventListener('input', (e) => updateGameYear(e.target.value));
+    document
+        .getElementById('currentGameYear')
+        .addEventListener('input', (e) => updateGameYear(e.target.value));
 };
 
 // スケジュールのcheckbox: 変更を委譲で一括保存
 const registerScheduleCheckboxes = () => {
-    document.getElementById('scheduleSection').addEventListener('change', saveCheckboxes);
+    document
+        .getElementById('scheduleSection')
+        .addEventListener('change', saveCheckboxes);
 };
 
 // ファイル読込/保存の2ボタン
@@ -174,11 +290,13 @@ const registerAddButton = () => {
 
 // テーブルヘッダ: data-sort の列でソート
 const registerSortHeader = () => {
-    document.querySelector('#horseTable thead').addEventListener('click', (e) => {
-        const th = e.target.closest('th[data-sort]');
-        if (!th) return;
-        sortData(th.dataset.sort);
-    });
+    document
+        .querySelector('#horseTable thead')
+        .addEventListener('click', (e) => {
+            const th = e.target.closest('th[data-sort]');
+            if (!th) return;
+            sortData(th.dataset.sort);
+        });
 };
 
 // ============================================================
@@ -209,7 +327,11 @@ const addData = () => {
     const year = document.getElementById('newYear').value.trim();
     const horseName = document.getElementById('newHorseName').value.trim();
     if (!name) return;
-    const horse = createHorse({ name, birthYear: year, horseName }, horses, Date.now());
+    const horse = createHorse(
+        { name, birthYear: year, horseName },
+        horses,
+        Date.now()
+    );
     horses = [...horses, horse];
     document.getElementById('newName').value = '';
     document.getElementById('newYear').value = '';
@@ -253,12 +375,14 @@ const updateGameYear = (val) => {
 
 // セルをクリックしてインライン編集を開始
 const startEdit = (id, key, element) => {
-    const horse = horses.find(h => h.id === id);
+    const horse = horses.find((h) => h.id === id);
     if (!horse) return;
     if (element.querySelector('input, textarea')) return;
-    const input = document.createElement(key === 'otherHorseNames' ? 'textarea' : 'input');
+    const input = document.createElement(
+        key === 'otherHorseNames' ? 'textarea' : 'input'
+    );
     if (key !== 'otherHorseNames') {
-        input.type = (key === 'birthYear') ? 'number' : 'text';
+        input.type = key === 'birthYear' ? 'number' : 'text';
     }
     input.value = getEditOriginalValue(horse, key);
     input.className = 'edit-input';
@@ -266,7 +390,12 @@ const startEdit = (id, key, element) => {
     element.appendChild(input);
     input.focus();
     const finishEdit = () => {
-        horses = updateHorseValue(horses, id, key, parseEditValue(key, input.value.trim()));
+        horses = updateHorseValue(
+            horses,
+            id,
+            key,
+            parseEditValue(key, input.value.trim())
+        );
         saveAndRender();
     };
     input.onblur = finishEdit;
@@ -299,7 +428,9 @@ const render = () => {
         tr.appendChild(createAgeCell(age));
         tr.appendChild(createEditableCell(h.id, 'birthYear', h.birthYear));
         tr.appendChild(createEditableCell(h.id, 'horseName', h.horseName));
-        tr.appendChild(createEditableCell(h.id, 'otherHorseNames', h.otherHorseNames || []));
+        tr.appendChild(
+            createEditableCell(h.id, 'otherHorseNames', h.otherHorseNames || [])
+        );
         tr.appendChild(createDeleteCell(h.id));
         attachRowEvents(tr, h.id);
         tbody.appendChild(tr);
@@ -328,7 +459,7 @@ const renderFilteredHorseList = () => {
         card.appendChild(title);
 
         const ul = document.createElement('ul');
-        historicalHorses.forEach(horse => {
+        historicalHorses.forEach((horse) => {
             const li = document.createElement('li');
             li.textContent = horse;
             ul.appendChild(li);
@@ -375,7 +506,8 @@ const createAgeCell = (age) => {
 // 編集可能セルを生成。複数の他牧場馬名は改行要素で安全に表示する
 const createEditableCell = (id, key, value) => {
     const td = document.createElement('td');
-    td.className = 'editable' + (key === 'otherHorseNames' ? ' other-cell' : '');
+    td.className =
+        'editable' + (key === 'otherHorseNames' ? ' other-cell' : '');
     if (key === 'otherHorseNames') {
         value.forEach((name, index) => {
             if (index > 0) td.appendChild(document.createElement('br'));
@@ -401,7 +533,7 @@ const createDeleteCell = (id) => {
 
 // 行のドラッグ＆ドロップと、編集セル以外のクリック（現役/種牡馬トグル）を登録
 const attachRowEvents = (tr, id) => {
-    tr.querySelectorAll('td:not(.editable)').forEach(td => {
+    tr.querySelectorAll('td:not(.editable)').forEach((td) => {
         if (td.querySelector('button')) return;
         td.style.cursor = 'pointer';
         td.addEventListener('click', () => toggleRunner(id));
@@ -414,9 +546,11 @@ const attachRowEvents = (tr, id) => {
 
 // スケジュールの全checkbox状態を保存
 const saveCheckboxes = () => {
-    const checkboxes = document.querySelectorAll('#scheduleSection input[type="checkbox"]');
+    const checkboxes = document.querySelectorAll(
+        '#scheduleSection input[type="checkbox"]'
+    );
     const state = {};
-    checkboxes.forEach(cb => {
+    checkboxes.forEach((cb) => {
         state[cb.id] = cb.checked;
     });
     localStorage.setItem(STORAGE_KEYS.SCHEDULE, JSON.stringify(state));
@@ -427,7 +561,7 @@ const loadCheckboxes = () => {
     const saved = localStorage.getItem(STORAGE_KEYS.SCHEDULE);
     if (!saved) return;
     const state = JSON.parse(saved);
-    Object.keys(state).forEach(id => {
+    Object.keys(state).forEach((id) => {
         const cb = document.getElementById(id);
         if (cb) cb.checked = state[id];
     });
@@ -441,7 +575,12 @@ const loadCheckboxes = () => {
 const loadFile = async () => {
     try {
         const [handle] = await window.showOpenFilePicker({
-            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+            types: [
+                {
+                    description: 'JSON',
+                    accept: { 'application/json': ['.json'] }
+                }
+            ]
         });
         const file = await handle.getFile();
         const text = await file.text();
@@ -456,11 +595,17 @@ const loadFile = async () => {
             alert('データ構造が不正です（id, name が必須です）');
             return;
         }
-        if (!confirm('復元を実行しますか？\n既存のデータはすべて置き換えられます。')) return;
+        if (
+            !confirm(
+                '復元を実行しますか？\n既存のデータはすべて置き換えられます。'
+            )
+        )
+            return;
         horses = parsed;
         saveAndRender();
     } catch (e) {
-        if (e.name !== 'AbortError') console.error('ファイルの読み込みに失敗しました', e);
+        if (e.name !== 'AbortError')
+            console.error('ファイルの読み込みに失敗しました', e);
     }
 };
 
@@ -469,14 +614,20 @@ const saveFile = async () => {
     try {
         const handle = await window.showSaveFilePicker({
             suggestedName: 'horse-data.json',
-            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+            types: [
+                {
+                    description: 'JSON',
+                    accept: { 'application/json': ['.json'] }
+                }
+            ]
         });
         const exportList = sortHorses(horses, 'order', true);
         const writable = await handle.createWritable();
         await writable.write(JSON.stringify(exportList, null, 2));
         await writable.close();
     } catch (e) {
-        if (e.name !== 'AbortError') console.error('ファイルの保存に失敗しました', e);
+        if (e.name !== 'AbortError')
+            console.error('ファイルの保存に失敗しました', e);
     }
 };
 

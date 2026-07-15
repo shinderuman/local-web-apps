@@ -17,20 +17,32 @@ const TIMING = {
 
 // デバイスタイプの表示名（キー順 = フィルタ・編集の表示順）
 const TYPE_LABELS = {
-    'nvme': 'NVMe',
+    nvme: 'NVMe',
     'sata-ssd': 'SATA SSD',
-    'sshd': 'SSHD',
+    sshd: 'SSHD',
     'hdd-25': 'HDD 2.5"',
     'hdd-35': 'HDD 3.5"',
-    'emmc': 'eMMC',
-    'unknown': '不明'
+    emmc: 'eMMC',
+    unknown: '不明'
 };
 
 // メーカー選択肢（プルダウン）
 const CORE_VENDORS = [
-    'ADATA', 'Apple', 'Crucial', 'HGST', 'HITACHI', 'Intel', 'Kingston',
-    'Kioxia', 'LEVEN', 'Samsung', 'SanDisk', 'Seagate', 'Silicon Power',
-    'Toshiba', 'Western Digital'
+    'ADATA',
+    'Apple',
+    'Crucial',
+    'HGST',
+    'HITACHI',
+    'Intel',
+    'Kingston',
+    'Kioxia',
+    'LEVEN',
+    'Samsung',
+    'SanDisk',
+    'Seagate',
+    'Silicon Power',
+    'Toshiba',
+    'Western Digital'
 ];
 
 // フィルタ種別（個数カウント対象）= all + 全デバイスタイプ
@@ -39,22 +51,25 @@ const FILTER_TYPES = ['all', ...Object.keys(TYPE_LABELS)];
 // メーカー・分類の編集プルダウン選択肢（CORE_VENDORS / TYPE_LABELS から派生）
 const VENDOR_OPTIONS = [
     { label: '不明', value: '不明' },
-    ...CORE_VENDORS.map(v => ({ label: v, value: v }))
+    ...CORE_VENDORS.map((v) => ({ label: v, value: v }))
 ];
-const TYPE_OPTIONS = Object.keys(TYPE_LABELS).map(key => ({ label: TYPE_LABELS[key], value: key }));
+const TYPE_OPTIONS = Object.keys(TYPE_LABELS).map((key) => ({
+    label: TYPE_LABELS[key],
+    value: key
+}));
 
 // ソート列とテーブルヘッダ位置の対応（メモ列はソート不可）
 // 列順: メーカー(0) 容量(1) モデル名(2) S/N(3) 分類(4) 状態(5=Score) 残り寿命(6) 総書込量(7) 通電時間(8)
 const SORT_INDEX_MAP = {
-    'vendor': 0,
-    'size_bytes': 1,
-    'model': 2,
-    'serial': 3,
-    'customType': 4,
-    'severityScore': 5,
-    'lifePercent': 6,
-    'tbw_val': 7,
-    'hours_val': 8
+    vendor: 0,
+    size_bytes: 1,
+    model: 2,
+    serial: 3,
+    customType: 4,
+    severityScore: 5,
+    lifePercent: 6,
+    tbw_val: 7,
+    hours_val: 8
 };
 
 // バックアップファイル名
@@ -183,17 +198,41 @@ const uiState = {
 
 const { detectVendor } = window.VENDOR_LOGIC;
 const {
-    pickNum, calcSize, parseSizeToBytes, calcTbw, calcLife, calcSectorCounts, detectCustomType
+    pickNum,
+    calcSize,
+    parseSizeToBytes,
+    calcTbw,
+    calcLife,
+    calcSectorCounts,
+    detectCustomType
 } = window.PARSE_LOGIC;
 const { computeHealthLevel } = window.HEALTH_LOGIC;
 const {
-    formatHours, formatTemp, formatTbw, formatCount, formatBw, formatIops, formatLatency
+    formatHours,
+    formatTemp,
+    formatTbw,
+    formatCount,
+    formatBw,
+    formatIops,
+    formatLatency
 } = window.FORMAT_LOGIC;
-const { compactRaw, prettifyRaw, buildSmartJsonArray } = window.JSON_NORMALIZE_LOGIC;
-const { isFioJson, splitBench, parseBench, rateSeqBw, rateRandIops, rateLatency } = window.BENCH_LOGIC;
+const { compactRaw, prettifyRaw, buildSmartJsonArray } =
+    window.JSON_NORMALIZE_LOGIC;
 const {
-    countRecordsByType, getNextSortState, sortRecords,
-    filterRecordsByType, reorderRecordsByVisiblePosition, isValidSmartRecordList
+    isFioJson,
+    splitBench,
+    parseBench,
+    rateSeqBw,
+    rateRandIops,
+    rateLatency
+} = window.BENCH_LOGIC;
+const {
+    countRecordsByType,
+    getNextSortState,
+    sortRecords,
+    filterRecordsByType,
+    reorderRecordsByVisiblePosition,
+    isValidSmartRecordList
 } = window.RECORD_LOGIC;
 
 // ============================================================
@@ -202,7 +241,8 @@ const {
 
 const parseSmartJson = (rawText, existingRecord = null) => {
     const data = JSON.parse(rawText);
-    const serial = data.serial_number || (data.device && data.device.serial_number) || '';
+    const serial =
+        data.serial_number || (data.device && data.device.serial_number) || '';
     if (!serial) throw new Error('S/N無し');
 
     const model = data.model_name || '';
@@ -217,13 +257,29 @@ const parseSmartJson = (rawText, existingRecord = null) => {
         health = data.smart_status.passed ? 'PASSED' : 'FAILED';
     }
 
-    const hoursVal = pickNum(data, 'power_on_time.hours', 'nvme_smart_health_information_log.power_on_hours', 0);
-    const powerCycleCount = pickNum(data, 'power_cycle_count', 'nvme_smart_health_information_log.power_cycles', '不明');
-    const tempVal = pickNum(data, 'temperature.current', 'nvme_smart_health_information_log.temperature', 0);
+    const hoursVal = pickNum(
+        data,
+        'power_on_time.hours',
+        'nvme_smart_health_information_log.power_on_hours',
+        0
+    );
+    const powerCycleCount = pickNum(
+        data,
+        'power_cycle_count',
+        'nvme_smart_health_information_log.power_cycles',
+        '不明'
+    );
+    const tempVal = pickNum(
+        data,
+        'temperature.current',
+        'nvme_smart_health_information_log.temperature',
+        0
+    );
 
     const tbwVal = calcTbw(data);
     const { lifePercent, lifeOrSector } = calcLife(data);
-    const { reallocSectors, pendingSectors, crcErrors } = calcSectorCounts(data);
+    const { reallocSectors, pendingSectors, crcErrors } =
+        calcSectorCounts(data);
 
     const memo = existingRecord ? existingRecord.memo : '';
     const existingType = existingRecord ? existingRecord.customType : '';
@@ -233,11 +289,28 @@ const parseSmartJson = (rawText, existingRecord = null) => {
     const benchRand = existingRecord ? existingRecord.benchRand : undefined;
 
     if (!vendor) vendor = detectVendor(data, model);
-    const detected = detectCustomType(protocol, model, deviceType, existingType);
-    const customType = detected === 'unknown' ? manualTypeFromFilter() : detected;
+    const detected = detectCustomType(
+        protocol,
+        model,
+        deviceType,
+        existingType
+    );
+    const customType =
+        detected === 'unknown' ? manualTypeFromFilter() : detected;
 
-    const { level: healthLevel, reasons: healthReasons, score: severityScore } = computeHealthLevel(data, {
-        customType, health, hours_val: hoursVal, lifePercent, reallocSectors, pendingSectors, crcErrors, tbw_val: tbwVal
+    const {
+        level: healthLevel,
+        reasons: healthReasons,
+        score: severityScore
+    } = computeHealthLevel(data, {
+        customType,
+        health,
+        hours_val: hoursVal,
+        lifePercent,
+        reallocSectors,
+        pendingSectors,
+        crcErrors,
+        tbw_val: tbwVal
     });
 
     return {
@@ -314,13 +387,16 @@ const createManualRecord = (customType = 'unknown') => ({
 // ペーストされたJSONを新規追加または既存更新
 const upsertRecord = (rawText) => {
     const parsedTmp = JSON.parse(rawText);
-    const serial = parsedTmp.serial_number || (parsedTmp.device && parsedTmp.device.serial_number) || '';
+    const serial =
+        parsedTmp.serial_number ||
+        (parsedTmp.device && parsedTmp.device.serial_number) ||
+        '';
     if (!serial) {
         showToast(TOAST.NO_SERIAL);
         return;
     }
 
-    const existingIndex = db.findIndex(item => item.serial === serial);
+    const existingIndex = db.findIndex((item) => item.serial === serial);
     const existingRecord = existingIndex !== -1 ? db[existingIndex] : null;
     const newRecord = parseSmartJson(rawText, existingRecord);
 
@@ -344,7 +420,7 @@ const registerBench = (rawText) => {
         return;
     }
     const id = [...uiState.selectedIds][0];
-    const idx = db.findIndex(item => item.id === id);
+    const idx = db.findIndex((item) => item.id === id);
     if (idx === -1) return;
     const { seq, rand } = splitBench(rawText);
     db[idx].benchSeq = seq;
@@ -359,12 +435,12 @@ const registerBench = (rawText) => {
 // 選択中フィルタから手動レコードの分類を決定（「すべて」なら不明）
 const manualTypeFromFilter = () => {
     const f = viewState.filter;
-    return (f && f !== 'all') ? f : 'unknown';
+    return f && f !== 'all' ? f : 'unknown';
 };
 
 // 指定IDの直後に手動レコードを挿入（分類は選択中フィルタから決定）
 const addManualRecordAfter = (id) => {
-    const idx = db.findIndex(item => item.id === id);
+    const idx = db.findIndex((item) => item.id === id);
     const newRecord = createManualRecord(manualTypeFromFilter());
     if (idx === -1) {
         db.push(newRecord);
@@ -387,10 +463,12 @@ const addManualRecordToEnd = () => {
 
 const rebuildDatabaseFromRaw = () => {
     if (db.length === 0) return;
-    const ok = confirm('蓄積された生JSONデータから台帳を再構築します。\nSMARTレコードは分類・メーカー・メモのみ維持し、それ以外（容量・モデル名・寿命・TBW・通電時間等の手動編集を含む）は生JSONで上書きされます。\n手動登録レコードはそのまま維持されます。実行しますか？');
+    const ok = confirm(
+        '蓄積された生JSONデータから台帳を再構築します。\nSMARTレコードは分類・メーカー・メモのみ維持し、それ以外（容量・モデル名・寿命・TBW・通電時間等の手動編集を含む）は生JSONで上書きされます。\n手動登録レコードはそのまま維持されます。実行しますか？'
+    );
     if (!ok) return;
 
-    db = db.map(oldRecord => {
+    db = db.map((oldRecord) => {
         // 手動レコード・raw未保持レコードは再構築対象外（そのまま維持）
         if (!oldRecord.raw) return oldRecord;
         try {
@@ -408,7 +486,7 @@ const rebuildDatabaseFromRaw = () => {
 const deleteItem = (id) => {
     const ok = confirm('このストレージの記録を完全に削除しますか？');
     if (!ok) return;
-    db = db.filter(item => item.id !== id);
+    db = db.filter((item) => item.id !== id);
     saveDb();
     renderTable();
     showToast(TOAST.DELETED);
@@ -416,9 +494,11 @@ const deleteItem = (id) => {
 
 // 指定レコードのベンチ結果のみ削除（SMART情報は維持）
 const deleteBench = (id) => {
-    const ok = confirm('このストレージのベンチマーク結果を削除しますか？（S.M.A.R.T. 情報は維持されます）');
+    const ok = confirm(
+        'このストレージのベンチマーク結果を削除しますか？（S.M.A.R.T. 情報は維持されます）'
+    );
     if (!ok) return;
-    const idx = db.findIndex(item => item.id === id);
+    const idx = db.findIndex((item) => item.id === id);
     if (idx === -1) return;
     delete db[idx].benchSeq;
     delete db[idx].benchRand;
@@ -435,13 +515,19 @@ const importBackup = (event) => {
     reader.onload = (e) => {
         try {
             const importedData = JSON.parse(e.target.result);
-            const importedArr = Array.isArray(importedData) ? importedData : Object.values(importedData);
+            const importedArr = Array.isArray(importedData)
+                ? importedData
+                : Object.values(importedData);
             if (!isValidSmartRecordList(importedArr)) {
                 showToast(TOAST.IMPORT_FAIL);
                 document.getElementById('fileInput').value = '';
                 return;
             }
-            if (!confirm('復元を実行しますか？\n既存のデータはすべて置き換えられます。')) {
+            if (
+                !confirm(
+                    '復元を実行しますか？\n既存のデータはすべて置き換えられます。'
+                )
+            ) {
                 document.getElementById('fileInput').value = '';
                 return;
             }
@@ -463,10 +549,12 @@ const exportBackup = async () => {
     try {
         const handle = await window.showSaveFilePicker({
             suggestedName: BACKUP_FILENAME,
-            types: [{
-                description: 'JSON File',
-                accept: { 'application/json': ['.json'] }
-            }]
+            types: [
+                {
+                    description: 'JSON File',
+                    accept: { 'application/json': ['.json'] }
+                }
+            ]
         });
         const writable = await handle.createWritable();
         await writable.write(JSON.stringify(db));
@@ -497,7 +585,7 @@ const showToast = (message) => {
 
 const updateCounters = () => {
     const counts = countRecordsByType(db, FILTER_TYPES);
-    FILTER_TYPES.forEach(key => {
+    FILTER_TYPES.forEach((key) => {
         const el = document.getElementById(`count-${key}`);
         if (el) el.innerText = counts[key];
     });
@@ -506,7 +594,9 @@ const updateCounters = () => {
 const applyFilter = (type, btn) => {
     viewState.filter = type;
     sessionStorage.setItem(SESSION_KEYS.filter, type);
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document
+        .querySelectorAll('.filter-btn')
+        .forEach((b) => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     updateDragEnabled();
     renderTable();
@@ -527,7 +617,8 @@ const BENCH_HEADERS = [
 
 const updateHeaderView = () => {
     const ths = document.querySelectorAll('.storage-list thead th');
-    const headers = viewState.viewMode === 'bench' ? BENCH_HEADERS : SMART_HEADERS;
+    const headers =
+        viewState.viewMode === 'bench' ? BENCH_HEADERS : SMART_HEADERS;
     [6, 7, 8].forEach((pos, i) => {
         const th = ths[pos];
         if (!th) return;
@@ -539,7 +630,9 @@ const updateHeaderView = () => {
 const applyViewMode = (mode, btn) => {
     viewState.viewMode = mode;
     sessionStorage.setItem(SESSION_KEYS.viewMode, mode);
-    document.querySelectorAll('.view-toggle').forEach(b => b.classList.remove('active'));
+    document
+        .querySelectorAll('.view-toggle')
+        .forEach((b) => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     viewState.sortField = '';
     viewState.sortOrder = 'asc';
@@ -555,7 +648,7 @@ const sortTable = (field) => {
 
 // 詳細の開閉を uiState で管理（renderTable 後も開閉状態を維持するため）
 const toggleDetails = (id) => {
-    uiState.openDetailId = (uiState.openDetailId === id) ? null : id;
+    uiState.openDetailId = uiState.openDetailId === id ? null : id;
     const el = document.getElementById(`details-${id}`);
     if (el) el.classList.toggle('hidden');
 };
@@ -563,7 +656,9 @@ const toggleDetails = (id) => {
 // 文字列を .json ファイルとしてブラウザダウンロード（保存ダイアログなし、ダウンロード一覧へ落下）
 const downloadJsonFile = (content, filename) => {
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([content], { type: 'application/json' }));
+    a.href = URL.createObjectURL(
+        new Blob([content], { type: 'application/json' })
+    );
     a.download = filename;
     a.click();
     URL.revokeObjectURL(a.href);
@@ -571,7 +666,7 @@ const downloadJsonFile = (content, filename) => {
 
 // 選択中レコードの生JSONを1つの .json に結合してダウンロード
 const exportSelectedToJson = () => {
-    const selected = db.filter(item => uiState.selectedIds.has(item.id));
+    const selected = db.filter((item) => uiState.selectedIds.has(item.id));
     const content = buildSmartJsonArray(selected);
     if (!content) {
         showToast(TOAST.EXPORT_NO_SELECTION);
@@ -587,7 +682,7 @@ const exportSelectedToJson = () => {
 
 // レコードを検索（存在しなければnull）
 const findRecord = (id) => {
-    const idx = db.findIndex(item => item.id === id);
+    const idx = db.findIndex((item) => item.id === id);
     return idx === -1 ? null : { idx, record: db[idx] };
 };
 
@@ -599,7 +694,13 @@ const commitEdit = (idx, patch) => {
 };
 
 // プルダウン編集（field に選択値を保存）。allowFreeInput で自由入力プロンプトを許可
-const enableSelectEdit = (id, container, field, options, allowFreeInput = false) => {
+const enableSelectEdit = (
+    id,
+    container,
+    field,
+    options,
+    allowFreeInput = false
+) => {
     const found = findRecord(id);
     if (!found || container.querySelector('select')) return;
     const { idx, record } = found;
@@ -607,12 +708,16 @@ const enableSelectEdit = (id, container, field, options, allowFreeInput = false)
 
     const select = document.createElement('select');
     select.className = 'select-inline-input';
-    options.forEach(opt => {
-        select.add(new Option(opt.label, opt.value, false, opt.value === current));
+    options.forEach((opt) => {
+        select.add(
+            new Option(opt.label, opt.value, false, opt.value === current)
+        );
     });
-    const isCustom = allowFreeInput && !options.some(o => o.value === current) && current;
+    const isCustom =
+        allowFreeInput && !options.some((o) => o.value === current) && current;
     if (isCustom) select.add(new Option(current, current, true, true));
-    if (allowFreeInput) select.add(new Option('+ 新規直接自由入力...', '__free_input__'));
+    if (allowFreeInput)
+        select.add(new Option('+ 新規直接自由入力...', '__free_input__'));
 
     container.innerHTML = '';
     container.appendChild(select);
@@ -624,8 +729,11 @@ const enableSelectEdit = (id, container, field, options, allowFreeInput = false)
         committed = true;
         let next = val;
         if (val === '__free_input__') {
-            const userInput = prompt('手動自由入力してください:', isCustom ? current : '');
-            next = (userInput && userInput.trim()) ? userInput.trim() : current;
+            const userInput = prompt(
+                '手動自由入力してください:',
+                isCustom ? current : ''
+            );
+            next = userInput && userInput.trim() ? userInput.trim() : current;
         }
         commitEdit(idx, { [field]: next });
     };
@@ -635,7 +743,14 @@ const enableSelectEdit = (id, container, field, options, allowFreeInput = false)
 };
 
 // テキスト編集（field に文字列を保存）。onCommit で追加の派生更新を行える
-const enableTextEdit = (id, container, field, placeholder = '', onCommit = null, fallback = '') => {
+const enableTextEdit = (
+    id,
+    container,
+    field,
+    placeholder = '',
+    onCommit = null,
+    fallback = ''
+) => {
     const found = findRecord(id);
     if (!found || container.querySelector('input')) return;
     const { idx, record } = found;
@@ -673,9 +788,15 @@ const focusSizeCell = (id) => {
     const sizeCell = row.querySelector('.size-cell .clickable-cell');
     if (!sizeCell) return;
     const found = findRecord(id);
-    const fallback = found ? (found.record.size || '') : '';
-    enableTextEdit(id, sizeCell, 'manualSize', '例: 500GB',
-        (text) => ({ size: text, size_bytes: parseSizeToBytes(text) }), fallback);
+    const fallback = found ? found.record.size || '' : '';
+    enableTextEdit(
+        id,
+        sizeCell,
+        'manualSize',
+        '例: 500GB',
+        (text) => ({ size: text, size_bytes: parseSizeToBytes(text) }),
+        fallback
+    );
 };
 
 // 既存レコード更新時に該当行を強調表示（スクロール＋一時ハイライト）
@@ -704,7 +825,7 @@ const enableHoursCycleEdit = (id, container) => {
         input.placeholder = placeholder;
         input.style.width = width;
         const cur = record[field];
-        input.value = (typeof cur === 'number' && cur > 0) ? String(cur) : '';
+        input.value = typeof cur === 'number' && cur > 0 ? String(cur) : '';
         return input;
     };
     const hoursInput = make('hours_val', '時間', '52px');
@@ -732,11 +853,14 @@ const enableHoursCycleEdit = (id, container) => {
         };
         commitEdit(idx, {
             hours_val: parseOrKeep(hoursInput.value, record.hours_val),
-            powerCycleCount: parseOrKeep(cycleInput.value, record.powerCycleCount)
+            powerCycleCount: parseOrKeep(
+                cycleInput.value,
+                record.powerCycleCount
+            )
         });
     };
 
-    [hoursInput, cycleInput].forEach(input => {
+    [hoursInput, cycleInput].forEach((input) => {
         input.addEventListener('blur', commit);
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') commit();
@@ -752,14 +876,28 @@ const enableHoursCycleEdit = (id, container) => {
 // ベンチモードでベンチ列ソート時は bench サマリの値を展開してソートする
 const getDisplayItems = () => {
     if (viewState.viewMode === 'bench' && viewState.sortField) {
-        const BENCH_SORT_KEYS = { seqBw: 'seqBwBytes', randIops: 'randIops', randClat: 'randClatP99Ns' };
+        const BENCH_SORT_KEYS = {
+            seqBw: 'seqBwBytes',
+            randIops: 'randIops',
+            randClat: 'randClatP99Ns'
+        };
         const benchKey = BENCH_SORT_KEYS[viewState.sortField];
         if (benchKey) {
-            const enriched = db.map(item => {
-                const bench = (item.benchSeq || item.benchRand) ? parseBench(item.benchSeq, item.benchRand) : null;
-                return { ...item, [viewState.sortField]: bench ? bench[benchKey] : undefined };
+            const enriched = db.map((item) => {
+                const bench =
+                    item.benchSeq || item.benchRand
+                        ? parseBench(item.benchSeq, item.benchRand)
+                        : null;
+                return {
+                    ...item,
+                    [viewState.sortField]: bench ? bench[benchKey] : undefined
+                };
             });
-            return sortRecords(enriched, viewState.sortField, viewState.sortOrder);
+            return sortRecords(
+                enriched,
+                viewState.sortField,
+                viewState.sortOrder
+            );
         }
     }
     return sortRecords(db, viewState.sortField, viewState.sortOrder);
@@ -767,11 +905,12 @@ const getDisplayItems = () => {
 
 const updateSortIndicators = () => {
     const ths = document.querySelectorAll('th');
-    ths.forEach(th => th.className = '');
+    ths.forEach((th) => (th.className = ''));
     if (!viewState.sortField) return;
     const thIdx = SORT_INDEX_MAP[viewState.sortField];
     if (thIdx === undefined) return;
-    ths[thIdx].className = viewState.sortOrder === 'asc' ? 'sort-asc' : 'sort-desc';
+    ths[thIdx].className =
+        viewState.sortOrder === 'asc' ? 'sort-asc' : 'sort-desc';
 };
 
 // 編集可能セル（clickable-cell）を生成
@@ -814,30 +953,47 @@ const createBenchMetricCell = (bwBytes, iops, rate) => {
 
 // Seq読込セル（Seq帯域の評価で値を囲う）
 const createBenchSeqCell = (item) => {
-    const bench = (item.benchSeq || item.benchRand) ? parseBench(item.benchSeq, item.benchRand) : null;
+    const bench =
+        item.benchSeq || item.benchRand
+            ? parseBench(item.benchSeq, item.benchRand)
+            : null;
     if (!bench) {
         const td = document.createElement('td');
         td.innerText = '—';
         return td;
     }
-    return createBenchMetricCell(bench.seqBwBytes, bench.seqIops, rateSeqBw(bench.seqBwBytes, item.customType));
+    return createBenchMetricCell(
+        bench.seqBwBytes,
+        bench.seqIops,
+        rateSeqBw(bench.seqBwBytes, item.customType)
+    );
 };
 
 // Rand読込セル（Rand IOPSの評価で値を囲う）
 const createBenchRandCell = (item) => {
-    const bench = (item.benchSeq || item.benchRand) ? parseBench(item.benchSeq, item.benchRand) : null;
+    const bench =
+        item.benchSeq || item.benchRand
+            ? parseBench(item.benchSeq, item.benchRand)
+            : null;
     if (!bench) {
         const td = document.createElement('td');
         td.innerText = '—';
         return td;
     }
-    return createBenchMetricCell(bench.randBwBytes, bench.randIops, rateRandIops(bench.randIops, item.customType));
+    return createBenchMetricCell(
+        bench.randBwBytes,
+        bench.randIops,
+        rateRandIops(bench.randIops, item.customType)
+    );
 };
 
 // レイテンシセル（Seq/Rand の平均レイテンシを Randレイテンシの評価で囲う）
 const createBenchLatencyCell = (item) => {
     const td = document.createElement('td');
-    const bench = (item.benchSeq || item.benchRand) ? parseBench(item.benchSeq, item.benchRand) : null;
+    const bench =
+        item.benchSeq || item.benchRand
+            ? parseBench(item.benchSeq, item.benchRand)
+            : null;
     if (!bench) {
         td.innerText = '—';
         return td;
@@ -879,7 +1035,9 @@ const createMemoCell = (item) => {
         ph.innerText = 'クリックして入力';
         memoCell.appendChild(ph);
     }
-    memoCell.addEventListener('click', () => enableTextEdit(item.id, memoCell, 'memo'));
+    memoCell.addEventListener('click', () =>
+        enableTextEdit(item.id, memoCell, 'memo')
+    );
     td.appendChild(memoCell);
     return td;
 };
@@ -924,47 +1082,69 @@ const createRow = (item) => {
 
     // メーカー（編集可能・自由入力可）
     const tdVendor = document.createElement('td');
-    tdVendor.appendChild(createEditableCell(
-        item.vendor || '不明',
-        (e) => enableSelectEdit(item.id, e.currentTarget, 'vendor', VENDOR_OPTIONS, true)
-    ));
+    tdVendor.appendChild(
+        createEditableCell(item.vendor || '不明', (e) =>
+            enableSelectEdit(
+                item.id,
+                e.currentTarget,
+                'vendor',
+                VENDOR_OPTIONS,
+                true
+            )
+        )
+    );
     tr.appendChild(tdVendor);
 
     // 容量（編集可能・size_bytesも再計算）
     const tdSize = document.createElement('td');
     tdSize.className = 'size-cell';
-    tdSize.appendChild(createEditableCell(
-        item.size || '—',
-        (e) => enableTextEdit(item.id, e.currentTarget, 'manualSize', '例: 500GB',
-            (text) => ({ size: text, size_bytes: parseSizeToBytes(text) }), item.size || '')
-    ));
+    tdSize.appendChild(
+        createEditableCell(item.size || '—', (e) =>
+            enableTextEdit(
+                item.id,
+                e.currentTarget,
+                'manualSize',
+                '例: 500GB',
+                (text) => ({ size: text, size_bytes: parseSizeToBytes(text) }),
+                item.size || ''
+            )
+        )
+    );
     tr.appendChild(tdSize);
 
     // モデル名（編集可能）
     const tdModel = document.createElement('td');
     tdModel.className = 'model-cell';
-    tdModel.appendChild(createEditableCell(
-        item.model || '—',
-        (e) => enableTextEdit(item.id, e.currentTarget, 'model')
-    ));
+    tdModel.appendChild(
+        createEditableCell(item.model || '—', (e) =>
+            enableTextEdit(item.id, e.currentTarget, 'model')
+        )
+    );
     tr.appendChild(tdModel);
 
     // シリアルナンバー（編集可能・省略表示・ブラウザ検索ヒット用）
     const tdSerial = document.createElement('td');
     tdSerial.className = 'serial-cell';
-    tdSerial.appendChild(createEditableCell(
-        item.serial || '—',
-        (e) => enableTextEdit(item.id, e.currentTarget, 'serial')
-    ));
+    tdSerial.appendChild(
+        createEditableCell(item.serial || '—', (e) =>
+            enableTextEdit(item.id, e.currentTarget, 'serial')
+        )
+    );
     if (item.serial) tdSerial.title = item.serial;
     tr.appendChild(tdSerial);
 
     // 分類（編集可能）
     const tdType = document.createElement('td');
-    tdType.appendChild(createEditableCell(
-        TYPE_LABELS[currentType] || '不明',
-        (e) => enableSelectEdit(item.id, e.currentTarget, 'customType', TYPE_OPTIONS)
-    ));
+    tdType.appendChild(
+        createEditableCell(TYPE_LABELS[currentType] || '不明', (e) =>
+            enableSelectEdit(
+                item.id,
+                e.currentTarget,
+                'customType',
+                TYPE_OPTIONS
+            )
+        )
+    );
     tr.appendChild(tdType);
 
     // 状態レベル（L番号 + Score 融合バッジ・編集不可）
@@ -977,10 +1157,20 @@ const createRow = (item) => {
         tr.appendChild(createBenchSeqCell(item));
     } else {
         const tdLife = document.createElement('td');
-        tdLife.appendChild(createEditableCell(
-            item.lifePercent >= 0 ? item.lifePercent + '%' : (item.lifeOrSector || '—'),
-            (e) => enableTextEdit(item.id, e.currentTarget, 'lifeOrSector', '例: 寿命: 99%')
-        ));
+        tdLife.appendChild(
+            createEditableCell(
+                item.lifePercent >= 0
+                    ? item.lifePercent + '%'
+                    : item.lifeOrSector || '—',
+                (e) =>
+                    enableTextEdit(
+                        item.id,
+                        e.currentTarget,
+                        'lifeOrSector',
+                        '例: 寿命: 99%'
+                    )
+            )
+        );
         tr.appendChild(tdLife);
     }
 
@@ -989,10 +1179,11 @@ const createRow = (item) => {
         tr.appendChild(createBenchRandCell(item));
     } else {
         const tdTbw = document.createElement('td');
-        tdTbw.appendChild(createEditableCell(
-            item.tbw || '—',
-            (e) => enableTextEdit(item.id, e.currentTarget, 'tbw', '例: 1.6 TBW')
-        ));
+        tdTbw.appendChild(
+            createEditableCell(item.tbw || '—', (e) =>
+                enableTextEdit(item.id, e.currentTarget, 'tbw', '例: 1.6 TBW')
+            )
+        );
         tr.appendChild(tdTbw);
     }
 
@@ -1004,8 +1195,13 @@ const createRow = (item) => {
         const hoursCell = document.createElement('div');
         hoursCell.className = 'clickable-cell';
         hoursCell.style.gap = '0';
-        hoursCell.innerText = formatHoursCycle(item.powerOnHours, item.powerCycleCount);
-        hoursCell.addEventListener('click', (e) => enableHoursCycleEdit(item.id, e.currentTarget));
+        hoursCell.innerText = formatHoursCycle(
+            item.powerOnHours,
+            item.powerCycleCount
+        );
+        hoursCell.addEventListener('click', (e) =>
+            enableHoursCycleEdit(item.id, e.currentTarget)
+        );
         tdHours.appendChild(hoursCell);
         tr.appendChild(tdHours);
     }
@@ -1028,7 +1224,8 @@ const createRow = (item) => {
     // 通常クリック時の選択解除は document のクリックハンドラで一元処理
     // 編集可能セル・ボタン・入力要素は除外
     tr.addEventListener('click', (e) => {
-        if (e.target.closest('.clickable-cell, button, select, input, option')) return;
+        if (e.target.closest('.clickable-cell, button, select, input, option'))
+            return;
         if (e.metaKey || e.ctrlKey) {
             toggleRowSelection(item.id);
             return;
@@ -1056,9 +1253,11 @@ const createReasonNodes = (reason) => {
     let rest = reason;
     while (rest.length > 0) {
         // 出現位置が最も早いキーワードを探す
-        const match = REASON_GLOSSARY
-            .map(g => ({ g, idx: rest.indexOf(g.key) }))
-            .filter(m => m.idx !== -1)
+        const match = REASON_GLOSSARY.map((g) => ({
+            g,
+            idx: rest.indexOf(g.key)
+        }))
+            .filter((m) => m.idx !== -1)
             .sort((a, b) => a.idx - b.idx)[0];
         if (!match) {
             nodes.push(document.createTextNode(rest));
@@ -1094,7 +1293,7 @@ const appendReasonsBlock = (grid, reasons, actionBtn) => {
     reasons.forEach((reason, i) => {
         if (i > 0) body.appendChild(document.createElement('br'));
         body.append(document.createTextNode('・'));
-        createReasonNodes(reason).forEach(node => body.appendChild(node));
+        createReasonNodes(reason).forEach((node) => body.appendChild(node));
     });
     div.appendChild(body);
     grid.appendChild(div);
@@ -1109,7 +1308,9 @@ const createCopyJsonButton = (rawText, label) => {
         navigator.clipboard.writeText(prettifyRaw(rawText)).then(() => {
             const original = label;
             btn.innerText = '✓ Copied';
-            setTimeout(() => { btn.innerText = original; }, 1500);
+            setTimeout(() => {
+                btn.innerText = original;
+            }, 1500);
         });
     });
     return btn;
@@ -1145,8 +1346,12 @@ const appendBenchBlock = (container, item) => {
     // Seq/Rand コピー + ベンチ削除ボタン
     const actions = document.createElement('div');
     actions.className = 'bench-actions';
-    if (item.benchSeq) actions.appendChild(createCopyJsonButton(item.benchSeq, '📋 Seq Copy'));
-    if (item.benchRand) actions.appendChild(createCopyJsonButton(item.benchRand, '📋 Rand Copy'));
+    if (item.benchSeq)
+        actions.appendChild(createCopyJsonButton(item.benchSeq, '📋 Seq Copy'));
+    if (item.benchRand)
+        actions.appendChild(
+            createCopyJsonButton(item.benchRand, '📋 Rand Copy')
+        );
     const benchDelBtn = document.createElement('button');
     benchDelBtn.className = 'btn-danger btn-mini';
     benchDelBtn.innerText = 'ベンチ削除';
@@ -1159,7 +1364,8 @@ const appendBenchBlock = (container, item) => {
 
 const createDetailsRow = (item) => {
     const tr = document.createElement('tr');
-    tr.className = uiState.openDetailId === item.id ? 'details-row' : 'details-row hidden';
+    tr.className =
+        uiState.openDetailId === item.id ? 'details-row' : 'details-row hidden';
     tr.id = `details-${item.id}`;
 
     const td = document.createElement('td');
@@ -1198,7 +1404,9 @@ const createDetailsRow = (item) => {
     if (item.raw) {
         const smartActions = document.createElement('div');
         smartActions.className = 'bench-actions';
-        smartActions.appendChild(createCopyJsonButton(item.raw, '📋 Smart Copy'));
+        smartActions.appendChild(
+            createCopyJsonButton(item.raw, '📋 Smart Copy')
+        );
         container.appendChild(smartActions);
     }
 
@@ -1299,7 +1507,9 @@ const bindStaticEvents = () => {
     pasteZone.addEventListener('paste', (e) => {
         e.stopPropagation();
         e.preventDefault();
-        const rawText = (e.clipboardData || window.clipboardData).getData('text').trim();
+        const rawText = (e.clipboardData || window.clipboardData)
+            .getData('text')
+            .trim();
         if (!rawText) return;
         try {
             upsertRecord(rawText);
@@ -1311,7 +1521,9 @@ const bindStaticEvents = () => {
     // fio ベンチ結果のペースト: レコード1件選択時のみ有効（pasteZone 以外で発火）
     document.addEventListener('paste', (e) => {
         if (uiState.selectedIds.size !== 1) return;
-        const rawText = (e.clipboardData || window.clipboardData).getData('text').trim();
+        const rawText = (e.clipboardData || window.clipboardData)
+            .getData('text')
+            .trim();
         if (!rawText) return;
         e.preventDefault();
         try {
@@ -1322,25 +1534,37 @@ const bindStaticEvents = () => {
     });
 
     // 操作ボタン
-    document.getElementById('rebuildBtn').addEventListener('click', rebuildDatabaseFromRaw);
-    document.getElementById('exportBtn').addEventListener('click', exportBackup);
-    document.getElementById('fileInput').addEventListener('change', importBackup);
+    document
+        .getElementById('rebuildBtn')
+        .addEventListener('click', rebuildDatabaseFromRaw);
+    document
+        .getElementById('exportBtn')
+        .addEventListener('click', exportBackup);
+    document
+        .getElementById('fileInput')
+        .addEventListener('change', importBackup);
 
     // 選択系: 選択中ダウンロード（行の選択はCmd/Ctrl+クリック）
-    document.getElementById('exportSelectedBtn').addEventListener('click', exportSelectedToJson);
+    document
+        .getElementById('exportSelectedBtn')
+        .addEventListener('click', exportSelectedToJson);
 
     // フィルタボタン
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', () => applyFilter(btn.dataset.filter, btn));
+    document.querySelectorAll('.filter-btn').forEach((btn) => {
+        btn.addEventListener('click', () =>
+            applyFilter(btn.dataset.filter, btn)
+        );
     });
 
     // 表示モードトグル（SMART / ベンチ）
-    document.querySelectorAll('.view-toggle').forEach(btn => {
-        btn.addEventListener('click', () => applyViewMode(btn.dataset.view, btn));
+    document.querySelectorAll('.view-toggle').forEach((btn) => {
+        btn.addEventListener('click', () =>
+            applyViewMode(btn.dataset.view, btn)
+        );
     });
 
     // ソートヘッダ
-    document.querySelectorAll('th[data-sort]').forEach(th => {
+    document.querySelectorAll('th[data-sort]').forEach((th) => {
         th.addEventListener('click', () => sortTable(th.dataset.sort));
     });
 
@@ -1353,14 +1577,22 @@ const bindStaticEvents = () => {
 };
 
 const restoreFilterButton = () => {
-    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-    const activeBtn = document.querySelector(`.filter-btn[data-filter="${viewState.filter}"]`);
+    document
+        .querySelectorAll('.filter-btn')
+        .forEach((btn) => btn.classList.remove('active'));
+    const activeBtn = document.querySelector(
+        `.filter-btn[data-filter="${viewState.filter}"]`
+    );
     if (activeBtn) activeBtn.classList.add('active');
 };
 
 const restoreViewToggleButton = () => {
-    document.querySelectorAll('.view-toggle').forEach(btn => btn.classList.remove('active'));
-    const activeBtn = document.querySelector(`.view-toggle[data-view="${viewState.viewMode}"]`);
+    document
+        .querySelectorAll('.view-toggle')
+        .forEach((btn) => btn.classList.remove('active'));
+    const activeBtn = document.querySelector(
+        `.view-toggle[data-view="${viewState.viewMode}"]`
+    );
     if (activeBtn) activeBtn.classList.add('active');
 };
 

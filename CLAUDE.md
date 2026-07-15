@@ -9,13 +9,14 @@
 - 実行時はディレクトリ指定ではなく **glob でファイルを指定**する（`node --test "test/*.test.js"`、対象ディレクトリ内で実行）
 - テストは `node:test` + `node:assert` の標準ランナーのみ。`test()` を使い `describe`/`it` は使わない
 
-## ESLint
+## ESLint / Prettier
 
-- 設定ファイル：リポジトリルートの `eslint.config.mjs`（ESLint9 flat config）
-- `eslint` と `globals` はリポジトリルートの `package.json`（devDependencies）で管理。`npm install` でローカル導入
+- 設定ファイル：リポジトリルートの `eslint.config.mjs`（ESLint9 flat config）、`.prettierrc.json`、`.prettierignore`
+- `eslint` / `globals` / `prettier` / `eslint-config-prettier` はリポジトリルートの `package.json`（devDependencies）で管理。`npm install` でローカル導入
 - 環境組み込みグローバル（browser/node）は `globals` パッケージの `...globals.browser` / `...globals.node` で一括定義する（手書き列挙・ユーザーレベル設定は使わない）
+- 整形は Prettier に一任（スタイルルールは `eslint-config-prettier` で無効化）。ESLint は構文・バグ検出に専念
 - 実行は `npx eslint .`（設定ファイルは自動読込）。`--config ~/.eslint.config.mjs` 方式は廃止
-- 編集後即 `--fix` → テスト実行前に `--fix` を当てる
+- JS編集後は `npx prettier --write <file>` → `npx eslint <file>` → テスト実行。テスト実行前に prettier/eslint を当てる
 
 ## 純粋関数モジュールの分割
 

@@ -10,7 +10,10 @@ test('detectVendor: モデル名 APPLE を Apple に', () => {
 });
 
 test('detectVendor: PCI Vendor ID 4203 を Apple に', () => {
-    assert.strictEqual(detectVendor({ nvme_pci_vendor: { id: 4203 } }, 'X0256'), 'Apple');
+    assert.strictEqual(
+        detectVendor({ nvme_pci_vendor: { id: 4203 } }, 'X0256'),
+        'Apple'
+    );
 });
 
 test('detectVendor: Samsung', () => {

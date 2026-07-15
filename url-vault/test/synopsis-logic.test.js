@@ -73,26 +73,40 @@ test('buildVolumeMap: 同巻は最初の1件のみ', () => {
 
 test('selectTargetVolumes: 5巻起点→3,4,5', () => {
     const map = {
-        3: { volume: 3 }, 4: { volume: 4 }, 5: { volume: 5 }
+        3: { volume: 3 },
+        4: { volume: 4 },
+        5: { volume: 5 }
     };
     const result = selectTargetVolumes(map, 5);
-    assert.deepStrictEqual(result.map(r => r.volume), [3, 4, 5]);
+    assert.deepStrictEqual(
+        result.map((r) => r.volume),
+        [3, 4, 5]
+    );
 });
 
 test('selectTargetVolumes: 1巻起点→1,2,3（前を詰めない）', () => {
     const map = {
-        1: { volume: 1 }, 2: { volume: 2 }, 3: { volume: 3 }
+        1: { volume: 1 },
+        2: { volume: 2 },
+        3: { volume: 3 }
     };
     const result = selectTargetVolumes(map, 1);
-    assert.deepStrictEqual(result.map(r => r.volume), [1, 2, 3]);
+    assert.deepStrictEqual(
+        result.map((r) => r.volume),
+        [1, 2, 3]
+    );
 });
 
 test('selectTargetVolumes: 存在しない巻はスキップ', () => {
     const map = {
-        2: { volume: 2 }, 3: { volume: 3 }
+        2: { volume: 2 },
+        3: { volume: 3 }
     };
     const result = selectTargetVolumes(map, 3);
-    assert.deepStrictEqual(result.map(r => r.volume), [2, 3]);
+    assert.deepStrictEqual(
+        result.map((r) => r.volume),
+        [2, 3]
+    );
 });
 
 test('selectTargetVolumes: 全て存在しない場合は空配列', () => {

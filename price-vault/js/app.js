@@ -61,12 +61,19 @@ const uiState = {
 // ============================================================
 
 const {
-    calcPriceSummary, getAllStores, sortHistories,
-    sortProducts, filterByCategory,
-    isValidProductInput, isValidHistoryInput,
-    buildNewProduct, buildNewHistory,
-    appendProductHistory, removeProductHistory,
-    updateProductHistory, reorderProducts
+    calcPriceSummary,
+    getAllStores,
+    sortHistories,
+    sortProducts,
+    filterByCategory,
+    isValidProductInput,
+    isValidHistoryInput,
+    buildNewProduct,
+    buildNewHistory,
+    appendProductHistory,
+    removeProductHistory,
+    updateProductHistory,
+    reorderProducts
 } = window.PRICE_LOGIC;
 const { extractCategories, countProductsByCategory } = window.CATEGORY_LOGIC;
 const { validateImportData } = window.EXPORT_LOGIC;
@@ -150,12 +157,14 @@ const todayStr = () => {
 
 // 選択中タブからカテゴリのデフォルト値を決定（「すべて」時は未分類）
 const defaultCategoryFromTab = () => {
-    return viewState.selectedCategory === 'all' ? UNCATEGORIZED : viewState.selectedCategory;
+    return viewState.selectedCategory === 'all'
+        ? UNCATEGORIZED
+        : viewState.selectedCategory;
 };
 
 // 詳細の開閉を viewState で管理（再描画後も維持）
 const toggleDetails = (id) => {
-    viewState.openDetailId = (viewState.openDetailId === id) ? null : id;
+    viewState.openDetailId = viewState.openDetailId === id ? null : id;
     const el = document.getElementById(`details-${id}`);
     if (el) el.classList.toggle('hidden');
 };
@@ -171,16 +180,19 @@ const renderCategoryTabs = async () => {
 
     // 「すべて」固定
     const allBtn = document.createElement('button');
-    allBtn.className = 'filter-btn' + (viewState.selectedCategory === 'all' ? ' active' : '');
+    allBtn.className =
+        'filter-btn' + (viewState.selectedCategory === 'all' ? ' active' : '');
     allBtn.dataset.filter = 'all';
     allBtn.innerText = `すべて (${products.length})`;
     allBtn.addEventListener('click', () => selectCategory('all'));
     container.appendChild(allBtn);
 
     // ユーザーカテゴリ（商品から動的抽出）
-    extractCategories(products).forEach(cat => {
+    extractCategories(products).forEach((cat) => {
         const btn = document.createElement('button');
-        btn.className = 'filter-btn' + (viewState.selectedCategory === cat ? ' active' : '');
+        btn.className =
+            'filter-btn' +
+            (viewState.selectedCategory === cat ? ' active' : '');
         btn.dataset.filter = cat;
         btn.innerText = `${cat} (${countProductsByCategory(products, cat)})`;
         btn.addEventListener('click', () => selectCategory(cat));
@@ -207,7 +219,7 @@ const updateCategorySelect = async () => {
     const current = defaultCategoryFromTab();
 
     select.innerHTML = '';
-    extractCategories(products).forEach(cat => {
+    extractCategories(products).forEach((cat) => {
         select.add(new Option(cat, cat, false, cat === current));
     });
     // 未分類と新規追加
@@ -282,7 +294,7 @@ const saveProduct = async () => {
     const history = readFormHistory();
     const category = readFormCategory();
     const products = await getAllProducts();
-    const existing = products.find(p => p.name.trim() === name);
+    const existing = products.find((p) => p.name.trim() === name);
 
     if (existing) {
         await putProduct(appendProductHistory(existing, history));
@@ -320,7 +332,7 @@ const createPriceSpan = (value, cls) => {
 // 最安値の店名span群を生成（空なら null）
 const createMinStoreSpans = (stores) => {
     if (stores.length === 0) return null;
-    return stores.map(s => {
+    return stores.map((s) => {
         const span = document.createElement('span');
         span.className = 'min-store';
         span.textContent = s;
@@ -335,7 +347,9 @@ const createProductRow = (product) => {
 
     // 最安値/最高値サマリ（1走査）。店名・購入日もここから導出
     const summary = calcPriceSummary(product.children);
-    const minStoreSpans = createMinStoreSpans(getAllStores(summary.minHistories));
+    const minStoreSpans = createMinStoreSpans(
+        getAllStores(summary.minHistories)
+    );
 
     // 商品名
     const tdName = document.createElement('td');
@@ -459,7 +473,7 @@ const createHistoryRow = (h, idx, productId, isMin, isMax) => {
         makeTextCell(h.unitPrice || '—'),
         makeTextCell(h.memo || '—', 'history-memo')
     ];
-    cells.forEach(c => row.appendChild(c));
+    cells.forEach((c) => row.appendChild(c));
     row.appendChild(makeHistoryDeleteCell(productId, idx));
     return row;
 };
@@ -485,7 +499,9 @@ const createHistoryTable = (product) => {
     const tbody = document.createElement('tbody');
     sortHistories(product.children).forEach((h) => {
         const idx = product.children.indexOf(h);
-        tbody.appendChild(createHistoryRow(h, idx, product.id, minIds.has(h), maxIds.has(h)));
+        tbody.appendChild(
+            createHistoryRow(h, idx, product.id, minIds.has(h), maxIds.has(h))
+        );
     });
     table.appendChild(tbody);
     return table;
@@ -493,7 +509,10 @@ const createHistoryTable = (product) => {
 
 const createDetailsRow = (product) => {
     const tr = document.createElement('tr');
-    tr.className = viewState.openDetailId === product.id ? 'details-row' : 'details-row hidden';
+    tr.className =
+        viewState.openDetailId === product.id
+            ? 'details-row'
+            : 'details-row hidden';
     tr.id = `details-${product.id}`;
 
     const td = document.createElement('td');
@@ -527,7 +546,8 @@ const createEmptyRow = () => {
     const td = document.createElement('td');
     td.colSpan = 7;
     td.className = 'empty-message';
-    td.innerText = '商品が登録されていません。上部のフォームから登録してください。';
+    td.innerText =
+        '商品が登録されていません。上部のフォームから登録してください。';
     tr.appendChild(td);
     return tr;
 };
@@ -545,7 +565,7 @@ const renderList = async () => {
         return;
     }
 
-    sorted.forEach(product => {
+    sorted.forEach((product) => {
         tbody.appendChild(createProductRow(product));
         tbody.appendChild(createDetailsRow(product));
     });
@@ -562,7 +582,9 @@ const refreshDataView = async () => {
 // ============================================================
 
 const deleteProduct = async (id) => {
-    const ok = confirm('この商品を削除しますか？（全購入履歴も一括削除されます）');
+    const ok = confirm(
+        'この商品を削除しますか？（全購入履歴も一括削除されます）'
+    );
     if (!ok) return;
     await deleteProductDb(id);
     showToast(TOAST.DELETED);
@@ -599,7 +621,8 @@ const openHistoryModal = async (productId, index) => {
     editState.editingProductId = productId;
     editState.editingHistoryIndex = index;
 
-    document.getElementById('modalTitle').innerText = `${product.name} の履歴を編集`;
+    document.getElementById('modalTitle').innerText =
+        `${product.name} の履歴を編集`;
     document.getElementById('editName').value = product.name;
     document.getElementById('editPrice').value = history.price;
     document.getElementById('editStore').value = history.store || '';
@@ -631,18 +654,22 @@ const saveHistoryEdit = async () => {
     const product = await getProduct(editingProductId);
     if (!product) return;
 
-    await putProduct(updateProductHistory(
-        product,
-        document.getElementById('editName').value.trim(),
-        editingHistoryIndex,
-        buildNewHistory({
-            price: priceRaw,
-            store: document.getElementById('editStore').value.trim(),
-            unitPrice: document.getElementById('editUnitPrice').value.trim(),
-            date,
-            memo: document.getElementById('editMemo').value
-        })
-    ));
+    await putProduct(
+        updateProductHistory(
+            product,
+            document.getElementById('editName').value.trim(),
+            editingHistoryIndex,
+            buildNewHistory({
+                price: priceRaw,
+                store: document.getElementById('editStore').value.trim(),
+                unitPrice: document
+                    .getElementById('editUnitPrice')
+                    .value.trim(),
+                date,
+                memo: document.getElementById('editMemo').value
+            })
+        )
+    );
 
     showToast(TOAST.HISTORY_UPDATED);
     closeHistoryModal();
@@ -670,7 +697,11 @@ const saveNewOrder = async (evt) => {
     const products = await getAllProducts();
     const filtered = filterByCategory(products, viewState.selectedCategory);
     const sorted = sortProducts(filtered, viewState.sortKey);
-    for (const product of reorderProducts(sorted, evt.oldDraggableIndex, evt.newDraggableIndex)) {
+    for (const product of reorderProducts(
+        sorted,
+        evt.oldDraggableIndex,
+        evt.newDraggableIndex
+    )) {
         await putProduct(product);
     }
     refreshDataView();
@@ -685,10 +716,12 @@ const exportBackup = async () => {
         const products = await getAllProducts();
         const handle = await window.showSaveFilePicker({
             suggestedName: BACKUP_FILENAME,
-            types: [{
-                description: 'JSON File',
-                accept: { 'application/json': ['.json'] }
-            }]
+            types: [
+                {
+                    description: 'JSON File',
+                    accept: { 'application/json': ['.json'] }
+                }
+            ]
         });
         const writable = await handle.createWritable();
         await writable.write(JSON.stringify(products, null, 2));
@@ -708,7 +741,10 @@ const importData = async (parsed) => {
         showToast(TOAST.IMPORT_FAIL);
         return;
     }
-    if (!confirm('復元を実行しますか？\n既存のデータはすべて置き換えられます。')) return;
+    if (
+        !confirm('復元を実行しますか？\n既存のデータはすべて置き換えられます。')
+    )
+        return;
 
     await clearProducts();
     for (const product of arr) {
@@ -744,18 +780,33 @@ const importBackup = (event) => {
 const bindEvents = () => {
     document.getElementById('saveBtn').addEventListener('click', saveProduct);
 
-    document.getElementById('inputCategory').addEventListener('change', onCategorySelectChange);
+    document
+        .getElementById('inputCategory')
+        .addEventListener('change', onCategorySelectChange);
 
-    document.getElementById('exportBtn').addEventListener('click', exportBackup);
-    document.getElementById('fileInput').addEventListener('change', importBackup);
+    document
+        .getElementById('exportBtn')
+        .addEventListener('click', exportBackup);
+    document
+        .getElementById('fileInput')
+        .addEventListener('change', importBackup);
 
     // モーダル
-    document.getElementById('modalSaveBtn').addEventListener('click', saveHistoryEdit);
-    document.getElementById('modalCancelBtn').addEventListener('click', closeHistoryModal);
-    document.getElementById('modalClose').addEventListener('click', closeHistoryModal);
+    document
+        .getElementById('modalSaveBtn')
+        .addEventListener('click', saveHistoryEdit);
+    document
+        .getElementById('modalCancelBtn')
+        .addEventListener('click', closeHistoryModal);
+    document
+        .getElementById('modalClose')
+        .addEventListener('click', closeHistoryModal);
     document.getElementById('modalDeleteBtn').addEventListener('click', () => {
         if (editState.editingProductId === null) return;
-        deleteHistory(editState.editingProductId, editState.editingHistoryIndex);
+        deleteHistory(
+            editState.editingProductId,
+            editState.editingHistoryIndex
+        );
     });
     document.getElementById('historyModal').addEventListener('click', (e) => {
         if (e.target.id === 'historyModal') closeHistoryModal();
@@ -765,10 +816,13 @@ const bindEvents = () => {
     });
 
     // ソートヘッダ（商品名のみ）
-    document.querySelector('th[data-sort="name"]').addEventListener('click', () => {
-        viewState.sortKey = viewState.sortKey === 'name' ? 'createdAt' : 'name';
-        renderList();
-    });
+    document
+        .querySelector('th[data-sort="name"]')
+        .addEventListener('click', () => {
+            viewState.sortKey =
+                viewState.sortKey === 'name' ? 'createdAt' : 'name';
+            renderList();
+        });
 };
 
 const initApp = () => {
@@ -785,7 +839,10 @@ const initApp = () => {
 const request = indexedDB.open(DB.NAME, DB.VERSION);
 request.onupgradeneeded = (e) => {
     const database = e.target.result;
-    database.createObjectStore(DB.STORE, { keyPath: 'id', autoIncrement: true });
+    database.createObjectStore(DB.STORE, {
+        keyPath: 'id',
+        autoIncrement: true
+    });
 };
 request.onsuccess = (e) => {
     db = e.target.result;

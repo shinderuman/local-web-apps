@@ -3,7 +3,6 @@
 // Node: module.exports にエクスポート
 
 ((root, factory) => {
-
     // 1レコードが商品として必要なフィールドを持つか検証
     const isValidProduct = (rec) => {
         if (!rec || typeof rec !== 'object') return false;

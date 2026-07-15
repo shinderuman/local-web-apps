@@ -3,7 +3,6 @@
 // Node: module.exports にエクスポート
 
 ((root, factory) => {
-
     // JSON文字列をcompact化（インデント・空白を除去）。不正JSONや空文字列は入力をそのまま返す
     const compactRaw = (rawText) => {
         if (!rawText) return rawText;

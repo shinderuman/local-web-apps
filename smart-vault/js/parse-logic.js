@@ -3,15 +3,15 @@
 // Node: module.exports にエクスポート
 
 ((root, factory) => {
-
     // ATA属性テーブルからID指定でraw値を数値化（無ければ0）
     const getAttrRaw = (table, id) => {
-        const a = (table || []).find(x => x.id === id);
+        const a = (table || []).find((x) => x.id === id);
         return a ? Number(a.raw?.value || 0) : 0;
     };
 
     // ドットパスで値を取得
-    const getByPath = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
+    const getByPath = (obj, path) =>
+        path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
 
     // 第一候補 → NVMeフォールバック → デフォルト の数値取得
     const pickNum = (data, primaryPath, nvmePath, fallback) => {
@@ -29,10 +29,16 @@
         const unit = match[2].toUpperCase();
         const num = parseInt(match[1]);
         if (unit === 'G' || unit === 'Z') {
-            return { sizeStr: num + ' GB', sizeBytes: num * 1000 * 1000 * 1000 };
+            return {
+                sizeStr: num + ' GB',
+                sizeBytes: num * 1000 * 1000 * 1000
+            };
         }
         if (unit === 'T') {
-            return { sizeStr: num + ' TB', sizeBytes: num * 1000 * 1000 * 1000 * 1000 };
+            return {
+                sizeStr: num + ' TB',
+                sizeBytes: num * 1000 * 1000 * 1000 * 1000
+            };
         }
         return { sizeStr: '不明', sizeBytes: 0 };
     };
@@ -41,7 +47,10 @@
     const calcSize = (model, capacityBytes) => {
         if (capacityBytes > 0) {
             const gb = capacityBytes / (1000 * 1000 * 1000);
-            const sizeStr = gb >= 1000 ? (gb / 1000).toFixed(1) + ' TB' : Math.round(gb) + ' GB';
+            const sizeStr =
+                gb >= 1000
+                    ? (gb / 1000).toFixed(1) + ' TB'
+                    : Math.round(gb) + ' GB';
             return { sizeStr, sizeBytes: capacityBytes };
         }
         return estimateSizeFromModel(model);
@@ -50,7 +59,9 @@
     // 容量文字列（例: "500GB", "2 TB", "1.5tb"）をバイト数に変換（手動入力用・失敗時は0）
     const parseSizeToBytes = (text) => {
         if (!text) return 0;
-        const match = String(text).trim().match(/^([\d.]+)\s*(tb|gb|mb)?/i);
+        const match = String(text)
+            .trim()
+            .match(/^([\d.]+)\s*(tb|gb|mb)?/i);
         if (!match) return 0;
         const value = parseFloat(match[1]);
         if (isNaN(value)) return 0;
@@ -84,27 +95,39 @@
         }
         const table = data.ata_smart_attributes?.table || [];
         // ID 241（Total_Writes_GiB / Host_Writes_32MiB / Total_LBAs_Written）を優先、なければ 246
-        const attr = table.find(a => a.id === 241 && a.raw?.value)
-            || table.find(a => a.id === 246 && a.raw?.value);
+        const attr =
+            table.find((a) => a.id === 241 && a.raw?.value) ||
+            table.find((a) => a.id === 246 && a.raw?.value);
         return attr ? ataWriteAttrToTb(attr) : 0;
     };
 
     // 残り寿命を算出（lifePercent + 表示用 lifeOrSector）
     const calcLife = (data) => {
         if (data.endurance_used?.current_percent !== undefined) {
-            const lifePercent = 100 - Number(data.endurance_used.current_percent);
+            const lifePercent =
+                100 - Number(data.endurance_used.current_percent);
             return { lifePercent, lifeOrSector: '寿命: ' + lifePercent + '%' };
         }
-        if (data.nvme_smart_health_information_log?.percentage_used !== undefined) {
-            const lifePercent = 100 - Number(data.nvme_smart_health_information_log.percentage_used);
+        if (
+            data.nvme_smart_health_information_log?.percentage_used !==
+            undefined
+        ) {
+            const lifePercent =
+                100 -
+                Number(data.nvme_smart_health_information_log.percentage_used);
             return { lifePercent, lifeOrSector: '寿命: ' + lifePercent + '%' };
         }
         const table = data.ata_smart_attributes?.table;
         if (table) {
-            const attrLife = table.find(a => a.id === 232 || a.id === 233 || a.id === 202);
+            const attrLife = table.find(
+                (a) => a.id === 232 || a.id === 233 || a.id === 202
+            );
             if (attrLife) {
                 const lifePercent = Number(attrLife.value);
-                return { lifePercent, lifeOrSector: '寿命: ' + lifePercent + '%' };
+                return {
+                    lifePercent,
+                    lifeOrSector: '寿命: ' + lifePercent + '%'
+                };
             }
         }
         // 寿命情報非対応のディスクは不明（代替セクタ数は別項目で表示）
@@ -116,17 +139,26 @@
         const table = data.ata_smart_attributes?.table;
         if (!table) {
             return {
-                reallocSectors: data.nvme_smart_health_information_log?.media_errors !== undefined
-                    ? Number(data.nvme_smart_health_information_log.media_errors)
-                    : -1,
+                reallocSectors:
+                    data.nvme_smart_health_information_log?.media_errors !==
+                    undefined
+                        ? Number(
+                              data.nvme_smart_health_information_log
+                                  .media_errors
+                          )
+                        : -1,
                 pendingSectors: -1,
                 crcErrors: -1
             };
         }
-        const result = { reallocSectors: -1, pendingSectors: -1, crcErrors: -1 };
-        const attr5 = table.find(a => a.id === 5);
-        const attr197 = table.find(a => a.id === 197);
-        const attr199 = table.find(a => a.id === 199);
+        const result = {
+            reallocSectors: -1,
+            pendingSectors: -1,
+            crcErrors: -1
+        };
+        const attr5 = table.find((a) => a.id === 5);
+        const attr197 = table.find((a) => a.id === 197);
+        const attr199 = table.find((a) => a.id === 199);
         if (attr5) result.reallocSectors = Number(attr5.raw?.value || 0);
         if (attr197) result.pendingSectors = Number(attr197.raw?.value || 0);
         if (attr199) result.crcErrors = Number(attr199.raw?.value || 0);

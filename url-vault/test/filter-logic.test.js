@@ -20,7 +20,10 @@ const TRASH_WINDOW_ID = 99999;
 // ============================================================
 
 test('isKindleUrl: Kindleドメインならtrue', () => {
-    assert.strictEqual(isKindleUrl('https://read.amazon.co.jp/manga/B123'), true);
+    assert.strictEqual(
+        isKindleUrl('https://read.amazon.co.jp/manga/B123'),
+        true
+    );
 });
 
 test('isKindleUrl: Kindle以外ならfalse', () => {
@@ -36,7 +39,10 @@ test('isKindleUrl: 空文字ならfalse', () => {
 // ============================================================
 
 test('hasSynopsis: 配列で1件以上ならtrue', () => {
-    assert.strictEqual(hasSynopsis({ synopsis: [{ volume: 1, caption: 'あらすじ' }] }), true);
+    assert.strictEqual(
+        hasSynopsis({ synopsis: [{ volume: 1, caption: 'あらすじ' }] }),
+        true
+    );
 });
 
 test('hasSynopsis: 配列で0件ならfalse', () => {
@@ -79,17 +85,34 @@ const ALL_ITEMS = [
     { id: 1, windowId: 1, groupId: 10, title: 'アイテム1' },
     { id: 2, windowId: 1, groupId: 11, title: 'アイテム2' },
     { id: 3, windowId: 2, groupId: 20, title: '検索対象' },
-    { id: 4, windowId: TRASH_WINDOW_ID, groupId: 99999, title: 'ゴミ箱アイテム' }
+    {
+        id: 4,
+        windowId: TRASH_WINDOW_ID,
+        groupId: 99999,
+        title: 'ゴミ箱アイテム'
+    }
 ];
 
 test('filterVisibleItems: すべて選択（windowId=null）は通常アイテムのみ', () => {
-    const result = filterVisibleItems(ALL_ITEMS, null, null, '', TRASH_WINDOW_ID);
+    const result = filterVisibleItems(
+        ALL_ITEMS,
+        null,
+        null,
+        '',
+        TRASH_WINDOW_ID
+    );
     assert.strictEqual(result.length, 3);
-    assert.ok(!result.some(i => i.windowId === TRASH_WINDOW_ID));
+    assert.ok(!result.some((i) => i.windowId === TRASH_WINDOW_ID));
 });
 
 test('filterVisibleItems: ゴミ箱選択時はゴミ箱アイテムのみ', () => {
-    const result = filterVisibleItems(ALL_ITEMS, TRASH_WINDOW_ID, null, '', TRASH_WINDOW_ID);
+    const result = filterVisibleItems(
+        ALL_ITEMS,
+        TRASH_WINDOW_ID,
+        null,
+        '',
+        TRASH_WINDOW_ID
+    );
     assert.strictEqual(result.length, 1);
     assert.strictEqual(result[0].id, 4);
 });
@@ -107,13 +130,25 @@ test('filterVisibleItems: グループ絞り込み', () => {
 });
 
 test('filterVisibleItems: 検索クエリ絞り込み', () => {
-    const result = filterVisibleItems(ALL_ITEMS, null, null, '検索', TRASH_WINDOW_ID);
+    const result = filterVisibleItems(
+        ALL_ITEMS,
+        null,
+        null,
+        '検索',
+        TRASH_WINDOW_ID
+    );
     assert.strictEqual(result.length, 1);
     assert.strictEqual(result[0].id, 3);
 });
 
 test('filterVisibleItems: ゴミ箱選択時は検索クエリも適用', () => {
-    const result = filterVisibleItems(ALL_ITEMS, TRASH_WINDOW_ID, null, 'ゴミ箱', TRASH_WINDOW_ID);
+    const result = filterVisibleItems(
+        ALL_ITEMS,
+        TRASH_WINDOW_ID,
+        null,
+        'ゴミ箱',
+        TRASH_WINDOW_ID
+    );
     assert.strictEqual(result.length, 1);
 });
 
@@ -150,7 +185,10 @@ test('getRememberedGroup: 未記憶ならnull', () => {
 // ============================================================
 
 test('validateRememberedGroup: 実在グループならそのID', () => {
-    const groups = [{ id: 10, name: 'A' }, { id: 11, name: 'B' }];
+    const groups = [
+        { id: 10, name: 'A' },
+        { id: 11, name: 'B' }
+    ];
     assert.strictEqual(validateRememberedGroup(10, groups), 10);
 });
 
@@ -169,7 +207,10 @@ test('validateRememberedGroup: groupIdがnullならnull', () => {
 // ============================================================
 
 test('duplicateKey: 作品名の先頭n文字を返す', () => {
-    assert.strictEqual(duplicateKey({ title: '作品A (4)' }, 3, parseBaseTitle), '作品A');
+    assert.strictEqual(
+        duplicateKey({ title: '作品A (4)' }, 3, parseBaseTitle),
+        '作品A'
+    );
 });
 
 test('filterDuplicates: 巻違いが両方残る', () => {
@@ -179,7 +220,10 @@ test('filterDuplicates: 巻違いが両方残る', () => {
         { id: 3, title: '別作品' }
     ];
     const result = filterDuplicates(items, 3, parseBaseTitle);
-    assert.deepStrictEqual(result.map(i => i.id), [1, 2]);
+    assert.deepStrictEqual(
+        result.map((i) => i.id),
+        [1, 2]
+    );
 });
 
 test('filterDuplicates: 雑誌名括弧付きと無しは同一と判定', () => {
@@ -188,7 +232,10 @@ test('filterDuplicates: 雑誌名括弧付きと無しは同一と判定', () =>
         { id: 2, title: '作品A' }
     ];
     const result = filterDuplicates(items, 3, parseBaseTitle);
-    assert.deepStrictEqual(result.map(i => i.id), [1, 2]);
+    assert.deepStrictEqual(
+        result.map((i) => i.id),
+        [1, 2]
+    );
 });
 
 test('filterDuplicates: サブタイトル付きは本編と同一と判定', () => {
@@ -197,7 +244,10 @@ test('filterDuplicates: サブタイトル付きは本編と同一と判定', ()
         { id: 2, title: '作品A' }
     ];
     const result = filterDuplicates(items, 3, parseBaseTitle);
-    assert.deepStrictEqual(result.map(i => i.id), [1, 2]);
+    assert.deepStrictEqual(
+        result.map((i) => i.id),
+        [1, 2]
+    );
 });
 
 test('filterDuplicates: 全く異なる作品は残らない', () => {
@@ -228,7 +278,10 @@ test('filterDuplicates: nを大きくすると別作品に分かれる', () => {
     // n=3 なら「進撃の」で3件とも同一 → 全件残る
     assert.strictEqual(filterDuplicates(items, 3, parseBaseTitle).length, 3);
     // n=4 なら3件目が「進撃の別」で分岐 → 1,2のみ残る
-    assert.deepStrictEqual(filterDuplicates(items, 4, parseBaseTitle).map(i => i.id), [1, 2]);
+    assert.deepStrictEqual(
+        filterDuplicates(items, 4, parseBaseTitle).map((i) => i.id),
+        [1, 2]
+    );
 });
 
 test('filterDuplicates: 作品名がn文字未満の場合は全文字で比較', () => {
@@ -237,7 +290,10 @@ test('filterDuplicates: 作品名がn文字未満の場合は全文字で比較'
         { id: 2, title: 'AB 2' }
     ];
     const result = filterDuplicates(items, 6, parseBaseTitle);
-    assert.deepStrictEqual(result.map(i => i.id), [1, 2]);
+    assert.deepStrictEqual(
+        result.map((i) => i.id),
+        [1, 2]
+    );
 });
 
 test('filterDuplicates: 空配列は空配列を返す（非破壊）', () => {

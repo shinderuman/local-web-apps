@@ -1,9 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const {
-    serializeUIState,
-    deserializeUIState
-} = require('../js/ui-logic.js');
+const { serializeUIState, deserializeUIState } = require('../js/ui-logic.js');
 
 // ============================================================
 // serializeUIState
@@ -29,7 +26,14 @@ test('serializeUIState: 状態オブジェクトをJSON文字列化', () => {
 });
 
 test('serializeUIState: null値も保持', () => {
-    const state = { windowId: null, groupId: null, sortKey: 'sortOrder', sortAsc: true, addPositionTop: true, selectedGroupByWindow: {} };
+    const state = {
+        windowId: null,
+        groupId: null,
+        sortKey: 'sortOrder',
+        sortAsc: true,
+        addPositionTop: true,
+        selectedGroupByWindow: {}
+    };
     const json = serializeUIState(state);
     const parsed = JSON.parse(json);
     assert.strictEqual(parsed.windowId, null);
@@ -42,7 +46,12 @@ test('serializeUIState: null値も保持', () => {
 
 test('deserializeUIState: 全フィールド存在ならそのまま復元', () => {
     const json = JSON.stringify({
-        windowId: 1, groupId: 2, sortKey: 'title', sortAsc: false, addPositionTop: false, selectedGroupByWindow: { 1: 10 }
+        windowId: 1,
+        groupId: 2,
+        sortKey: 'title',
+        sortAsc: false,
+        addPositionTop: false,
+        selectedGroupByWindow: { 1: 10 }
     });
     const state = deserializeUIState(json);
     assert.strictEqual(state.windowId, 1);

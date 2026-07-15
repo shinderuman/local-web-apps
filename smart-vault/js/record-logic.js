@@ -3,11 +3,10 @@
 // Node: module.exports にエクスポート
 
 ((root, factory) => {
-
     // 指定したフィルタ種別ごとの件数と全件数を返す
     const countRecordsByType = (records, filterTypes) => {
-        const counts = Object.fromEntries(filterTypes.map(type => [type, 0]));
-        records.forEach(record => {
+        const counts = Object.fromEntries(filterTypes.map((type) => [type, 0]));
+        records.forEach((record) => {
             counts.all++;
             const type = record.customType || 'unknown';
             if (counts[type] !== undefined) counts[type]++;
@@ -17,8 +16,10 @@
 
     // 列クリック後のソート状態を返す
     const getNextSortState = (sortState, field) => {
-        if (sortState.sortField !== field) return { sortField: field, sortOrder: 'asc' };
-        if (sortState.sortOrder === 'asc') return { sortField: field, sortOrder: 'desc' };
+        if (sortState.sortField !== field)
+            return { sortField: field, sortOrder: 'asc' };
+        if (sortState.sortOrder === 'asc')
+            return { sortField: field, sortOrder: 'desc' };
         return { sortField: '', sortOrder: 'asc' };
     };
 
@@ -43,19 +44,32 @@
     // 指定分類に一致するレコードを非破壊に返す
     const filterRecordsByType = (records, filter) => {
         if (filter === 'all') return [...records];
-        return records.filter(record => (record.customType || 'unknown') === filter);
+        return records.filter(
+            (record) => (record.customType || 'unknown') === filter
+        );
     };
 
     // 表示中レコードの移動を全体レコード配列の順序へ反映する
-    const reorderRecordsByVisiblePosition = (records, visibleRecords, movedId, oldIndex, newIndex) => {
+    const reorderRecordsByVisiblePosition = (
+        records,
+        visibleRecords,
+        movedId,
+        oldIndex,
+        newIndex
+    ) => {
         const reorderedVisibleRecords = [...visibleRecords];
         const movedRecord = reorderedVisibleRecords.splice(oldIndex, 1)[0];
         reorderedVisibleRecords.splice(newIndex, 0, movedRecord);
-        const recordsWithoutMoved = records.filter(record => record.id !== movedId);
+        const recordsWithoutMoved = records.filter(
+            (record) => record.id !== movedId
+        );
         const previousId = reorderedVisibleRecords[newIndex - 1]?.id ?? null;
-        const insertIndex = previousId === null
-            ? 0
-            : recordsWithoutMoved.findIndex(record => record.id === previousId) + 1;
+        const insertIndex =
+            previousId === null
+                ? 0
+                : recordsWithoutMoved.findIndex(
+                      (record) => record.id === previousId
+                  ) + 1;
         return [
             ...recordsWithoutMoved.slice(0, insertIndex),
             movedRecord,
@@ -65,9 +79,15 @@
 
     // healthLevelを持つレコードだけで構成された配列かを判定する
     const isValidSmartRecordList = (records) => {
-        return Array.isArray(records)
-            && records.every(record => record && typeof record === 'object'
-                && typeof record.healthLevel !== 'undefined');
+        return (
+            Array.isArray(records) &&
+            records.every(
+                (record) =>
+                    record &&
+                    typeof record === 'object' &&
+                    typeof record.healthLevel !== 'undefined'
+            )
+        );
     };
 
     const RECORD_LOGIC = {

@@ -3,34 +3,43 @@
 const KINDLE_URL_PATTERN = /^https?:\/\/read\.amazon\.co\.jp\//;
 
 ((root, factory) => {
-
     // Kindleドメイン判定
     const isKindleUrl = (url) => KINDLE_URL_PATTERN.test(url);
 
     // あらすじが有効（配列で1件以上）か判定。壊れたデータは未取得扱い
-    const hasSynopsis = (item) => Array.isArray(item.synopsis) && item.synopsis.length > 0;
+    const hasSynopsis = (item) =>
+        Array.isArray(item.synopsis) && item.synopsis.length > 0;
 
     // ゴミ箱選択か判定
-    const isTrashSelected = (windowId, trashWindowId) => windowId === trashWindowId;
+    const isTrashSelected = (windowId, trashWindowId) =>
+        windowId === trashWindowId;
 
     // 現在のフィルタ条件に一致するアイテムを抽出
     // ゴミ箱選択時のみゴミ箱を表示。それ以外はゴミ箱を除外
-    const filterVisibleItems = (allItems, windowId, groupId, searchQuery, trashWindowId) => {
+    const filterVisibleItems = (
+        allItems,
+        windowId,
+        groupId,
+        searchQuery,
+        trashWindowId
+    ) => {
         let items = allItems;
         if (windowId === trashWindowId) {
-            items = items.filter(item => item.windowId === trashWindowId);
+            items = items.filter((item) => item.windowId === trashWindowId);
         } else {
-            items = items.filter(item => item.windowId !== trashWindowId);
+            items = items.filter((item) => item.windowId !== trashWindowId);
             if (windowId !== null) {
-                items = items.filter(item => item.windowId === windowId);
+                items = items.filter((item) => item.windowId === windowId);
             }
         }
         if (groupId !== null) {
-            items = items.filter(item => item.groupId === groupId);
+            items = items.filter((item) => item.groupId === groupId);
         }
         if (searchQuery) {
             const q = searchQuery.toLowerCase();
-            items = items.filter(item => item.title.toLowerCase().includes(q));
+            items = items.filter((item) =>
+                item.title.toLowerCase().includes(q)
+            );
         }
         return items;
     };
@@ -50,7 +59,7 @@ const KINDLE_URL_PATTERN = /^https?:\/\/read\.amazon\.co\.jp\//;
         if (groupId === null) {
             return null;
         }
-        return groups.some(g => g.id === groupId) ? groupId : null;
+        return groups.some((g) => g.id === groupId) ? groupId : null;
     };
 
     // 重複グループ化のキーを算出。
@@ -68,7 +77,9 @@ const KINDLE_URL_PATTERN = /^https?:\/\/read\.amazon\.co\.jp\//;
             const key = duplicateKey(item, n, parseBaseTitle);
             counts[key] = (counts[key] || 0) + 1;
         });
-        return items.filter((item) => counts[duplicateKey(item, n, parseBaseTitle)] >= 2);
+        return items.filter(
+            (item) => counts[duplicateKey(item, n, parseBaseTitle)] >= 2
+        );
     };
 
     const FILTER_LOGIC = {
@@ -85,11 +96,14 @@ const KINDLE_URL_PATTERN = /^https?:\/\/read\.amazon\.co\.jp\//;
     };
 
     factory(root, FILTER_LOGIC);
-})(typeof globalThis !== 'undefined' ? globalThis : this, (root, FILTER_LOGIC) => {
-    if (typeof module !== 'undefined' && module.exports) {
-        module.exports = FILTER_LOGIC;
+})(
+    typeof globalThis !== 'undefined' ? globalThis : this,
+    (root, FILTER_LOGIC) => {
+        if (typeof module !== 'undefined' && module.exports) {
+            module.exports = FILTER_LOGIC;
+        }
+        if (typeof window !== 'undefined') {
+            window.FILTER_LOGIC = FILTER_LOGIC;
+        }
     }
-    if (typeof window !== 'undefined') {
-        window.FILTER_LOGIC = FILTER_LOGIC;
-    }
-});
+);

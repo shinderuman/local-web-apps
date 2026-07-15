@@ -13,8 +13,11 @@ const {
 } = require('../js/parse-logic.js');
 
 // 実データ相当のサンプルを読み込み（S/N等の個人情報はダミー化済み）
-const backup = JSON.parse(fs.readFileSync(__dirname + '/fixtures/smart-storage-samples.json', 'utf8'));
-const findByModel = (kw) => JSON.parse(backup.find(r => r.model.includes(kw)).raw);
+const backup = JSON.parse(
+    fs.readFileSync(__dirname + '/fixtures/smart-storage-samples.json', 'utf8')
+);
+const findByModel = (kw) =>
+    JSON.parse(backup.find((r) => r.model.includes(kw)).raw);
 
 // ============================================================
 // getAttrRaw: ATA属性テーブルからID指定でraw値を数値化
@@ -40,7 +43,10 @@ test('pickNum: 第一候補がある場合はそれを数値化', () => {
 
 test('pickNum: 第一候補undefined時はNVMeフォールバック', () => {
     const data = { nvme: { power_on_hours: 1035 } };
-    assert.strictEqual(pickNum(data, 'missing.path', 'nvme.power_on_hours', 0), 1035);
+    assert.strictEqual(
+        pickNum(data, 'missing.path', 'nvme.power_on_hours', 0),
+        1035
+    );
 });
 
 test('pickNum: 両方undefined時はデフォルト', () => {
@@ -111,26 +117,62 @@ test('calcTbw: NVMe data_units_written から算出', () => {
 
 test('calcTbw: ID241 が GiB 単位（Total_Writes_GiB）', () => {
     // 26315 GiB * 1.073741824 / 1000 ≒ 28.26 TB
-    const data = { ata_smart_attributes: { table: [{ id: 241, name: 'Total_Writes_GiB', raw: { value: 26315 } }] } };
+    const data = {
+        ata_smart_attributes: {
+            table: [
+                { id: 241, name: 'Total_Writes_GiB', raw: { value: 26315 } }
+            ]
+        }
+    };
     assert.ok(Math.abs(calcTbw(data) - 28.26) < 0.01, 'got ' + calcTbw(data));
 });
 
 test('calcTbw: ID241 が LBA 単位（Total_LBAs_Written, 512B/sector）', () => {
     // 19484917029 * 512 / 1e12 ≒ 9.97 TB
-    const data = { ata_smart_attributes: { table: [{ id: 241, name: 'Total_LBAs_Written', raw: { value: 19484917029 } }] } };
+    const data = {
+        ata_smart_attributes: {
+            table: [
+                {
+                    id: 241,
+                    name: 'Total_LBAs_Written',
+                    raw: { value: 19484917029 }
+                }
+            ]
+        }
+    };
     assert.ok(Math.abs(calcTbw(data) - 9.97) < 0.01, 'got ' + calcTbw(data));
 });
 
 test('calcTbw: ID241 が 32MiB 単位（Host_Writes_32MiB）', () => {
     // 12252475699 * 33554432 / 1e12 ≒ 411125 TB
-    const data = { ata_smart_attributes: { table: [{ id: 241, name: 'Host_Writes_32MiB', raw: { value: 12252475699 } }] } };
+    const data = {
+        ata_smart_attributes: {
+            table: [
+                {
+                    id: 241,
+                    name: 'Host_Writes_32MiB',
+                    raw: { value: 12252475699 }
+                }
+            ]
+        }
+    };
     assert.ok(Math.abs(calcTbw(data) - 411125) < 1, 'got ' + calcTbw(data));
 });
 
 test('calcTbw: ID241 が無ければ ID246 を使用', () => {
-    const data = { ata_smart_attributes: { table: [{ id: 246, name: 'Total_LBAs_Written', raw: { value: 3130197676 } }] } };
+    const data = {
+        ata_smart_attributes: {
+            table: [
+                {
+                    id: 246,
+                    name: 'Total_LBAs_Written',
+                    raw: { value: 3130197676 }
+                }
+            ]
+        }
+    };
     // 3130197676 * 512 / 1e12 ≒ 1.60 TB
-    assert.ok(Math.abs(calcTbw(data) - 1.60) < 0.01, 'got ' + calcTbw(data));
+    assert.ok(Math.abs(calcTbw(data) - 1.6) < 0.01, 'got ' + calcTbw(data));
 });
 
 test('calcTbw: 情報無しは0', () => {
@@ -171,7 +213,10 @@ test('calcSectorCounts: HGST HTS725050 は保留中144', () => {
 test('calcSectorCounts: NVMe は media_errors を reallocSectors に', () => {
     const data = findByModel('APPLE SSD');
     const r = calcSectorCounts(data);
-    assert.strictEqual(r.reallocSectors, data.nvme_smart_health_information_log.media_errors);
+    assert.strictEqual(
+        r.reallocSectors,
+        data.nvme_smart_health_information_log.media_errors
+    );
 });
 
 test('calcSectorCounts: 属性無しは全て-1', () => {
@@ -197,7 +242,10 @@ test('detectCustomType: モデル名にsshd', () => {
 });
 
 test('detectCustomType: モデル名にssd', () => {
-    assert.strictEqual(detectCustomType('ATA', 'CT250MX500SSD1', 'ata', ''), 'sata-ssd');
+    assert.strictEqual(
+        detectCustomType('ATA', 'CT250MX500SSD1', 'ata', ''),
+        'sata-ssd'
+    );
 });
 
 test('detectCustomType: 既存値があればそれを維持', () => {

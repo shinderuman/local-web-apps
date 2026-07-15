@@ -1,6 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { compactRaw, prettifyRaw, buildSmartJsonArray } = require('../js/json-normalize-logic.js');
+const {
+    compactRaw,
+    prettifyRaw,
+    buildSmartJsonArray
+} = require('../js/json-normalize-logic.js');
 
 // ============================================================
 // compactRaw: JSON文字列のcompact化
@@ -77,10 +81,7 @@ test('buildSmartJsonArray: raw空のレコード（手動登録等）は除外',
 });
 
 test('buildSmartJsonArray: 有効レコード0件なら null', () => {
-    const records = [
-        { raw: '' },
-        { isManual: true, raw: '' }
-    ];
+    const records = [{ raw: '' }, { isManual: true, raw: '' }];
     assert.strictEqual(buildSmartJsonArray(records), null);
 });
 

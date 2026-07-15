@@ -5,7 +5,9 @@
     "description": "ローカル専用Webアプリ群（url-vault, smart-vault, wp-data-manager, price-vault）",
     "devDependencies": {
         "eslint": "^9.39.1",
+        "eslint-config-prettier": "^10.1.5",
         "globals": "^17.7.0",
+        "prettier": "^3.6.2",
         "sortablejs": "^1.15.7"
     }
 }

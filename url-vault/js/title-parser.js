@@ -5,7 +5,10 @@
 
 ((root, factory) => {
     // 全角数字を半角に正規化
-    const normalizeDigits = (s) => s.replace(/[０-９]/g, d => String.fromCharCode(d.charCodeAt(0) - 0xFEE0));
+    const normalizeDigits = (s) =>
+        s.replace(/[０-９]/g, (d) =>
+            String.fromCharCode(d.charCodeAt(0) - 0xfee0)
+        );
 
     // タイトルから巻数を抽出（全角対応）。
     // 方針:
@@ -63,12 +66,16 @@
         // 末尾の雑誌名括弧（数字を含まない）を除去して再帰
         const trailingParen = s.match(/[（(][^（(0-9]*[）)]$/);
         if (trailingParen) {
-            return parseBaseTitle(s.slice(0, s.length - trailingParen[0].length));
+            return parseBaseTitle(
+                s.slice(0, s.length - trailingParen[0].length)
+            );
         }
         // 末尾の巻数括弧（N）を除去して再帰
         const trailingNumParen = s.match(/[（(][0-9]+[）)]$/);
         if (trailingNumParen) {
-            return parseBaseTitle(s.slice(0, s.length - trailingNumParen[0].length));
+            return parseBaseTitle(
+                s.slice(0, s.length - trailingNumParen[0].length)
+            );
         }
         // 末尾の単独数字を除去して再帰（除去後に新たな括弧が末尾になる場合があるため）
         const stripped = s.replace(/[\s　]?[0-9]+$/, '');
@@ -80,11 +87,14 @@
 
     const TITLE_PARSER = { normalizeDigits, parseVolume, parseBaseTitle };
     factory(root, TITLE_PARSER);
-})(typeof globalThis !== 'undefined' ? globalThis : this, (root, TITLE_PARSER) => {
-    if (typeof module !== 'undefined' && module.exports) {
-        module.exports = TITLE_PARSER;
+})(
+    typeof globalThis !== 'undefined' ? globalThis : this,
+    (root, TITLE_PARSER) => {
+        if (typeof module !== 'undefined' && module.exports) {
+            module.exports = TITLE_PARSER;
+        }
+        if (typeof window !== 'undefined') {
+            window.TITLE_PARSER = TITLE_PARSER;
+        }
     }
-    if (typeof window !== 'undefined') {
-        window.TITLE_PARSER = TITLE_PARSER;
-    }
-});
+);

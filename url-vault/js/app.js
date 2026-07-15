@@ -28,8 +28,8 @@ const TIMING = {
     TOAST_HIDE_ANIM: 200,
     PANEL_ANIM: 180,
     SYNOPSIS: {
-        FETCH_INTERVAL: 1200,    // 全取得の1件ごとの間隔
-        RETRY_INTERVAL: 500     // 短縮再リクエストの間隔
+        FETCH_INTERVAL: 1200, // 全取得の1件ごとの間隔
+        RETRY_INTERVAL: 500 // 短縮再リクエストの間隔
     }
 };
 
@@ -91,10 +91,7 @@ const uiState = {
 // モジュール関数のインポート
 // ============================================================
 
-const {
-    parseVolume,
-    parseBaseTitle
-} = window.TITLE_PARSER;
+const { parseVolume, parseBaseTitle } = window.TITLE_PARSER;
 const {
     calcNextSortOrder,
     shiftSortOrders,
@@ -119,10 +116,7 @@ const {
     tokenizeQuery,
     shortenQuery
 } = window.SYNOPSIS_LOGIC;
-const {
-    serializeUIState,
-    deserializeUIState
-} = window.UI_LOGIC;
+const { serializeUIState, deserializeUIState } = window.UI_LOGIC;
 
 // ============================================================
 // アプリ初期化・データビュー更新
@@ -160,12 +154,15 @@ const updateAddPositionBtn = () => {
 const loadToggleStates = () => {
     const leftPanel = document.getElementById('leftPanel');
     const navContainer = document.getElementById('navContainer');
-    if (sessionStorage.getItem('leftPanelHidden') === 'true') leftPanel.classList.add('hidden');
-    if (sessionStorage.getItem('navContainerHidden') === 'true') navContainer.classList.add('hidden');
+    if (sessionStorage.getItem('leftPanelHidden') === 'true')
+        leftPanel.classList.add('hidden');
+    if (sessionStorage.getItem('navContainerHidden') === 'true')
+        navContainer.classList.add('hidden');
 
     updateAddPositionBtn();
     updateDupCheckBtn();
-    document.getElementById('dupCheckLengthInput').value = filterState.dupCheckLength;
+    document.getElementById('dupCheckLengthInput').value =
+        filterState.dupCheckLength;
 };
 
 // 重複チェックボタンのON/OFF見た目と文字数入力欄の表示を反映（ON=filter-btnのactive＋入力欄表示）
@@ -193,16 +190,19 @@ const changeDupCheckLength = (value) => {
 };
 
 const saveUIState = () => {
-    sessionStorage.setItem('uiState', serializeUIState({
-        windowId: filterState.selectedWindowId,
-        groupId: filterState.selectedGroupId,
-        sortKey: filterState.sortKey,
-        sortAsc: filterState.sortAsc,
-        addPositionTop: editState.addPositionTop,
-        selectedGroupByWindow: filterState.selectedGroupByWindow,
-        dupCheckEnabled: filterState.dupCheckEnabled,
-        dupCheckLength: filterState.dupCheckLength
-    }));
+    sessionStorage.setItem(
+        'uiState',
+        serializeUIState({
+            windowId: filterState.selectedWindowId,
+            groupId: filterState.selectedGroupId,
+            sortKey: filterState.sortKey,
+            sortAsc: filterState.sortAsc,
+            addPositionTop: editState.addPositionTop,
+            selectedGroupByWindow: filterState.selectedGroupByWindow,
+            dupCheckEnabled: filterState.dupCheckEnabled,
+            dupCheckLength: filterState.dupCheckLength
+        })
+    );
 };
 
 const loadUIState = () => {
@@ -224,10 +224,16 @@ const ensureTrashExists = () => {
     const winStore = tx.objectStore('windows');
     const groupStore = tx.objectStore('groups');
     winStore.get(TRASH.WINDOW_ID).onsuccess = (e) => {
-        if (!e.target.result) winStore.put({ id: TRASH.WINDOW_ID, name: TRASH.WINDOW_NAME });
+        if (!e.target.result)
+            winStore.put({ id: TRASH.WINDOW_ID, name: TRASH.WINDOW_NAME });
     };
     groupStore.get(TRASH.GROUP_ID).onsuccess = (e) => {
-        if (!e.target.result) groupStore.put({ id: TRASH.GROUP_ID, windowId: TRASH.WINDOW_ID, name: TRASH.GROUP_NAME });
+        if (!e.target.result)
+            groupStore.put({
+                id: TRASH.GROUP_ID,
+                windowId: TRASH.WINDOW_ID,
+                name: TRASH.GROUP_NAME
+            });
     };
 };
 
@@ -247,7 +253,7 @@ const updateSelectBoxes = () => {
 
         targetWin.innerHTML = '';
         itemWin.innerHTML = '';
-        windows.forEach(w => {
+        windows.forEach((w) => {
             // ゴミ箱ウィンドウは新規作成/グループ作成の選択肢から除外
             if (w.id === TRASH.WINDOW_ID) return;
             targetWin.add(new Option(w.name, w.id));
@@ -271,8 +277,8 @@ const updateGroupSelectBox = () => {
 
     const tx = db.transaction(['groups'], 'readonly');
     tx.objectStore('groups').getAll().onsuccess = (e) => {
-        const groups = e.target.result.filter(g => g.windowId === winId);
-        groups.forEach(g => itemGroupSelect.add(new Option(g.name, g.id)));
+        const groups = e.target.result.filter((g) => g.windowId === winId);
+        groups.forEach((g) => itemGroupSelect.add(new Option(g.name, g.id)));
 
         if (prevGroupVal) itemGroupSelect.value = prevGroupVal;
     };
@@ -295,8 +301,8 @@ const syncItemSelects = () => {
 
     const tx = db.transaction(['groups'], 'readonly');
     tx.objectStore('groups').getAll().onsuccess = (e) => {
-        const groups = e.target.result.filter(g => g.windowId === winId);
-        groups.forEach(g => itemGroup.add(new Option(g.name, g.id)));
+        const groups = e.target.result.filter((g) => g.windowId === winId);
+        groups.forEach((g) => itemGroup.add(new Option(g.name, g.id)));
         if (filterState.selectedGroupId !== null) {
             itemGroup.value = filterState.selectedGroupId;
         } else if (prevGroupVal) {
@@ -314,7 +320,10 @@ const executeAddWindow = () => {
     const value = input.value.trim();
     if (!value) return;
 
-    db.transaction(['windows'], 'readwrite').objectStore('windows').add({ name: value }).onsuccess = () => {
+    db
+        .transaction(['windows'], 'readwrite')
+        .objectStore('windows')
+        .add({ name: value }).onsuccess = () => {
         input.value = '';
         refreshDataView();
     };
@@ -326,10 +335,13 @@ const executeAddGroup = () => {
     const value = input.value.trim();
     if (!value || !winSelect.value) return;
 
-    db.transaction(['groups'], 'readwrite').objectStore('groups').add({
-        name: value,
-        windowId: parseInt(winSelect.value)
-    }).onsuccess = () => {
+    db
+        .transaction(['groups'], 'readwrite')
+        .objectStore('groups')
+        .add({
+            name: value,
+            windowId: parseInt(winSelect.value)
+        }).onsuccess = () => {
         input.value = '';
         refreshDataView();
     };
@@ -361,16 +373,29 @@ const saveItemEdit = (winSelect, groupSelect, titleInput, urlInput) => {
         const newWindowId = parseInt(winSelect.value);
         const newGroupId = parseInt(groupSelect.value);
         // ウィンドウまたはグループの移動時は新規追加と同じ位置へ再割り当て
-        const moved = data.windowId !== newWindowId || data.groupId !== newGroupId;
+        const moved =
+            data.windowId !== newWindowId || data.groupId !== newGroupId;
         if (moved) {
             assignSortOrderAtInsertPosition(store, newGroupId, (sortOrder) => {
                 data.sortOrder = sortOrder;
-                applyItemEditFields(data, newWindowId, newGroupId, titleInput, urlInput);
+                applyItemEditFields(
+                    data,
+                    newWindowId,
+                    newGroupId,
+                    titleInput,
+                    urlInput
+                );
                 store.put(data);
             });
             return;
         }
-        applyItemEditFields(data, newWindowId, newGroupId, titleInput, urlInput);
+        applyItemEditFields(
+            data,
+            newWindowId,
+            newGroupId,
+            titleInput,
+            urlInput
+        );
         store.put(data);
     };
     tx.oncomplete = () => {
@@ -397,16 +422,24 @@ const fetchSynopsisIfMissing = (itemId, title, url) => {
 // 追加位置設定に従い対象グループ内のsortOrderを計算する（先頭追加時は既存をシフト）
 const assignSortOrderAtInsertPosition = (store, groupId, callback) => {
     store.getAll().onsuccess = (e) => {
-        const groupItems = e.target.result.filter(item => item.groupId === groupId);
+        const groupItems = e.target.result.filter(
+            (item) => item.groupId === groupId
+        );
         if (editState.addPositionTop) {
-            shiftSortOrders(groupItems).forEach(item => store.put(item));
+            shiftSortOrders(groupItems).forEach((item) => store.put(item));
         }
         callback(calcNextSortOrder(groupItems, editState.addPositionTop));
     };
 };
 
 // 編集アイテムの表示フィールド（sortOrder以外）を上書きする
-const applyItemEditFields = (data, newWindowId, newGroupId, titleInput, urlInput) => {
+const applyItemEditFields = (
+    data,
+    newWindowId,
+    newGroupId,
+    titleInput,
+    urlInput
+) => {
     data.windowId = newWindowId;
     data.groupId = newGroupId;
     data.title = titleInput.value;
@@ -422,14 +455,17 @@ const saveItemNew = (winSelect, groupSelect, titleInput, urlInput) => {
     const store = tx.objectStore('items');
     const newGroupId = parseInt(groupSelect.value);
     assignSortOrderAtInsertPosition(store, newGroupId, (sortOrder) => {
-        const data = buildNewItem({
-            windowId: parseInt(winSelect.value),
-            groupId: newGroupId,
-            title: titleInput.value,
-            url: urlInput.value,
-            image: editState.imageDataBase64,
-            sortOrder: sortOrder
-        }, new Date().getTime());
+        const data = buildNewItem(
+            {
+                windowId: parseInt(winSelect.value),
+                groupId: newGroupId,
+                title: titleInput.value,
+                url: urlInput.value,
+                image: editState.imageDataBase64,
+                sortOrder: sortOrder
+            },
+            new Date().getTime()
+        );
 
         store.add(data).onsuccess = (ev) => {
             const newId = ev.target.result;
@@ -446,7 +482,15 @@ const saveItem = () => {
     const groupSelect = document.getElementById('itemGroupSelect');
     const titleInput = document.getElementById('title');
     const urlInput = document.getElementById('url');
-    if (!isValidItemInput(winSelect.value, groupSelect.value, titleInput.value, urlInput.value)) return;
+    if (
+        !isValidItemInput(
+            winSelect.value,
+            groupSelect.value,
+            titleInput.value,
+            urlInput.value
+        )
+    )
+        return;
 
     if (editState.editingItemId !== null) {
         saveItemEdit(winSelect, groupSelect, titleInput, urlInput);
@@ -491,7 +535,8 @@ const endItemEdit = () => {
 // 保存ボタン表示切替（新規作成 / 更新）
 const renderSaveBtn = () => {
     const btn = document.getElementById('saveBtn');
-    btn.textContent = editState.editingItemId !== null ? 'アイテムを更新' : 'アイテムを保存';
+    btn.textContent =
+        editState.editingItemId !== null ? 'アイテムを更新' : 'アイテムを保存';
 };
 
 // ============================================================
@@ -524,11 +569,19 @@ const trimBackground = (img) => {
         trimLeft++;
     }
     while (trimRight < width - trimLeft - 1) {
-        if (sampleColor(data, width, width - 1 - trimRight, midY) !== bgColorRight) break;
+        if (
+            sampleColor(data, width, width - 1 - trimRight, midY) !==
+            bgColorRight
+        )
+            break;
         trimRight++;
     }
 
-    return { trimLeft, trimmedW: width - trimLeft - trimRight, trimmedH: img.height };
+    return {
+        trimLeft,
+        trimmedW: width - trimLeft - trimRight,
+        trimmedH: img.height
+    };
 };
 
 const resizeToJpeg = (img, trimLeft, trimW, trimH) => {
@@ -587,7 +640,8 @@ const searchItemsByTitle = async (applicationId, accessKey, query) => {
 
     const first = await searchOnce(query);
     if (first.error) return first;
-    if (first.data && first.data.Items && first.data.Items.length > 0) return { data: first.data };
+    if (first.data && first.data.Items && first.data.Items.length > 0)
+        return { data: first.data };
 
     console.warn('[synopsis] 検索結果0件、クエリ短縮で再検索:', query);
     // フォールバック: 記号・空白で区切り、後ろから削って再検索（0.5秒間隔）
@@ -597,7 +651,8 @@ const searchItemsByTitle = async (applicationId, accessKey, query) => {
         const shorter = shortenQuery(tokens, len);
         const r = await searchOnce(shorter);
         if (r.error) return r;
-        if (r.data && r.data.Items && r.data.Items.length > 0) return { data: r.data };
+        if (r.data && r.data.Items && r.data.Items.length > 0)
+            return { data: r.data };
         console.warn('[synopsis] 検索結果0件、更に短縮:', shorter);
     }
     return { data: { Items: [] } };
@@ -611,10 +666,21 @@ const fetchSynopsis = async (title, explicitVolume) => {
     }
     const { applicationId, accessKey } = window.RAKUTEN_CONFIG;
     const baseTitle = parseBaseTitle(title);
-    const currentVolume = explicitVolume ? parseInt(explicitVolume, 10) : parseVolume(title);
-    console.log('[synopsis] 検索タイトル:', baseTitle, '(巻数:', currentVolume + ')');
+    const currentVolume = explicitVolume
+        ? parseInt(explicitVolume, 10)
+        : parseVolume(title);
+    console.log(
+        '[synopsis] 検索タイトル:',
+        baseTitle,
+        '(巻数:',
+        currentVolume + ')'
+    );
 
-    const result = await searchItemsByTitle(applicationId, accessKey, baseTitle);
+    const result = await searchItemsByTitle(
+        applicationId,
+        accessKey,
+        baseTitle
+    );
     if (result.error) return { error: result.error };
     const data = result.data;
     if (!data.Items || data.Items.length === 0) {
@@ -629,10 +695,16 @@ const fetchSynopsis = async (title, explicitVolume) => {
     const targetVolumes = selectTargetVolumes(volumeMap, currentVolume);
 
     if (targetVolumes.length === 0) {
-        console.warn('[synopsis] あらすじデータなし（APIレスポンスにitemCaptionが無い）:', baseTitle);
+        console.warn(
+            '[synopsis] あらすじデータなし（APIレスポンスにitemCaptionが無い）:',
+            baseTitle
+        );
         return null;
     }
-    console.log('[synopsis] 取得巻:', targetVolumes.map(t => t.volume).join(','));
+    console.log(
+        '[synopsis] 取得巻:',
+        targetVolumes.map((t) => t.volume).join(',')
+    );
 
     return targetVolumes;
 };
@@ -642,8 +714,12 @@ const updateSynopsis = async (itemId, title, url, explicitVolume) => {
     if (!isKindleUrl(url)) return { skipped: true };
     const result = await fetchSynopsis(title, explicitVolume);
     if (result && result.error) {
-        const msg = SYNOPSIS_ERROR_MESSAGES[result.error] || 'あらすじ取得に失敗しました';
-        showToast(`${msg}: ${title.slice(0, TOAST_TITLE_MAX_LEN)}`, { error: true });
+        const msg =
+            SYNOPSIS_ERROR_MESSAGES[result.error] ||
+            'あらすじ取得に失敗しました';
+        showToast(`${msg}: ${title.slice(0, TOAST_TITLE_MAX_LEN)}`, {
+            error: true
+        });
         return { error: result.error };
     }
     const synopsis = result;
@@ -671,12 +747,13 @@ const renderSynopsisContent = (item, bodyEl) => {
         if (isKindleUrl(item.url)) {
             empty.textContent = 'あらすじが取得されていません';
         } else {
-            empty.textContent = 'あらすじが取得されていません（Kindleドメインのみ取得可能）';
+            empty.textContent =
+                'あらすじが取得されていません（Kindleドメインのみ取得可能）';
         }
         bodyEl.appendChild(empty);
         return;
     }
-    item.synopsis.forEach(s => {
+    item.synopsis.forEach((s) => {
         const wrap = document.createElement('div');
         wrap.className = 'synopsis-volume';
         const t = document.createElement('p');
@@ -703,9 +780,15 @@ const createRefetchButton = (item, titleInput, volInput) => {
         btn.disabled = true;
         btn.textContent = '取得中...';
         await updateSynopsis(item.id, editedTitle, item.url, editedVolume);
-        db.transaction(['items'], 'readonly').objectStore('items').get(item.id).onsuccess = (ev) => {
+        db
+            .transaction(['items'], 'readonly')
+            .objectStore('items')
+            .get(item.id).onsuccess = (ev) => {
             if (ev.target.result) {
-                showSynopsisPanel(ev.target.result, { title: editedTitle, volume: editedVolume });
+                showSynopsisPanel(ev.target.result, {
+                    title: editedTitle,
+                    volume: editedVolume
+                });
             }
         };
     };
@@ -766,7 +849,9 @@ const showSynopsisPanel = (item, editedState) => {
     uiState.synopsisPanelItemId = item.id;
 
     // フォーカス表示：前回のフォーカスを解除し、対象カードを強調
-    document.querySelectorAll('.card.synopsis-active').forEach(c => c.classList.remove('synopsis-active'));
+    document
+        .querySelectorAll('.card.synopsis-active')
+        .forEach((c) => c.classList.remove('synopsis-active'));
     const activeCard = document.querySelector(`.card[data-id="${item.id}"]`);
     if (activeCard) activeCard.classList.add('synopsis-active');
 
@@ -781,7 +866,8 @@ const showSynopsisPanel = (item, editedState) => {
     panel.classList.add('synopsis-panel-open');
 
     // パネル展開でカード一覧の幅が縮み対象カードが押し出されるのを補正する
-    if (activeCard) activeCard.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (activeCard)
+        activeCard.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 };
 
 const hideSynopsisPanel = () => {
@@ -791,7 +877,9 @@ const hideSynopsisPanel = () => {
     // 非表示中は再侵入を防ぐためIDをnull化
     uiState.synopsisPanelItemId = null;
     // フォーカス表示を解除
-    document.querySelectorAll('.card.synopsis-active').forEach(c => c.classList.remove('synopsis-active'));
+    document
+        .querySelectorAll('.card.synopsis-active')
+        .forEach((c) => c.classList.remove('synopsis-active'));
     // 閉じるアニメーション後に非表示
     panel.classList.remove('synopsis-panel-open');
     panel.classList.add('synopsis-panel-close');
@@ -799,7 +887,8 @@ const hideSynopsisPanel = () => {
         panel.classList.remove('synopsis-panel-close');
         panel.style.display = 'none';
         titleEl.textContent = 'あらすじ';
-        bodyEl.innerHTML = '<p class="synopsis-empty">カードを右クリックするとあらすじを表示します</p>';
+        bodyEl.innerHTML =
+            '<p class="synopsis-empty">カードを右クリックするとあらすじを表示します</p>';
     }, TIMING.PANEL_ANIM);
 };
 
@@ -818,7 +907,10 @@ const showToast = (msg, opts = {}) => {
             uiState.toastTimer = null;
         }
         if (!opts.persistent) {
-            uiState.toastTimer = setTimeout(() => hideToast(), TIMING.TOAST_DURATION);
+            uiState.toastTimer = setTimeout(
+                () => hideToast(),
+                TIMING.TOAST_DURATION
+            );
         }
         return;
     }
@@ -832,7 +924,10 @@ const showToast = (msg, opts = {}) => {
     toast.classList.add('synopsis-toast-show');
 
     if (!opts.persistent) {
-        uiState.toastTimer = setTimeout(() => hideToast(), TIMING.TOAST_DURATION);
+        uiState.toastTimer = setTimeout(
+            () => hideToast(),
+            TIMING.TOAST_DURATION
+        );
     }
 };
 
@@ -846,10 +941,12 @@ const hideToast = () => {
         clearTimeout(uiState.toastTimer);
         uiState.toastTimer = null;
     }
-    setTimeout(() => { toast.style.display = 'none'; }, TIMING.TOAST_HIDE_ANIM);
+    setTimeout(() => {
+        toast.style.display = 'none';
+    }, TIMING.TOAST_HIDE_ANIM);
 };
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const fetchAllSynopsis = async (force) => {
     const message = force
@@ -859,10 +956,16 @@ const fetchAllSynopsis = async (force) => {
 
     const tx = db.transaction(['items'], 'readonly');
     tx.objectStore('items').getAll().onsuccess = async (e) => {
-        const items = filterVisibleItems(e.target.result, filterState.selectedWindowId, filterState.selectedGroupId, filterState.searchQuery, TRASH.WINDOW_ID);
+        const items = filterVisibleItems(
+            e.target.result,
+            filterState.selectedWindowId,
+            filterState.selectedGroupId,
+            filterState.searchQuery,
+            TRASH.WINDOW_ID
+        );
         // force=true: Kindleドメイン全件 / force=false: Kindleドメインかつ未取得
-        const targets = items.filter(item =>
-            isKindleUrl(item.url) && (force || !hasSynopsis(item))
+        const targets = items.filter(
+            (item) => isKindleUrl(item.url) && (force || !hasSynopsis(item))
         );
         if (targets.length === 0) {
             showToast('取得対象のアイテムはありません', { error: true });
@@ -872,16 +975,22 @@ const fetchAllSynopsis = async (force) => {
         const btnForce = document.getElementById('fetchAllSynopsisForceBtn');
         btn.disabled = true;
         btnForce.disabled = true;
-        showToast(`あらすじ取得中... (0/${targets.length})`, { persistent: true });
+        showToast(`あらすじ取得中... (0/${targets.length})`, {
+            persistent: true
+        });
         let done = 0;
         let errorCount = 0;
         for (const item of targets) {
-            showToast(`あらすじ取得中... (${done}/${targets.length}) ${item.title.slice(0, TOAST_TITLE_MAX_LEN)}`, { persistent: true });
+            showToast(
+                `あらすじ取得中... (${done}/${targets.length}) ${item.title.slice(0, TOAST_TITLE_MAX_LEN)}`,
+                { persistent: true }
+            );
             const r = await updateSynopsis(item.id, item.title, item.url);
             done++;
             if (r && r.error) errorCount++;
             // レートリミット対策: 1.2秒間隔に間引く（最後は待たない）
-            if (done < targets.length) await sleep(TIMING.SYNOPSIS.FETCH_INTERVAL);
+            if (done < targets.length)
+                await sleep(TIMING.SYNOPSIS.FETCH_INTERVAL);
         }
         const summary = `あらすじ取得完了 (${done}/${targets.length}${errorCount > 0 ? `, エラー${errorCount}件` : ''})`;
         showToast(summary, { error: errorCount > 0 });
@@ -903,7 +1012,12 @@ const handleImagePaste = (e) => {
             const img = new Image();
             img.onload = () => {
                 const { trimLeft, trimmedW, trimmedH } = trimBackground(img);
-                editState.imageDataBase64 = resizeToJpeg(img, trimLeft, trimmedW, trimmedH);
+                editState.imageDataBase64 = resizeToJpeg(
+                    img,
+                    trimLeft,
+                    trimmedW,
+                    trimmedH
+                );
 
                 preview.src = editState.imageDataBase64;
                 preview.style.display = 'inline-block';
@@ -923,8 +1037,13 @@ const handleImagePaste = (e) => {
 };
 
 const handleTwoLinePaste = (e) => {
-    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
-    const lines = pastedText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const pastedText = (e.clipboardData || window.clipboardData).getData(
+        'text'
+    );
+    const lines = pastedText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
     if (lines.length >= 2 && lines[1].startsWith('http')) {
         e.preventDefault();
         document.getElementById('title').value = lines[0];
@@ -939,7 +1058,7 @@ const handleTwoLinePaste = (e) => {
 const renderSortButtons = () => {
     const sortRow = document.getElementById('sortRow');
     sortRow.innerHTML = '';
-    SORT_OPTIONS.forEach(opt => {
+    SORT_OPTIONS.forEach((opt) => {
         const btn = document.createElement('button');
         const isActive = filterState.sortKey === opt.key;
         btn.className = `sort-btn ${isActive ? 'active' : ''}`;
@@ -975,7 +1094,11 @@ const applyFilterChange = (windowId, groupId) => {
     filterState.selectedGroupId = groupId;
     // グループを選んだ場合はウィンドウごとの記憶を更新
     if (groupId !== null && windowId !== null) {
-        filterState.selectedGroupByWindow = updateGroupMemory(filterState.selectedGroupByWindow, windowId, groupId);
+        filterState.selectedGroupByWindow = updateGroupMemory(
+            filterState.selectedGroupByWindow,
+            windowId,
+            groupId
+        );
     }
     hideSynopsisPanel();
     saveUIState();
@@ -985,7 +1108,10 @@ const applyFilterChange = (windowId, groupId) => {
 
 // ウィンドウ切替: 最後に選んだグループを復元（無効ならnull）
 const changeWindow = (windowId) => {
-    const remembered = getRememberedGroup(filterState.selectedGroupByWindow, windowId);
+    const remembered = getRememberedGroup(
+        filterState.selectedGroupByWindow,
+        windowId
+    );
     applyFilterChange(windowId, remembered);
 };
 
@@ -1027,7 +1153,7 @@ const renderFilters = () => {
         winRow.appendChild(allBtn);
 
         // 通常ウィンドウ
-        windows.forEach(w => {
+        windows.forEach((w) => {
             if (w.id === TRASH.WINDOW_ID) return;
             const btn = document.createElement('button');
             const classes = ['filter-btn'];
@@ -1037,17 +1163,22 @@ const renderFilters = () => {
             btn.textContent = w.name;
             btn.onclick = () => changeWindow(w.id);
             if (editState.isEditMode) {
-                appendFilterIcons(btn, () => startEditFilter(w.id, 'windows', w.name, btn), () => deleteWindow(w.id, w.name));
+                appendFilterIcons(
+                    btn,
+                    () => startEditFilter(w.id, 'windows', w.name, btn),
+                    () => deleteWindow(w.id, w.name)
+                );
             }
             winRow.appendChild(btn);
         });
 
         // ゴミ箱ウィンドウ
-        const trashWindow = windows.find(w => w.id === TRASH.WINDOW_ID);
+        const trashWindow = windows.find((w) => w.id === TRASH.WINDOW_ID);
         if (trashWindow) {
             const trashBtn = document.createElement('button');
             const classes = ['filter-btn', 'trash-btn'];
-            if (filterState.selectedWindowId === TRASH.WINDOW_ID) classes.push('active');
+            if (filterState.selectedWindowId === TRASH.WINDOW_ID)
+                classes.push('active');
             trashBtn.className = classes.join(' ');
             trashBtn.textContent = trashWindow.name;
             trashBtn.onclick = () => changeWindow(TRASH.WINDOW_ID);
@@ -1062,31 +1193,43 @@ const renderGroupFilters = (tx) => {
     const myId = filterState.renderId;
     const groupRow = document.getElementById('groupFilterRow');
     if (filterState.selectedWindowId === null) {
-        groupRow.innerHTML = '<span style="font-size:11px; color:#555;">ウィンドウを選択してください</span>';
+        groupRow.innerHTML =
+            '<span style="font-size:11px; color:#555;">ウィンドウを選択してください</span>';
         return;
     }
     tx.objectStore('groups').getAll().onsuccess = (e) => {
         if (myId !== filterState.renderId) return;
         groupRow.innerHTML = '';
-        const groups = e.target.result.filter(g => g.windowId === filterState.selectedWindowId);
-        filterState.selectedGroupId = validateRememberedGroup(filterState.selectedGroupId, groups);
+        const groups = e.target.result.filter(
+            (g) => g.windowId === filterState.selectedWindowId
+        );
+        filterState.selectedGroupId = validateRememberedGroup(
+            filterState.selectedGroupId,
+            groups
+        );
 
         const allBtn = document.createElement('button');
         allBtn.className = `filter-btn ${filterState.selectedGroupId === null ? 'active' : ''}`;
         allBtn.textContent = 'すべて';
-        allBtn.onclick = () => applyFilterChange(filterState.selectedWindowId, null);
+        allBtn.onclick = () =>
+            applyFilterChange(filterState.selectedWindowId, null);
         groupRow.appendChild(allBtn);
 
-        groups.forEach(g => {
+        groups.forEach((g) => {
             const btn = document.createElement('button');
             const classes = ['filter-btn'];
             if (filterState.selectedGroupId === g.id) classes.push('active');
             if (editState.isEditMode) classes.push('editable-btn');
             btn.className = classes.join(' ');
             btn.textContent = g.name;
-            btn.onclick = () => applyFilterChange(filterState.selectedWindowId, g.id);
+            btn.onclick = () =>
+                applyFilterChange(filterState.selectedWindowId, g.id);
             if (editState.isEditMode) {
-                appendFilterIcons(btn, () => startEditFilter(g.id, 'groups', g.name, btn), () => deleteGroup(g.id, g.name));
+                appendFilterIcons(
+                    btn,
+                    () => startEditFilter(g.id, 'groups', g.name, btn),
+                    () => deleteGroup(g.id, g.name)
+                );
             }
             groupRow.appendChild(btn);
         });
@@ -1147,9 +1290,13 @@ const deleteWindow = (id, name) => {
     if (id === TRASH.WINDOW_ID) return;
     const tx = db.transaction(['items'], 'readonly');
     tx.objectStore('items').getAll().onsuccess = (e) => {
-        const count = e.target.result.filter(item => item.windowId === id).length;
+        const count = e.target.result.filter(
+            (item) => item.windowId === id
+        ).length;
         if (count > 0) {
-            alert(`このウィンドウには${count}件のアイテムが存在します。\n先にアイテムを削除してください。`);
+            alert(
+                `このウィンドウには${count}件のアイテムが存在します。\n先にアイテムを削除してください。`
+            );
             return;
         }
         if (!confirm(`ウィンドウ「${name}」を削除しますか？`)) return;
@@ -1157,9 +1304,11 @@ const deleteWindow = (id, name) => {
         const tx2 = db.transaction(['windows', 'groups'], 'readwrite');
         tx2.objectStore('windows').delete(id);
         tx2.objectStore('groups').getAll().onsuccess = (e2) => {
-            e2.target.result.filter(g => g.windowId === id).forEach(g => {
-                tx2.objectStore('groups').delete(g.id);
-            });
+            e2.target.result
+                .filter((g) => g.windowId === id)
+                .forEach((g) => {
+                    tx2.objectStore('groups').delete(g.id);
+                });
         };
         tx2.oncomplete = () => {
             if (filterState.selectedWindowId === id) {
@@ -1177,14 +1326,21 @@ const deleteGroup = (id, name) => {
     if (id === TRASH.GROUP_ID) return;
     const tx = db.transaction(['items'], 'readonly');
     tx.objectStore('items').getAll().onsuccess = (e) => {
-        const count = e.target.result.filter(item => item.groupId === id).length;
+        const count = e.target.result.filter(
+            (item) => item.groupId === id
+        ).length;
         if (count > 0) {
-            alert(`このグループには${count}件のアイテムが存在します。\n先にアイテムを削除してください。`);
+            alert(
+                `このグループには${count}件のアイテムが存在します。\n先にアイテムを削除してください。`
+            );
             return;
         }
         if (!confirm(`グループ「${name}」を削除しますか？`)) return;
 
-        db.transaction(['groups'], 'readwrite').objectStore('groups').delete(id).onsuccess = () => {
+        db
+            .transaction(['groups'], 'readwrite')
+            .objectStore('groups')
+            .delete(id).onsuccess = () => {
             if (filterState.selectedGroupId === id) {
                 filterState.selectedGroupId = null;
                 saveUIState();
@@ -1199,16 +1355,23 @@ const deleteGroup = (id, name) => {
 const emptyTrash = () => {
     const tx = db.transaction(['items'], 'readonly');
     tx.objectStore('items').getAll().onsuccess = (e) => {
-        const trashItems = e.target.result.filter(item => item.windowId === TRASH.WINDOW_ID);
+        const trashItems = e.target.result.filter(
+            (item) => item.windowId === TRASH.WINDOW_ID
+        );
         if (trashItems.length === 0) {
             showToast('ゴミ箱は空です');
             return;
         }
-        if (!confirm(`ゴミ箱内の${trashItems.length}件のアイテムを完全に削除しますか？\nこの操作は取り消せません。`)) return;
+        if (
+            !confirm(
+                `ゴミ箱内の${trashItems.length}件のアイテムを完全に削除しますか？\nこの操作は取り消せません。`
+            )
+        )
+            return;
 
         const tx2 = db.transaction(['items'], 'readwrite');
         const store = tx2.objectStore('items');
-        trashItems.forEach(item => store.delete(item.id));
+        trashItems.forEach((item) => store.delete(item.id));
         tx2.oncomplete = () => {
             renderList({ resetScroll: true });
             showToast(`ゴミ箱を空にしました（${trashItems.length}件削除）`);
@@ -1303,7 +1466,9 @@ const createCardElement = (item) => {
         if (editState.isEditMode) return;
         e.preventDefault();
         if (!isKindleUrl(item.url)) {
-            showToast('このカードはあらすじ非対応（Kindleドメインのみ）', { error: true });
+            showToast('このカードはあらすじ非対応（Kindleドメインのみ）', {
+                error: true
+            });
             return;
         }
         showSynopsisPanel(item);
@@ -1341,10 +1506,20 @@ const renderList = ({ resetScroll = false } = {}) => {
 
     const tx = db.transaction(['items'], 'readonly');
     tx.objectStore('items').getAll().onsuccess = (e) => {
-        let items = filterVisibleItems(e.target.result, filterState.selectedWindowId, filterState.selectedGroupId, filterState.searchQuery, TRASH.WINDOW_ID);
+        let items = filterVisibleItems(
+            e.target.result,
+            filterState.selectedWindowId,
+            filterState.selectedGroupId,
+            filterState.searchQuery,
+            TRASH.WINDOW_ID
+        );
         items = sortItems(items, filterState.sortKey, filterState.sortAsc);
         if (filterState.dupCheckEnabled) {
-            items = filterDuplicates(items, filterState.dupCheckLength, parseBaseTitle);
+            items = filterDuplicates(
+                items,
+                filterState.dupCheckLength,
+                parseBaseTitle
+            );
         }
 
         reconcileList(listSection, items);
@@ -1375,7 +1550,10 @@ const initDragAndDrop = () => {
 // ソートキー変更時にD&Dの有効/無効を切替え
 const updateDragEnabled = () => {
     if (sortableInstance) {
-        sortableInstance.option('disabled', filterState.sortKey !== 'sortOrder');
+        sortableInstance.option(
+            'disabled',
+            filterState.sortKey !== 'sortOrder'
+        );
     }
 };
 
@@ -1402,8 +1580,10 @@ const saveNewOrder = () => {
 const fetchAllData = (callback) => {
     const backupData = { windows: [], groups: [], items: [] };
     const tx = db.transaction(['windows', 'groups', 'items'], 'readonly');
-    tx.objectStore('windows').getAll().onsuccess = (e) => backupData.windows = e.target.result;
-    tx.objectStore('groups').getAll().onsuccess = (e) => backupData.groups = e.target.result;
+    tx.objectStore('windows').getAll().onsuccess = (e) =>
+        (backupData.windows = e.target.result);
+    tx.objectStore('groups').getAll().onsuccess = (e) =>
+        (backupData.groups = e.target.result);
     tx.objectStore('items').getAll().onsuccess = (e) => {
         // あらすじは容量肥大化を避けるためバックアップ対象外
         backupData.items = e.target.result.map(stripSynopsisForExport);
@@ -1416,13 +1596,19 @@ const handleSaveFile = () => {
         try {
             const handle = await window.showSaveFilePicker({
                 suggestedName: 'url-vault-backup.json',
-                types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+                types: [
+                    {
+                        description: 'JSON',
+                        accept: { 'application/json': ['.json'] }
+                    }
+                ]
             });
             const writable = await handle.createWritable();
             await writable.write(JSON.stringify(backupData));
             await writable.close();
         } catch (e) {
-            if (e.name !== 'AbortError') console.error('ファイルの保存に失敗しました', e);
+            if (e.name !== 'AbortError')
+                console.error('ファイルの保存に失敗しました', e);
         }
     });
 };
@@ -1436,16 +1622,21 @@ const importData = (parsedData) => {
         alert('データ構造が不正です');
         return false;
     }
-    if (!confirm('インポートを実行しますか？\n既存のデータはすべて置き換えられます。')) return false;
+    if (
+        !confirm(
+            'インポートを実行しますか？\n既存のデータはすべて置き換えられます。'
+        )
+    )
+        return false;
 
     const tx = db.transaction(['windows', 'groups', 'items'], 'readwrite');
     tx.objectStore('windows').clear();
     tx.objectStore('groups').clear();
     tx.objectStore('items').clear();
 
-    parsedData.windows.forEach(w => tx.objectStore('windows').put(w));
-    parsedData.groups.forEach(g => tx.objectStore('groups').put(g));
-    parsedData.items.forEach(i => tx.objectStore('items').put(i));
+    parsedData.windows.forEach((w) => tx.objectStore('windows').put(w));
+    parsedData.groups.forEach((g) => tx.objectStore('groups').put(g));
+    parsedData.items.forEach((i) => tx.objectStore('items').put(i));
 
     tx.oncomplete = () => {
         filterState.selectedWindowId = null;
@@ -1459,7 +1650,12 @@ const importData = (parsedData) => {
 const handleLoadFile = async () => {
     try {
         const [handle] = await window.showOpenFilePicker({
-            types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+            types: [
+                {
+                    description: 'JSON',
+                    accept: { 'application/json': ['.json'] }
+                }
+            ]
         });
         const file = await handle.getFile();
         const jsonString = await file.text();
@@ -1472,7 +1668,8 @@ const handleLoadFile = async () => {
         }
         importData(parsedData);
     } catch (e) {
-        if (e.name !== 'AbortError') console.error('ファイルの読み込みに失敗しました', e);
+        if (e.name !== 'AbortError')
+            console.error('ファイルの読み込みに失敗しました', e);
     }
 };
 
@@ -1503,13 +1700,19 @@ request.onsuccess = (e) => {
 document.getElementById('toggleLeftBtn').addEventListener('click', () => {
     const leftPanel = document.getElementById('leftPanel');
     leftPanel.classList.toggle('hidden');
-    sessionStorage.setItem('leftPanelHidden', leftPanel.classList.contains('hidden'));
+    sessionStorage.setItem(
+        'leftPanelHidden',
+        leftPanel.classList.contains('hidden')
+    );
 });
 
 document.getElementById('toggleNavBtn').addEventListener('click', () => {
     const navContainer = document.getElementById('navContainer');
     navContainer.classList.toggle('hidden');
-    sessionStorage.setItem('navContainerHidden', navContainer.classList.contains('hidden'));
+    sessionStorage.setItem(
+        'navContainerHidden',
+        navContainer.classList.contains('hidden')
+    );
 });
 
 document.getElementById('toggleEditModeBtn').addEventListener('click', () => {
@@ -1523,12 +1726,16 @@ document.getElementById('toggleEditModeBtn').addEventListener('click', () => {
 });
 
 // 重複チェックトグル
-document.getElementById('toggleDupCheckBtn').addEventListener('click', toggleDupCheck);
+document
+    .getElementById('toggleDupCheckBtn')
+    .addEventListener('click', toggleDupCheck);
 
 // 重複判定の先頭文字数
-document.getElementById('dupCheckLengthInput').addEventListener('input', (e) => {
-    changeDupCheckLength(e.target.value);
-});
+document
+    .getElementById('dupCheckLengthInput')
+    .addEventListener('input', (e) => {
+        changeDupCheckLength(e.target.value);
+    });
 
 // サムネぼかしトグル
 document.getElementById('toggleBlurBtn').addEventListener('click', () => {
@@ -1537,7 +1744,7 @@ document.getElementById('toggleBlurBtn').addEventListener('click', () => {
     btn.style.backgroundColor = uiState.blurEnabled ? '#c62828' : '';
     btn.style.color = uiState.blurEnabled ? '#fff' : '';
     btn.textContent = uiState.blurEnabled ? '🔓 ぼかし解除' : '🔒 ぼかし';
-    document.querySelectorAll('.card-img').forEach(img => {
+    document.querySelectorAll('.card-img').forEach((img) => {
         img.classList.toggle('blurred', uiState.blurEnabled);
     });
 });
@@ -1551,8 +1758,13 @@ document.getElementById('searchInput').addEventListener('input', (e) => {
 // 検索欄へのペースト: 2行（タイトル＋URL）ならURL行を排除し、
 // 1行目のタイトルをあらすじ検索と同じ短縮処理（parseBaseTitle）で検索
 document.getElementById('searchInput').addEventListener('paste', (e) => {
-    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
-    const lines = pastedText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const pastedText = (e.clipboardData || window.clipboardData).getData(
+        'text'
+    );
+    const lines = pastedText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
     if (lines.length < 2) return;
     e.preventDefault();
     const searchQuery = parseBaseTitle(lines[0]);
@@ -1562,10 +1774,14 @@ document.getElementById('searchInput').addEventListener('paste', (e) => {
 });
 
 // セレクトボックス
-document.getElementById('itemWindowSelect').addEventListener('change', updateGroupSelectBox);
+document
+    .getElementById('itemWindowSelect')
+    .addEventListener('change', updateGroupSelectBox);
 
 // ウィンドウ追加
-document.getElementById('addWindowBtn').addEventListener('click', executeAddWindow);
+document
+    .getElementById('addWindowBtn')
+    .addEventListener('click', executeAddWindow);
 document.getElementById('newWindowInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         e.preventDefault();
@@ -1574,7 +1790,9 @@ document.getElementById('newWindowInput').addEventListener('keydown', (e) => {
 });
 
 // グループ追加
-document.getElementById('addGroupBtn').addEventListener('click', executeAddGroup);
+document
+    .getElementById('addGroupBtn')
+    .addEventListener('click', executeAddGroup);
 document.getElementById('newGroupInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
         e.preventDefault();
@@ -1584,8 +1802,12 @@ document.getElementById('newGroupInput').addEventListener('keydown', (e) => {
 
 // ペースト
 document.getElementById('title').addEventListener('paste', (e) => {
-    const hasImage = [...e.clipboardData.items].some(item => item.type.indexOf('image') !== -1);
-    const hasPlainText = [...e.clipboardData.items].some(item => item.type === 'text/plain');
+    const hasImage = [...e.clipboardData.items].some(
+        (item) => item.type.indexOf('image') !== -1
+    );
+    const hasPlainText = [...e.clipboardData.items].some(
+        (item) => item.type === 'text/plain'
+    );
     if (hasImage && !hasPlainText) {
         handleImagePaste(e);
     } else {
@@ -1593,8 +1815,12 @@ document.getElementById('title').addEventListener('paste', (e) => {
     }
 });
 document.getElementById('url').addEventListener('paste', (e) => {
-    const hasImage = [...e.clipboardData.items].some(item => item.type.indexOf('image') !== -1);
-    const hasPlainText = [...e.clipboardData.items].some(item => item.type === 'text/plain');
+    const hasImage = [...e.clipboardData.items].some(
+        (item) => item.type.indexOf('image') !== -1
+    );
+    const hasPlainText = [...e.clipboardData.items].some(
+        (item) => item.type === 'text/plain'
+    );
     if (hasImage && !hasPlainText) handleImagePaste(e);
 });
 pasteArea.addEventListener('paste', handleImagePaste);
@@ -1616,23 +1842,35 @@ document.getElementById('url').addEventListener('keydown', (e) => {
 // 保存
 document.getElementById('saveBtn').addEventListener('click', saveItem);
 
-document.getElementById('fetchAllSynopsisBtn').addEventListener('click', () => fetchAllSynopsis(false));
-document.getElementById('fetchAllSynopsisForceBtn').addEventListener('click', () => fetchAllSynopsis(true));
+document
+    .getElementById('fetchAllSynopsisBtn')
+    .addEventListener('click', () => fetchAllSynopsis(false));
+document
+    .getElementById('fetchAllSynopsisForceBtn')
+    .addEventListener('click', () => fetchAllSynopsis(true));
 
 document.getElementById('emptyTrashBtn').addEventListener('click', emptyTrash);
 
 // あらすじパネル
-document.getElementById('synopsisPanelClose').addEventListener('click', hideSynopsisPanel);
+document
+    .getElementById('synopsisPanelClose')
+    .addEventListener('click', hideSynopsisPanel);
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') hideSynopsisPanel();
 });
 
-document.getElementById('toggleAddPositionBtn').addEventListener('click', () => {
-    editState.addPositionTop = !editState.addPositionTop;
-    updateAddPositionBtn();
-    saveUIState();
-});
+document
+    .getElementById('toggleAddPositionBtn')
+    .addEventListener('click', () => {
+        editState.addPositionTop = !editState.addPositionTop;
+        updateAddPositionBtn();
+        saveUIState();
+    });
 
 // インポート・エクスポート
-document.getElementById('exportFileBtn').addEventListener('click', handleSaveFile);
-document.getElementById('importFileBtn').addEventListener('click', handleLoadFile);
+document
+    .getElementById('exportFileBtn')
+    .addEventListener('click', handleSaveFile);
+document
+    .getElementById('importFileBtn')
+    .addEventListener('click', handleLoadFile);

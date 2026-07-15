@@ -3,16 +3,15 @@
 // Node: module.exports にエクスポート
 
 ((root, factory) => {
-
     // 先頭追加時は0、末尾追加時は既存の最大sortOrder+1を返す
     const calcNextSortOrder = (items, addPositionTop) => {
         if (addPositionTop || items.length === 0) return 0;
-        return Math.max(...items.map(item => item.sortOrder ?? 0)) + 1;
+        return Math.max(...items.map((item) => item.sortOrder ?? 0)) + 1;
     };
 
     // 先頭追加時に既存アイテムのsortOrderを+1した新しい配列を返す（非破壊）
     const shiftSortOrders = (items) => {
-        return items.map(item => ({
+        return items.map((item) => ({
             ...item,
             sortOrder: (item.sortOrder || 0) + 1
         }));
@@ -37,9 +36,15 @@
         if (sortKey === 'sortOrder') {
             sorted.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
         } else if (sortKey === 'title') {
-            sorted.sort((a, b) => asc ? a.title.localeCompare(b.title, 'ja') : b.title.localeCompare(a.title, 'ja'));
+            sorted.sort((a, b) =>
+                asc
+                    ? a.title.localeCompare(b.title, 'ja')
+                    : b.title.localeCompare(a.title, 'ja')
+            );
         } else if (sortKey === 'createdAt') {
-            sorted.sort((a, b) => asc ? a.createdAt - b.createdAt : b.createdAt - a.createdAt);
+            sorted.sort((a, b) =>
+                asc ? a.createdAt - b.createdAt : b.createdAt - a.createdAt
+            );
         }
         return sorted;
     };

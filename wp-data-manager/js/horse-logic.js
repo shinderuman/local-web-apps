@@ -3,7 +3,6 @@
 // Node: module.exports にエクスポート
 
 ((root, factory) => {
-
     // 種牡馬強制判定の年齢閾値
     const STALLION_AGE_THRESHOLD = 10;
 
@@ -27,7 +26,12 @@
             return newValue !== '' ? parseInt(newValue, 10) : '';
         }
         if (key === 'otherHorseNames') {
-            return newValue ? newValue.split(/\n/).map(s => s.trim()).filter(s => s !== '') : [];
+            return newValue
+                ? newValue
+                      .split(/\n/)
+                      .map((s) => s.trim())
+                      .filter((s) => s !== '')
+                : [];
         }
         return newValue;
     };
@@ -42,7 +46,10 @@
 
     // フォーム入力と既存レコードから新しい系統レコードを組み立てる
     const createHorse = (input, horses, id) => {
-        const maxOrder = horses.length > 0 ? Math.max(...horses.map(horse => horse.order)) : 0;
+        const maxOrder =
+            horses.length > 0
+                ? Math.max(...horses.map((horse) => horse.order))
+                : 0;
         return {
             id,
             order: maxOrder + 1,
@@ -55,16 +62,19 @@
     };
 
     // 指定IDの系統を除外した新しい配列を返す
-    const removeHorse = (horses, id) => horses.filter(horse => horse.id !== id);
+    const removeHorse = (horses, id) =>
+        horses.filter((horse) => horse.id !== id);
 
     // 指定IDの系統の1項目だけを非破壊で更新する
     const updateHorseValue = (horses, id, key, value) => {
-        return horses.map(horse => horse.id === id ? { ...horse, [key]: value } : horse);
+        return horses.map((horse) =>
+            horse.id === id ? { ...horse, [key]: value } : horse
+        );
     };
 
     // 年齢条件を満たす場合だけ指定系統の現役状態を反転する
     const toggleHorseRunner = (horses, id, currentYear) => {
-        const horse = horses.find(item => item.id === id);
+        const horse = horses.find((item) => item.id === id);
         if (!horse) return horses;
         const age = calcAge(horse, currentYear);
         if (age !== null && age >= STALLION_AGE_THRESHOLD) return horses;
@@ -90,7 +100,10 @@
                 return asc ? -1 : 1;
             }
             if (typeof valA === 'string' || typeof valB === 'string') {
-                const comparison = String(valA).localeCompare(String(valB), 'ja');
+                const comparison = String(valA).localeCompare(
+                    String(valB),
+                    'ja'
+                );
                 return asc ? comparison : -comparison;
             }
             return asc ? valA - valB : valB - valA;
@@ -102,7 +115,10 @@
         const reordered = [...horses];
         const [moved] = reordered.splice(oldIndex, 1);
         reordered.splice(newIndex, 0, moved);
-        return reordered.map((horse, index) => ({ ...horse, order: index + 1 }));
+        return reordered.map((horse, index) => ({
+            ...horse,
+            order: index + 1
+        }));
     };
 
     // ゲーム内年の前年以降に誕生する史実馬を年別グループに整形する
@@ -110,20 +126,27 @@
         const filterYear = currentGameYear - 1;
         return Object.keys(masterHorseData)
             .map(Number)
-            .filter(year => year >= filterYear)
+            .filter((year) => year >= filterYear)
             .sort((a, b) => a - b)
-            .map(year => ({ year, horses: [...masterHorseData[year]] }));
+            .map((year) => ({ year, horses: [...masterHorseData[year]] }));
     };
 
     // 読み込んだデータが最低限の系統レコード配列かを判定する
     const isValidHorseList = (data) => {
-        return Array.isArray(data) && data.every(horse => horse
-            && typeof horse.id !== 'undefined'
-            && typeof horse.name !== 'undefined');
+        return (
+            Array.isArray(data) &&
+            data.every(
+                (horse) =>
+                    horse &&
+                    typeof horse.id !== 'undefined' &&
+                    typeof horse.name !== 'undefined'
+            )
+        );
     };
 
     // 手動順が表示されているかを判定する
-    const isManualSort = (sortState) => sortState.key === 'order' && sortState.asc;
+    const isManualSort = (sortState) =>
+        sortState.key === 'order' && sortState.asc;
 
     const HORSE_LOGIC = {
         STALLION_AGE_THRESHOLD,

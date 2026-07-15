@@ -1,4 +1,5 @@
 import globals from 'globals';
+import prettier from 'eslint-config-prettier';
 
 export default [
     {
@@ -37,26 +38,19 @@ export default [
             }
         },
         rules: {
-            // コードスタイル
-            'indent': ['error', 4],
-            'quotes': ['error', 'single'],
-            'semi': ['error', 'always'],
-            'comma-dangle': ['error', 'never'],
-            'no-multiple-empty-lines': ['error', { 'max': 1, 'maxEOF': 0, 'maxBOF': 0 }],
-
-            // ベストプラクティス
+            // ベストプラクティス（構文・バグ検出）
             'no-unused-vars': ['warn'],
-            'no-console': 'off',
-            'no-undef': 'error',
-            'no-redeclare': 'error',
-            'no-duplicate-case': 'error',
-            'no-unreachable': 'error',
+            'no-console': ['off'],
+            'no-undef': ['error'],
+            'no-redeclare': ['error'],
+            'no-duplicate-case': ['error'],
+            'no-unreachable': ['error'],
 
             // ES6+
-            'prefer-const': 'warn',
-            'no-var': 'warn',
-            'arrow-spacing': 'error',
-            'template-curly-spacing': 'error'
+            'prefer-const': ['warn'],
+            'no-var': ['warn']
         }
-    }
+    },
+    // Prettier と競合するスタイルルールを無効化（最後に適用）
+    prettier
 ];
