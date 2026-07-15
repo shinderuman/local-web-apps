@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { isFioJson, splitBench, parseBench } = require('../js/bench-logic.js');
+const { isFioJson, splitBench, parseBench, getBenchGroup, rateSeqBw, rateRandIops, rateLatency } = require('../js/bench-logic.js');
 
 // テスト用の最小fio結果（seq/rand それぞれ jobs[0].read を持つ統合JSON）
 const makeFio = (seqRead, randRead) => JSON.stringify({
@@ -11,7 +11,7 @@ const makeFio = (seqRead, randRead) => JSON.stringify({
 const sampleRead = {
     bw_bytes: 360243752,
     iops: 343.555,
-    clat_ns: { mean: 2907020 }
+    clat_ns: { percentile: { '99.000000': 2907020 } }
 };
 
 // ============================================================
@@ -64,19 +64,19 @@ test('splitBench: 不正JSON は両方 null', () => {
 // ============================================================
 // parseBench
 // ============================================================
-test('parseBench: seq/rand の帯域・IOPS・レイテンシを抽出', () => {
+test('parseBench: seq/rand の帯域・IOPS・p99レイテンシを抽出', () => {
     const { seq, rand } = splitBench(makeFio(sampleRead, {
         bw_bytes: 15240958,
         iops: 3720.937,
-        clat_ns: { mean: 4297640 }
+        clat_ns: { percentile: { '99.000000': 4297640 } }
     }));
     const result = parseBench(seq, rand);
     assert.strictEqual(result.seqBwBytes, 360243752);
     assert.strictEqual(result.seqIops, 343.555);
-    assert.strictEqual(result.seqClatMeanNs, 2907020);
+    assert.strictEqual(result.seqClatP99Ns, 2907020);
     assert.strictEqual(result.randBwBytes, 15240958);
     assert.strictEqual(result.randIops, 3720.937);
-    assert.strictEqual(result.randClatMeanNs, 4297640);
+    assert.strictEqual(result.randClatP99Ns, 4297640);
 });
 
 test('parseBench: seq/rand 両方 null なら null', () => {
@@ -85,4 +85,84 @@ test('parseBench: seq/rand 両方 null なら null', () => {
 
 test('parseBench: 不正JSON は null', () => {
     assert.strictEqual(parseBench('{broken', '{broken'), null);
+});
+
+// ============================================================
+// getBenchGroup
+// ============================================================
+test('getBenchGroup: nvme', () => {
+    assert.strictEqual(getBenchGroup('nvme'), 'nvme');
+});
+
+test('getBenchGroup: sata-ssd / emmc は sata', () => {
+    assert.strictEqual(getBenchGroup('sata-ssd'), 'sata');
+    assert.strictEqual(getBenchGroup('emmc'), 'sata');
+});
+
+test('getBenchGroup: hdd-25 / hdd-35 / sshd は hdd', () => {
+    assert.strictEqual(getBenchGroup('hdd-25'), 'hdd');
+    assert.strictEqual(getBenchGroup('hdd-35'), 'hdd');
+    assert.strictEqual(getBenchGroup('sshd'), 'hdd');
+});
+
+test('getBenchGroup: unknown は null', () => {
+    assert.strictEqual(getBenchGroup('unknown'), null);
+    assert.strictEqual(getBenchGroup(''), null);
+});
+
+// ============================================================
+// rateSeqBw: Seq帯域（MiB/s）の4段階評価
+// ============================================================
+test('rateSeqBw: NVMe 4000MiB/s は ideal', () => {
+    assert.strictEqual(rateSeqBw(4000 * 1024 * 1024, 'nvme'), 'ideal');
+});
+
+test('rateSeqBw: NVMe 1500MiB/s は slow', () => {
+    assert.strictEqual(rateSeqBw(1500 * 1024 * 1024, 'nvme'), 'slow');
+});
+
+test('rateSeqBw: SATA 400MiB/s は normal', () => {
+    assert.strictEqual(rateSeqBw(400 * 1024 * 1024, 'sata-ssd'), 'normal');
+});
+
+test('rateSeqBw: HDD 80MiB/s は slow', () => {
+    assert.strictEqual(rateSeqBw(80 * 1024 * 1024, 'hdd-35'), 'slow');
+});
+
+test('rateSeqBw: unknown は null', () => {
+    assert.strictEqual(rateSeqBw(1000 * 1024 * 1024, 'unknown'), null);
+});
+
+// ============================================================
+// rateRandIops: Rand IOPSの4段階評価
+// ============================================================
+test('rateRandIops: NVMe 150000 は normal', () => {
+    assert.strictEqual(rateRandIops(150000, 'nvme'), 'normal');
+});
+
+test('rateRandIops: SATA 5000 は bad', () => {
+    assert.strictEqual(rateRandIops(5000, 'sata-ssd'), 'bad');
+});
+
+test('rateRandIops: HDD 150 は ideal', () => {
+    assert.strictEqual(rateRandIops(150, 'hdd-25'), 'ideal');
+});
+
+// ============================================================
+// rateLatency: レイテンシ（ms・低いほど良し）
+// ============================================================
+test('rateLatency: NVMe 0.05ms は ideal', () => {
+    assert.strictEqual(rateLatency(0.05e6, 'nvme'), 'ideal');
+});
+
+test('rateLatency: NVMe 3ms は bad', () => {
+    assert.strictEqual(rateLatency(3e6, 'nvme'), 'bad');
+});
+
+test('rateLatency: HDD 15ms は normal', () => {
+    assert.strictEqual(rateLatency(15e6, 'hdd-35'), 'normal');
+});
+
+test('rateLatency: unknown は null', () => {
+    assert.strictEqual(rateLatency(1e6, 'unknown'), null);
 });

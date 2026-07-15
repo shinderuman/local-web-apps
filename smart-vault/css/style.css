@@ -213,6 +213,10 @@ button:hover {
 /* ベンチ表示セル */
 .bench-cell {
     line-height: 1.3;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
 }
 .bench-bw {
     font-weight: 600;
@@ -225,6 +229,21 @@ button:hover {
 .bench-latency {
     font-size: 13px;
     color: #4a5568;
+    display: inline-block;
+}
+
+/* ベンチ評価（値の下線で表示・理想/正常/少し遅い/異常） */
+.bench-rate-ideal {
+    border-bottom: 3px solid #38a169;
+}
+.bench-rate-normal {
+    border-bottom: 3px solid #3182ce;
+}
+.bench-rate-slow {
+    border-bottom: 3px solid #d69e2e;
+}
+.bench-rate-bad {
+    border-bottom: 3px solid #e53e3e;
 }
 
 /* 詳細画面のベンチブロック */

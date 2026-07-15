@@ -190,7 +190,7 @@ const {
     formatHours, formatTemp, formatTbw, formatCount, formatBw, formatIops, formatLatency
 } = window.FORMAT_LOGIC;
 const { compactRaw, prettifyRaw, buildSmartJsonArray } = window.JSON_NORMALIZE_LOGIC;
-const { isFioJson, splitBench, parseBench } = window.BENCH_LOGIC;
+const { isFioJson, splitBench, parseBench, rateSeqBw, rateRandIops, rateLatency } = window.BENCH_LOGIC;
 const {
     countRecordsByType, getNextSortState, sortRecords,
     filterRecordsByType, reorderRecordsByVisiblePosition, isValidSmartRecordList
@@ -752,7 +752,7 @@ const enableHoursCycleEdit = (id, container) => {
 // ベンチモードでベンチ列ソート時は bench サマリの値を展開してソートする
 const getDisplayItems = () => {
     if (viewState.viewMode === 'bench' && viewState.sortField) {
-        const BENCH_SORT_KEYS = { seqBw: 'seqBwBytes', randIops: 'randIops', randClat: 'randClatMeanNs' };
+        const BENCH_SORT_KEYS = { seqBw: 'seqBwBytes', randIops: 'randIops', randClat: 'randClatP99Ns' };
         const benchKey = BENCH_SORT_KEYS[viewState.sortField];
         if (benchKey) {
             const enriched = db.map(item => {
@@ -794,11 +794,12 @@ const formatHoursCycle = (powerOnHours, powerCycleCount) => {
     return '';
 };
 
-// ベンチ結果の帯域+IOPS を2段で表示するセルを生成（編集不可）
-const createBenchMetricCell = (bwBytes, iops) => {
+// ベンチ結果の帯域+IOPS を評価色の枠で囲って表示するセルを生成（編集不可）
+const createBenchMetricCell = (bwBytes, iops, rate) => {
     const td = document.createElement('td');
     const wrap = document.createElement('div');
     wrap.className = 'bench-cell';
+    if (rate) wrap.classList.add(`bench-rate-${rate}`);
     const bw = document.createElement('div');
     bw.className = 'bench-bw';
     bw.innerText = formatBw(bwBytes);
@@ -811,7 +812,7 @@ const createBenchMetricCell = (bwBytes, iops) => {
     return td;
 };
 
-// Seq読込セル
+// Seq読込セル（Seq帯域の評価で値を囲う）
 const createBenchSeqCell = (item) => {
     const bench = (item.benchSeq || item.benchRand) ? parseBench(item.benchSeq, item.benchRand) : null;
     if (!bench) {
@@ -819,10 +820,10 @@ const createBenchSeqCell = (item) => {
         td.innerText = '—';
         return td;
     }
-    return createBenchMetricCell(bench.seqBwBytes, bench.seqIops);
+    return createBenchMetricCell(bench.seqBwBytes, bench.seqIops, rateSeqBw(bench.seqBwBytes, item.customType));
 };
 
-// Rand読込セル
+// Rand読込セル（Rand IOPSの評価で値を囲う）
 const createBenchRandCell = (item) => {
     const bench = (item.benchSeq || item.benchRand) ? parseBench(item.benchSeq, item.benchRand) : null;
     if (!bench) {
@@ -830,10 +831,10 @@ const createBenchRandCell = (item) => {
         td.innerText = '—';
         return td;
     }
-    return createBenchMetricCell(bench.randBwBytes, bench.randIops);
+    return createBenchMetricCell(bench.randBwBytes, bench.randIops, rateRandIops(bench.randIops, item.customType));
 };
 
-// レイテンシセル（Seq/Rand の平均レイテンシを1セルに表示）
+// レイテンシセル（Seq/Rand の平均レイテンシを Randレイテンシの評価で囲う）
 const createBenchLatencyCell = (item) => {
     const td = document.createElement('td');
     const bench = (item.benchSeq || item.benchRand) ? parseBench(item.benchSeq, item.benchRand) : null;
@@ -841,8 +842,12 @@ const createBenchLatencyCell = (item) => {
         td.innerText = '—';
         return td;
     }
-    td.className = 'bench-latency';
-    td.innerText = `Seq ${formatLatency(bench.seqClatMeanNs)} / Rand ${formatLatency(bench.randClatMeanNs)}`;
+    const wrap = document.createElement('div');
+    wrap.className = 'bench-latency';
+    const latencyRate = rateLatency(bench.randClatP99Ns, item.customType);
+    if (latencyRate) wrap.classList.add(`bench-rate-${latencyRate}`);
+    wrap.innerText = `Seq ${formatLatency(bench.seqClatP99Ns)} / Rand ${formatLatency(bench.randClatP99Ns)}`;
+    td.appendChild(wrap);
     return td;
 };
 
@@ -1129,10 +1134,10 @@ const appendBenchBlock = (container, item) => {
     const fields = [
         ['Seq 帯域', formatBw(bench.seqBwBytes)],
         ['Seq IOPS', formatIops(bench.seqIops)],
-        ['Seq 平均レイテンシ', formatLatency(bench.seqClatMeanNs)],
+        ['Seq p99レイテンシ', formatLatency(bench.seqClatP99Ns)],
         ['Rand 帯域', formatBw(bench.randBwBytes)],
         ['Rand IOPS', formatIops(bench.randIops)],
-        ['Rand 平均レイテンシ', formatLatency(bench.randClatMeanNs)]
+        ['Rand p99レイテンシ', formatLatency(bench.randClatP99Ns)]
     ];
     fields.forEach(([label, value]) => appendDetailField(grid, label, value));
     block.appendChild(grid);
