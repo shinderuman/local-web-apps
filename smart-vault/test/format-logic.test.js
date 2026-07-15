@@ -5,7 +5,10 @@ const {
     formatTemp,
     formatTbw,
     formatCount,
-    formatPowerOnHours
+    formatPowerOnHours,
+    formatBw,
+    formatIops,
+    formatLatency
 } = require('../js/format-logic.js');
 
 // ============================================================
@@ -62,4 +65,49 @@ test('formatPowerOnHours: "H / N回" 形式', () => {
 
 test('formatPowerOnHours: 不明値もそのまま結合', () => {
     assert.strictEqual(formatPowerOnHours('不明', '不明'), '不明 / 不明回');
+});
+
+// ============================================================
+// formatBw: 帯域
+// ============================================================
+test('formatBw: 0はダッシュ', () => {
+    assert.strictEqual(formatBw(0), '--');
+});
+
+test('formatBw: KiB/s は小数1桁', () => {
+    assert.strictEqual(formatBw(51200), '50.0 KiB/s');
+});
+
+test('formatBw: MiB/s は小数1桁', () => {
+    assert.strictEqual(formatBw(360243752), '343.6 MiB/s');
+});
+
+test('formatBw: GiB/s は小数1桁', () => {
+    assert.strictEqual(formatBw(3221225472), '3.0 GiB/s');
+});
+
+// ============================================================
+// formatIops: IOPS
+// ============================================================
+test('formatIops: 0はダッシュ', () => {
+    assert.strictEqual(formatIops(0), '--');
+});
+
+test('formatIops: 小数は四捨五入・3桁カンマ', () => {
+    assert.strictEqual(formatIops(3720.937), '3,721 IOPS');
+});
+
+// ============================================================
+// formatLatency: レイテンシ
+// ============================================================
+test('formatLatency: 0はダッシュ', () => {
+    assert.strictEqual(formatLatency(0), '--');
+});
+
+test('formatLatency: us 単位', () => {
+    assert.strictEqual(formatLatency(64000), '64.0 us');
+});
+
+test('formatLatency: ms 単位', () => {
+    assert.strictEqual(formatLatency(2907020), '2.9 ms');
 });

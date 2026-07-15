@@ -4,7 +4,10 @@
 
 // ストレージ・セッションキー
 const STORAGE_KEY = 'storage_smart_assets';
-const FILTER_KEY = 'smart_vault_filter';
+const SESSION_KEYS = {
+    filter: 'smart_vault_filter',
+    viewMode: 'smart_vault_view_mode'
+};
 
 // タイムアウト（ミリ秒）
 const TIMING = {
@@ -54,8 +57,7 @@ const SORT_INDEX_MAP = {
     'hours_val': 8
 };
 
-// データ取得コマンド・バックアップファイル名
-const SMART_COMMAND = 'sudo smartctl -a --json /dev/diskX | pbcopy';
+// バックアップファイル名
 const BACKUP_FILENAME = 'smart-storage.json';
 
 // 判定理由キーワードの平易な解説（初心者向け）。理由文字列中のキーが出現したらツールチップ化
@@ -142,9 +144,11 @@ const TOAST = {
     IMPORT_FAIL: 'エラー: 不正なファイル構造です',
     SAVED: 'ファイルを保存しました',
     SAVE_FAIL: 'エラー: 保存に失敗しました',
-    CMD_COPIED: 'コマンドをクリップボードにコピーしました',
     EXPORTED_FILE: '選択中のレコードを .json で出力しました',
-    EXPORT_NO_SELECTION: 'レコードが選択されていません'
+    EXPORT_NO_SELECTION: 'レコードが選択されていません',
+    BENCH_REGISTERED: 'ベンチ結果を登録しました',
+    BENCH_INVALID: 'エラー: fio結果として認識できません',
+    BENCH_DELETED: 'ベンチマーク結果を削除しました'
 };
 
 // ============================================================
@@ -159,7 +163,8 @@ let db = (() => {
 
 // 表示状態（フィルタ・ソート）
 const viewState = {
-    filter: sessionStorage.getItem(FILTER_KEY) || 'all',
+    filter: sessionStorage.getItem(SESSION_KEYS.filter) || 'all',
+    viewMode: sessionStorage.getItem(SESSION_KEYS.viewMode) || 'smart',
     sortField: '',
     sortOrder: 'asc'
 };
@@ -182,9 +187,10 @@ const {
 } = window.PARSE_LOGIC;
 const { computeHealthLevel } = window.HEALTH_LOGIC;
 const {
-    formatHours, formatTemp, formatTbw, formatCount
+    formatHours, formatTemp, formatTbw, formatCount, formatBw, formatIops, formatLatency
 } = window.FORMAT_LOGIC;
 const { compactRaw, prettifyRaw, buildSmartJsonArray } = window.JSON_NORMALIZE_LOGIC;
+const { isFioJson, splitBench, parseBench } = window.BENCH_LOGIC;
 const {
     countRecordsByType, getNextSortState, sortRecords,
     filterRecordsByType, reorderRecordsByVisiblePosition, isValidSmartRecordList
@@ -223,6 +229,8 @@ const parseSmartJson = (rawText, existingRecord = null) => {
     const existingType = existingRecord ? existingRecord.customType : '';
     let vendor = existingRecord ? existingRecord.vendor : '';
     const id = existingRecord ? existingRecord.id : Number(Date.now());
+    const benchSeq = existingRecord ? existingRecord.benchSeq : undefined;
+    const benchRand = existingRecord ? existingRecord.benchRand : undefined;
 
     if (!vendor) vendor = detectVendor(data, model);
     const detected = detectCustomType(protocol, model, deviceType, existingType);
@@ -260,7 +268,9 @@ const parseSmartJson = (rawText, existingRecord = null) => {
         updatedAt: new Date().toLocaleString(),
         memo,
         customType,
-        raw: compactRaw(rawText)
+        raw: compactRaw(rawText),
+        ...(benchSeq !== undefined ? { benchSeq } : {}),
+        ...(benchRand !== undefined ? { benchRand } : {})
     };
 };
 
@@ -327,6 +337,25 @@ const upsertRecord = (rawText) => {
     showToast(isUpdate ? TOAST.PARSE_UPDATED : TOAST.PARSE_OK);
 };
 
+// 選択中レコード（1件）に fio ベンチ結果を登録（seq/rand を分けて保存）
+const registerBench = (rawText) => {
+    if (!isFioJson(rawText)) {
+        showToast(TOAST.BENCH_INVALID);
+        return;
+    }
+    const id = [...uiState.selectedIds][0];
+    const idx = db.findIndex(item => item.id === id);
+    if (idx === -1) return;
+    const { seq, rand } = splitBench(rawText);
+    db[idx].benchSeq = seq;
+    db[idx].benchRand = rand;
+    db[idx].updatedAt = new Date().toLocaleString();
+    saveDb();
+    renderTable();
+    highlightRow(id);
+    showToast(TOAST.BENCH_REGISTERED);
+};
+
 // 選択中フィルタから手動レコードの分類を決定（「すべて」なら不明）
 const manualTypeFromFilter = () => {
     const f = viewState.filter;
@@ -383,6 +412,19 @@ const deleteItem = (id) => {
     saveDb();
     renderTable();
     showToast(TOAST.DELETED);
+};
+
+// 指定レコードのベンチ結果のみ削除（SMART情報は維持）
+const deleteBench = (id) => {
+    const ok = confirm('このストレージのベンチマーク結果を削除しますか？（S.M.A.R.T. 情報は維持されます）');
+    if (!ok) return;
+    const idx = db.findIndex(item => item.id === id);
+    if (idx === -1) return;
+    delete db[idx].benchSeq;
+    delete db[idx].benchRand;
+    saveDb();
+    renderTable();
+    showToast(TOAST.BENCH_DELETED);
 };
 
 const importBackup = (event) => {
@@ -463,9 +505,44 @@ const updateCounters = () => {
 
 const applyFilter = (type, btn) => {
     viewState.filter = type;
-    sessionStorage.setItem(FILTER_KEY, type);
+    sessionStorage.setItem(SESSION_KEYS.filter, type);
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
+    updateDragEnabled();
+    renderTable();
+};
+
+// 一覧の3列（残り寿命/総書込量/通電時間）を SMART/ベンチ で切替
+// th は位置で特定: 6=残り寿命, 7=総書込量, 8=通電時間
+const SMART_HEADERS = [
+    { text: '残り寿命', sort: 'lifePercent' },
+    { text: '総書込量', sort: 'tbw_val' },
+    { text: '通電時間 / 電源回数', sort: 'hours_val' }
+];
+const BENCH_HEADERS = [
+    { text: 'Seq読込', sort: 'seqBw' },
+    { text: 'Rand読込', sort: 'randIops' },
+    { text: 'レイテンシ', sort: 'randClat' }
+];
+
+const updateHeaderView = () => {
+    const ths = document.querySelectorAll('.storage-list thead th');
+    const headers = viewState.viewMode === 'bench' ? BENCH_HEADERS : SMART_HEADERS;
+    [6, 7, 8].forEach((pos, i) => {
+        const th = ths[pos];
+        if (!th) return;
+        th.innerText = headers[i].text;
+        th.setAttribute('data-sort', headers[i].sort);
+    });
+};
+
+const applyViewMode = (mode, btn) => {
+    viewState.viewMode = mode;
+    sessionStorage.setItem(SESSION_KEYS.viewMode, mode);
+    document.querySelectorAll('.view-toggle').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    viewState.sortField = '';
+    viewState.sortOrder = 'asc';
     updateDragEnabled();
     renderTable();
 };
@@ -481,24 +558,6 @@ const toggleDetails = (id) => {
     uiState.openDetailId = (uiState.openDetailId === id) ? null : id;
     const el = document.getElementById(`details-${id}`);
     if (el) el.classList.toggle('hidden');
-};
-
-const toggleAccordion = () => {
-    const el = document.getElementById('cmdAccordion');
-    const icon = document.getElementById('accordionIcon');
-    if (el.classList.contains('hidden')) {
-        el.classList.remove('hidden');
-        icon.innerText = '▲';
-    } else {
-        el.classList.add('hidden');
-        icon.innerText = '▼';
-    }
-};
-
-const copyCommandText = () => {
-    navigator.clipboard.writeText(SMART_COMMAND).then(() => {
-        showToast(TOAST.CMD_COPIED);
-    });
 };
 
 // 文字列を .json ファイルとしてブラウザダウンロード（保存ダイアログなし、ダウンロード一覧へ落下）
@@ -690,7 +749,19 @@ const enableHoursCycleEdit = (id, container) => {
 // ============================================================
 
 // ソート済み表示対象配列を返す
+// ベンチモードでベンチ列ソート時は bench サマリの値を展開してソートする
 const getDisplayItems = () => {
+    if (viewState.viewMode === 'bench' && viewState.sortField) {
+        const BENCH_SORT_KEYS = { seqBw: 'seqBwBytes', randIops: 'randIops', randClat: 'randClatMeanNs' };
+        const benchKey = BENCH_SORT_KEYS[viewState.sortField];
+        if (benchKey) {
+            const enriched = db.map(item => {
+                const bench = (item.benchSeq || item.benchRand) ? parseBench(item.benchSeq, item.benchRand) : null;
+                return { ...item, [viewState.sortField]: bench ? bench[benchKey] : undefined };
+            });
+            return sortRecords(enriched, viewState.sortField, viewState.sortOrder);
+        }
+    }
     return sortRecords(db, viewState.sortField, viewState.sortOrder);
 };
 
@@ -721,6 +792,58 @@ const formatHoursCycle = (powerOnHours, powerCycleCount) => {
     if (hasHours) return powerOnHours;
     if (hasCycle) return `${cycleNum}回`;
     return '';
+};
+
+// ベンチ結果の帯域+IOPS を2段で表示するセルを生成（編集不可）
+const createBenchMetricCell = (bwBytes, iops) => {
+    const td = document.createElement('td');
+    const wrap = document.createElement('div');
+    wrap.className = 'bench-cell';
+    const bw = document.createElement('div');
+    bw.className = 'bench-bw';
+    bw.innerText = formatBw(bwBytes);
+    const ip = document.createElement('div');
+    ip.className = 'bench-iops';
+    ip.innerText = formatIops(iops);
+    wrap.appendChild(bw);
+    wrap.appendChild(ip);
+    td.appendChild(wrap);
+    return td;
+};
+
+// Seq読込セル
+const createBenchSeqCell = (item) => {
+    const bench = (item.benchSeq || item.benchRand) ? parseBench(item.benchSeq, item.benchRand) : null;
+    if (!bench) {
+        const td = document.createElement('td');
+        td.innerText = '—';
+        return td;
+    }
+    return createBenchMetricCell(bench.seqBwBytes, bench.seqIops);
+};
+
+// Rand読込セル
+const createBenchRandCell = (item) => {
+    const bench = (item.benchSeq || item.benchRand) ? parseBench(item.benchSeq, item.benchRand) : null;
+    if (!bench) {
+        const td = document.createElement('td');
+        td.innerText = '—';
+        return td;
+    }
+    return createBenchMetricCell(bench.randBwBytes, bench.randIops);
+};
+
+// レイテンシセル（Seq/Rand の平均レイテンシを1セルに表示）
+const createBenchLatencyCell = (item) => {
+    const td = document.createElement('td');
+    const bench = (item.benchSeq || item.benchRand) ? parseBench(item.benchSeq, item.benchRand) : null;
+    if (!bench) {
+        td.innerText = '—';
+        return td;
+    }
+    td.className = 'bench-latency';
+    td.innerText = `Seq ${formatLatency(bench.seqClatMeanNs)} / Rand ${formatLatency(bench.randClatMeanNs)}`;
+    return td;
 };
 
 // 状態レベルバッジを生成: L番号 + Score 融合表示（手動登録は青バッジ「手動」）
@@ -844,31 +967,43 @@ const createRow = (item) => {
     tdLevel.appendChild(createLevelBadge(item));
     tr.appendChild(tdLevel);
 
-    // 残り寿命（編集可能・表示文字列 lifeOrSector を直接編集）
-    const tdLife = document.createElement('td');
-    tdLife.appendChild(createEditableCell(
-        item.lifePercent >= 0 ? item.lifePercent + '%' : (item.lifeOrSector || '—'),
-        (e) => enableTextEdit(item.id, e.currentTarget, 'lifeOrSector', '例: 寿命: 99%')
-    ));
-    tr.appendChild(tdLife);
+    // 残り寿命 / Seq読込（表示モードで切替）
+    if (viewState.viewMode === 'bench') {
+        tr.appendChild(createBenchSeqCell(item));
+    } else {
+        const tdLife = document.createElement('td');
+        tdLife.appendChild(createEditableCell(
+            item.lifePercent >= 0 ? item.lifePercent + '%' : (item.lifeOrSector || '—'),
+            (e) => enableTextEdit(item.id, e.currentTarget, 'lifeOrSector', '例: 寿命: 99%')
+        ));
+        tr.appendChild(tdLife);
+    }
 
-    // 総書込量（編集可能・表示文字列 tbw を直接編集）
-    const tdTbw = document.createElement('td');
-    tdTbw.appendChild(createEditableCell(
-        item.tbw || '—',
-        (e) => enableTextEdit(item.id, e.currentTarget, 'tbw', '例: 1.6 TBW')
-    ));
-    tr.appendChild(tdTbw);
+    // 総書込量 / Rand読込（表示モードで切替）
+    if (viewState.viewMode === 'bench') {
+        tr.appendChild(createBenchRandCell(item));
+    } else {
+        const tdTbw = document.createElement('td');
+        tdTbw.appendChild(createEditableCell(
+            item.tbw || '—',
+            (e) => enableTextEdit(item.id, e.currentTarget, 'tbw', '例: 1.6 TBW')
+        ));
+        tr.appendChild(tdTbw);
+    }
 
-    // 通電時間 / 電源回数（1セル内で2つの数値を編集）
-    const tdHours = document.createElement('td');
-    const hoursCell = document.createElement('div');
-    hoursCell.className = 'clickable-cell';
-    hoursCell.style.gap = '0';
-    hoursCell.innerText = formatHoursCycle(item.powerOnHours, item.powerCycleCount);
-    hoursCell.addEventListener('click', (e) => enableHoursCycleEdit(item.id, e.currentTarget));
-    tdHours.appendChild(hoursCell);
-    tr.appendChild(tdHours);
+    // 通電時間 / レイテンシ（表示モードで切替）
+    if (viewState.viewMode === 'bench') {
+        tr.appendChild(createBenchLatencyCell(item));
+    } else {
+        const tdHours = document.createElement('td');
+        const hoursCell = document.createElement('div');
+        hoursCell.className = 'clickable-cell';
+        hoursCell.style.gap = '0';
+        hoursCell.innerText = formatHoursCycle(item.powerOnHours, item.powerCycleCount);
+        hoursCell.addEventListener('click', (e) => enableHoursCycleEdit(item.id, e.currentTarget));
+        tdHours.appendChild(hoursCell);
+        tr.appendChild(tdHours);
+    }
 
     // メモ（編集可能）
     tr.appendChild(createMemoCell(item));
@@ -960,6 +1095,63 @@ const appendReasonsBlock = (grid, reasons, actionBtn) => {
     grid.appendChild(div);
 };
 
+// インデント付きJSONをクリップボードへコピーするボタンを生成
+const createCopyJsonButton = (rawText, label) => {
+    const btn = document.createElement('button');
+    btn.className = 'btn-copy-json';
+    btn.innerText = label;
+    btn.addEventListener('click', () => {
+        navigator.clipboard.writeText(prettifyRaw(rawText)).then(() => {
+            const original = label;
+            btn.innerText = '✓ Copied';
+            setTimeout(() => { btn.innerText = original; }, 1500);
+        });
+    });
+    return btn;
+};
+
+// 詳細画面にベンチ結果ブロック（サマリ + Seq/Rand コピー + ベンチ削除）を追加
+const appendBenchBlock = (container, item) => {
+    if (!item.benchSeq && !item.benchRand) return;
+    const bench = parseBench(item.benchSeq, item.benchRand);
+    if (!bench) return;
+
+    const block = document.createElement('div');
+    block.className = 'bench-details';
+
+    const title = document.createElement('div');
+    title.className = 'bench-title';
+    title.innerText = 'ベンチマーク結果 (fio)';
+    block.appendChild(title);
+
+    const grid = document.createElement('div');
+    grid.className = 'details-grid';
+    const fields = [
+        ['Seq 帯域', formatBw(bench.seqBwBytes)],
+        ['Seq IOPS', formatIops(bench.seqIops)],
+        ['Seq 平均レイテンシ', formatLatency(bench.seqClatMeanNs)],
+        ['Rand 帯域', formatBw(bench.randBwBytes)],
+        ['Rand IOPS', formatIops(bench.randIops)],
+        ['Rand 平均レイテンシ', formatLatency(bench.randClatMeanNs)]
+    ];
+    fields.forEach(([label, value]) => appendDetailField(grid, label, value));
+    block.appendChild(grid);
+
+    // Seq/Rand コピー + ベンチ削除ボタン
+    const actions = document.createElement('div');
+    actions.className = 'bench-actions';
+    if (item.benchSeq) actions.appendChild(createCopyJsonButton(item.benchSeq, '📋 Seq Copy'));
+    if (item.benchRand) actions.appendChild(createCopyJsonButton(item.benchRand, '📋 Rand Copy'));
+    const benchDelBtn = document.createElement('button');
+    benchDelBtn.className = 'btn-danger btn-mini';
+    benchDelBtn.innerText = 'ベンチ削除';
+    benchDelBtn.addEventListener('click', () => deleteBench(item.id));
+    actions.appendChild(benchDelBtn);
+    block.appendChild(actions);
+
+    container.appendChild(block);
+};
+
 const createDetailsRow = (item) => {
     const tr = document.createElement('tr');
     tr.className = uiState.openDetailId === item.id ? 'details-row' : 'details-row hidden';
@@ -987,7 +1179,7 @@ const createDetailsRow = (item) => {
     ];
     fields.forEach(([label, value]) => appendDetailField(grid, label, value));
 
-    // 消去ボタン（判定理由ブロックの右端に配置）
+    // ストレージ消去ボタン（判定理由ブロックの右端に配置）
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-danger btn-mini';
     delBtn.innerText = 'このストレージを消去';
@@ -995,21 +1187,15 @@ const createDetailsRow = (item) => {
     appendReasonsBlock(grid, item.healthReasons, delBtn);
     container.appendChild(grid);
 
-    const raw = document.createElement('div');
-    raw.className = 'raw-json';
-    raw.innerText = prettifyRaw(item.raw);
+    appendBenchBlock(container, item);
 
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'btn-copy-json';
-    copyBtn.innerText = '📋 Copy';
-    copyBtn.addEventListener('click', () => {
-        navigator.clipboard.writeText(item.raw).then(() => {
-            copyBtn.innerText = '✓ Copied';
-            setTimeout(() => { copyBtn.innerText = '📋 Copy'; }, 1500);
-        });
-    });
-    raw.appendChild(copyBtn);
-    container.appendChild(raw);
+    // Smart raw コピー
+    if (item.raw) {
+        const smartActions = document.createElement('div');
+        smartActions.className = 'bench-actions';
+        smartActions.appendChild(createCopyJsonButton(item.raw, '📋 Smart Copy'));
+        container.appendChild(smartActions);
+    }
 
     td.appendChild(container);
     tr.appendChild(td);
@@ -1040,6 +1226,7 @@ const createEmptyRow = () => {
 const renderTable = () => {
     const tbody = document.getElementById('storageTbody');
     tbody.innerHTML = '';
+    updateHeaderView();
     updateCounters();
     updateSortIndicators();
     updateExportButtonState();
@@ -1105,6 +1292,7 @@ const bindStaticEvents = () => {
     const pasteZone = document.getElementById('pasteZone');
     pasteZone.addEventListener('click', () => pasteZone.focus());
     pasteZone.addEventListener('paste', (e) => {
+        e.stopPropagation();
         e.preventDefault();
         const rawText = (e.clipboardData || window.clipboardData).getData('text').trim();
         if (!rawText) return;
@@ -1112,6 +1300,19 @@ const bindStaticEvents = () => {
             upsertRecord(rawText);
         } catch {
             showToast(TOAST.PARSE_FAIL);
+        }
+    });
+
+    // fio ベンチ結果のペースト: レコード1件選択時のみ有効（pasteZone 以外で発火）
+    document.addEventListener('paste', (e) => {
+        if (uiState.selectedIds.size !== 1) return;
+        const rawText = (e.clipboardData || window.clipboardData).getData('text').trim();
+        if (!rawText) return;
+        e.preventDefault();
+        try {
+            registerBench(rawText);
+        } catch {
+            showToast(TOAST.BENCH_INVALID);
         }
     });
 
@@ -1123,13 +1324,14 @@ const bindStaticEvents = () => {
     // 選択系: 選択中ダウンロード（行の選択はCmd/Ctrl+クリック）
     document.getElementById('exportSelectedBtn').addEventListener('click', exportSelectedToJson);
 
-    // アコーディオン・コマンドコピー
-    document.getElementById('accordionToggle').addEventListener('click', toggleAccordion);
-    document.getElementById('commandCode').addEventListener('click', copyCommandText);
-
     // フィルタボタン
     document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.addEventListener('click', () => applyFilter(btn.dataset.filter, btn));
+    });
+
+    // 表示モードトグル（SMART / ベンチ）
+    document.querySelectorAll('.view-toggle').forEach(btn => {
+        btn.addEventListener('click', () => applyViewMode(btn.dataset.view, btn));
     });
 
     // ソートヘッダ
@@ -1151,9 +1353,16 @@ const restoreFilterButton = () => {
     if (activeBtn) activeBtn.classList.add('active');
 };
 
+const restoreViewToggleButton = () => {
+    document.querySelectorAll('.view-toggle').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.querySelector(`.view-toggle[data-view="${viewState.viewMode}"]`);
+    if (activeBtn) activeBtn.classList.add('active');
+};
+
 const init = () => {
     bindStaticEvents();
     restoreFilterButton();
+    restoreViewToggleButton();
     initSortable();
     renderTable();
 };
