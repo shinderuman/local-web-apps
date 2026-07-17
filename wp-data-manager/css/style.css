@@ -192,7 +192,7 @@ textarea {
     gap: 6px;
 }
 
-.schedule-box li input[type="checkbox"] {
+.schedule-box li input[type='checkbox'] {
     margin-top: 3px;
     cursor: pointer;
 }

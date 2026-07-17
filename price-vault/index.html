@@ -1,131 +1,190 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>買い物価格メモ</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>💰</text></svg>">
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>買い物価格メモ</title>
+        <link
+            rel="icon"
+            href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>💰</text></svg>"
+        />
+        <link rel="stylesheet" href="css/style.css" />
+    </head>
+    <body>
+        <div class="container">
+            <header>
+                <h1>
+                    買い物価格メモ
+                    <span class="subtitle"
+                        >商品ごとの最安値・最高値を記録・比較</span
+                    >
+                </h1>
+            </header>
 
-<div class="container">
-    <header>
-        <h1>買い物価格メモ <span class="subtitle">商品ごとの最安値・最高値を記録・比較</span></h1>
-    </header>
-
-    <div class="control-panel">
-        <div class="form-grid">
-            <div class="form-group">
-                <label for="inputName">商品名 <span class="req">*</span></label>
-                <input type="text" id="inputName" placeholder="例: ピーマン1個">
-            </div>
-            <div class="form-group">
-                <label for="inputCategory">カテゴリ</label>
-                <div class="category-input-row">
-                    <select id="inputCategory"></select>
-                    <input type="text" id="inputCategoryNew" class="hidden" placeholder="新規カテゴリ名">
+            <div class="control-panel">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="inputName"
+                            >商品名 <span class="req">*</span></label
+                        >
+                        <input
+                            type="text"
+                            id="inputName"
+                            placeholder="例: ピーマン1個"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label for="inputCategory">カテゴリ</label>
+                        <div class="category-input-row">
+                            <select id="inputCategory"></select>
+                            <input
+                                type="text"
+                                id="inputCategoryNew"
+                                class="hidden"
+                                placeholder="新規カテゴリ名"
+                            />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="inputPrice"
+                            >値段 <span class="req">*</span></label
+                        >
+                        <input
+                            type="number"
+                            id="inputPrice"
+                            placeholder="例: 98"
+                            inputmode="numeric"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label for="inputStore">買った店</label>
+                        <input
+                            type="text"
+                            id="inputStore"
+                            placeholder="例: イオン"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label for="inputUnitPrice">グラム単価</label>
+                        <input
+                            type="text"
+                            id="inputUnitPrice"
+                            placeholder="例: 98円/100g"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label for="inputDate"
+                            >日付 <span class="req">*</span></label
+                        >
+                        <input type="date" id="inputDate" />
+                    </div>
+                    <div class="form-group">
+                        <label for="inputMemo">メモ</label>
+                        <textarea
+                            id="inputMemo"
+                            rows="1"
+                            placeholder="自由メモ（改行可）"
+                        ></textarea>
+                    </div>
+                </div>
+                <div class="btn-container">
+                    <button class="btn-success" id="saveBtn">商品を登録</button>
+                    <button class="btn-secondary" id="exportBtn">
+                        バックアップ保存
+                    </button>
+                    <label for="fileInput" class="file-input-label">復元</label>
+                    <input type="file" id="fileInput" accept=".json" />
                 </div>
             </div>
-            <div class="form-group">
-                <label for="inputPrice">値段 <span class="req">*</span></label>
-                <input type="number" id="inputPrice" placeholder="例: 98" inputmode="numeric">
+
+            <div class="filter-section" id="filterContainer">
+                <button class="filter-btn active" data-filter="all">
+                    すべて (<span id="count-all">0</span>)
+                </button>
             </div>
-            <div class="form-group">
-                <label for="inputStore">買った店</label>
-                <input type="text" id="inputStore" placeholder="例: イオン">
-            </div>
-            <div class="form-group">
-                <label for="inputUnitPrice">グラム単価</label>
-                <input type="text" id="inputUnitPrice" placeholder="例: 98円/100g">
-            </div>
-            <div class="form-group">
-                <label for="inputDate">日付 <span class="req">*</span></label>
-                <input type="date" id="inputDate">
-            </div>
-            <div class="form-group">
-                <label for="inputMemo">メモ</label>
-                <textarea id="inputMemo" rows="1" placeholder="自由メモ（改行可）"></textarea>
+
+            <div class="storage-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 220px" data-sort="name">
+                                商品名
+                            </th>
+                            <th style="width: 110px">最安値</th>
+                            <th style="width: 110px">最高値</th>
+                            <th style="width: 130px">カテゴリ</th>
+                            <th>最安値の店</th>
+                            <th style="width: 120px">購入日</th>
+                            <th style="width: 36px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="storageTbody"></tbody>
+                </table>
             </div>
         </div>
-        <div class="btn-container">
-            <button class="btn-success" id="saveBtn">商品を登録</button>
-            <button class="btn-secondary" id="exportBtn">バックアップ保存</button>
-            <label for="fileInput" class="file-input-label">復元</label>
-            <input type="file" id="fileInput" accept=".json">
-        </div>
-    </div>
 
-    <div class="filter-section" id="filterContainer">
-        <button class="filter-btn active" data-filter="all">すべて (<span id="count-all">0</span>)</button>
-    </div>
-
-    <div class="storage-list">
-        <table>
-            <thead>
-                <tr>
-                    <th style="width: 220px;" data-sort="name">商品名</th>
-                    <th style="width: 110px;">最安値</th>
-                    <th style="width: 110px;">最高値</th>
-                    <th style="width: 130px;">カテゴリ</th>
-                    <th>最安値の店</th>
-                    <th style="width: 120px;">購入日</th>
-                    <th style="width: 36px;"></th>
-                </tr>
-            </thead>
-            <tbody id="storageTbody">
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<div id="historyModal" class="modal-overlay hidden">
-    <div class="modal-dialog">
-        <div class="modal-header">
-            <h2 id="modalTitle">履歴の編集</h2>
-            <button id="modalClose" class="modal-close">×</button>
-        </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <label for="editName">商品名</label>
-                <input type="text" id="editName">
-            </div>
-            <div class="form-group">
-                <label for="editPrice">値段 <span class="req">*</span></label>
-                <input type="number" id="editPrice" inputmode="numeric">
-            </div>
-            <div class="form-group">
-                <label for="editStore">買った店</label>
-                <input type="text" id="editStore">
-            </div>
-            <div class="form-group">
-                <label for="editUnitPrice">グラム単価</label>
-                <input type="text" id="editUnitPrice">
-            </div>
-            <div class="form-group">
-                <label for="editDate">日付 <span class="req">*</span></label>
-                <input type="date" id="editDate">
-            </div>
-            <div class="form-group">
-                <label for="editMemo">メモ</label>
-                <textarea id="editMemo" rows="3" placeholder="自由メモ（改行可）"></textarea>
+        <div id="historyModal" class="modal-overlay hidden">
+            <div class="modal-dialog">
+                <div class="modal-header">
+                    <h2 id="modalTitle">履歴の編集</h2>
+                    <button id="modalClose" class="modal-close">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="editName">商品名</label>
+                        <input type="text" id="editName" />
+                    </div>
+                    <div class="form-group">
+                        <label for="editPrice"
+                            >値段 <span class="req">*</span></label
+                        >
+                        <input
+                            type="number"
+                            id="editPrice"
+                            inputmode="numeric"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label for="editStore">買った店</label>
+                        <input type="text" id="editStore" />
+                    </div>
+                    <div class="form-group">
+                        <label for="editUnitPrice">グラム単価</label>
+                        <input type="text" id="editUnitPrice" />
+                    </div>
+                    <div class="form-group">
+                        <label for="editDate"
+                            >日付 <span class="req">*</span></label
+                        >
+                        <input type="date" id="editDate" />
+                    </div>
+                    <div class="form-group">
+                        <label for="editMemo">メモ</label>
+                        <textarea
+                            id="editMemo"
+                            rows="3"
+                            placeholder="自由メモ（改行可）"
+                        ></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-danger" id="modalDeleteBtn">
+                        この履歴を削除
+                    </button>
+                    <button class="btn-secondary" id="modalCancelBtn">
+                        キャンセル
+                    </button>
+                    <button class="btn-success" id="modalSaveBtn">保存</button>
+                </div>
             </div>
         </div>
-        <div class="modal-footer">
-            <button class="btn-danger" id="modalDeleteBtn">この履歴を削除</button>
-            <button class="btn-secondary" id="modalCancelBtn">キャンセル</button>
-            <button class="btn-success" id="modalSaveBtn">保存</button>
-        </div>
-    </div>
-</div>
 
-<div id="toastNotification" class="toast-notification"></div>
+        <div id="toastNotification" class="toast-notification"></div>
 
-<script src="js/lib/sortable.min.js"></script>
-<script src="js/price-logic.js"></script>
-<script src="js/category-logic.js"></script>
-<script src="js/export-logic.js"></script>
-<script src="js/app.js"></script>
-
-</body>
+        <script src="js/lib/sortable.min.js"></script>
+        <script src="js/price-logic.js"></script>
+        <script src="js/category-logic.js"></script>
+        <script src="js/export-logic.js"></script>
+        <script src="js/app.js"></script>
+    </body>
 </html>

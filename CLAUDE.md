@@ -15,8 +15,9 @@
 - `eslint` / `globals` / `prettier` / `eslint-config-prettier` はリポジトリルートの `package.json`（devDependencies）で管理。`npm install` でローカル導入
 - 環境組み込みグローバル（browser/node）は `globals` パッケージの `...globals.browser` / `...globals.node` で一括定義する（手書き列挙・ユーザーレベル設定は使わない）
 - 整形は Prettier に一任（スタイルルールは `eslint-config-prettier` で無効化）。ESLint は構文・バグ検出に専念
+- Prettier は JS/CSS/HTML/JSON/MD など対応する全拡張子に適用する（JS限定ではない）
 - 実行は `npx eslint .`（設定ファイルは自動読込）。`--config ~/.eslint.config.mjs` 方式は廃止
-- JS編集後は `npx prettier --write <file>` → `npx eslint <file>` → テスト実行。テスト実行前に prettier/eslint を当てる
+- ファイル編集後は `npx prettier --write <file>` → `npx eslint <file>`（JSのみ）→ テスト実行。テスト実行前に prettier/eslint を当てる
 
 ## 純粋関数モジュールの分割
 
@@ -30,10 +31,9 @@
 ## ストレージ層（localStorage / IndexedDB）
 
 - 新規アプリ作成時は、データの規模・内容に応じて都度判断する（どちらかに固定しない）
-  - `localStorage`: 同期APIで実装が単純。設定値・フラグ・小規模なテキストデータ向け。容量上限約5MB・JSONシリアライズコスト・部分更新不可の制約あり
-  - `IndexedDB`: 非同期APIで定形コード（open/onupgradeneeded/transaction）が必要。画像（Blob/Base64）・長期蓄積データ・親子ストア構造向け。容量・構造化データで優位
+    - `localStorage`: 同期APIで実装が単純。設定値・フラグ・小規模なテキストデータ向け。容量上限約5MB・JSONシリアライズコスト・部分更新不可の制約あり
+    - `IndexedDB`: 非同期APIで定形コード（open/onupgradeneeded/transaction）が必要。画像（Blob/Base64）・長期蓄積データ・親子ストア構造向け。容量・構造化データで優位
 - 既存アプリの採用実績（判断の参照元）
-  - `localStorage`: smart-vault, wp-data-manager（テキスト中心の小規模データ）
-  - `IndexedDB`: url-vault, price-vault（複数ストア構造 / 親子ネストデータの永続蓄積）
+    - `localStorage`: smart-vault, wp-data-manager（テキスト中心の小規模データ）
+    - `IndexedDB`: url-vault, price-vault（複数ストア構造 / 親子ネストデータの永続蓄積）
 - 判断は仕様書・ユーザー指示を最優先する（既存アプリの傾向から自動決定しない）
-

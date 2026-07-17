@@ -1,154 +1,290 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <title>系統・種牡馬データ管理</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🐴</text></svg>">
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
-
-<div class="btn-group">
-    <button class="toggle-btn" data-target="scheduleSection">スケジュール</button>
-    <button class="toggle-btn" data-target="horseListSection">年代別馬リスト</button>
-    <button class="toggle-btn" data-target="memoArea">注記メモ</button>
-</div>
-
-<div class="container">
-    <div class="header-flex">
-        <h2>系統・種牡馬データ管理</h2>
-        <div class="game-year-box">
-            <label for="currentGameYear">ゲーム内年:</label>
-            <input type="number" id="currentGameYear" value="1968">
+    <head>
+        <meta charset="UTF-8" />
+        <title>系統・種牡馬データ管理</title>
+        <link
+            rel="icon"
+            href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🐴</text></svg>"
+        />
+        <link rel="stylesheet" href="css/style.css" />
+    </head>
+    <body>
+        <div class="btn-group">
+            <button class="toggle-btn" data-target="scheduleSection">
+                スケジュール
+            </button>
+            <button class="toggle-btn" data-target="horseListSection">
+                年代別馬リスト
+            </button>
+            <button class="toggle-btn" data-target="memoArea">注記メモ</button>
         </div>
-    </div>
 
-    <!-- スケジュールパネル -->
-    <div id="scheduleSection">
-        <div class="schedule-grid">
-            <div class="schedule-box">
-                <h3>## 1月1週目にやること</h3>
-                <ul>
-                    <li><input type="checkbox" id="chk_1_1"><label for="chk_1_1">年表で念のため滅亡した系統がないかチェックする</label></li>
-                    <li><input type="checkbox" id="chk_1_2"><label for="chk_1_2">幼駒→競走馬、競走馬→繁殖入りした馬のマークを変更する</label></li>
-                    <li><input type="checkbox" id="chk_1_3"><label for="chk_1_3">海外遠征と三歳三冠のローテを設定</label></li>
-                </ul>
-                <h3>## 4月1週目</h3>
-                <ul>
-                    <li><input type="checkbox" id="chk_4_1"><label for="chk_4_1">誕生した馬をルールに則ってマークする</label></li>
-                    <li><input type="checkbox" id="chk_4_2"><label for="chk_4_2">滅亡寸前産駒のチェック</label></li>
-                    <li><input type="checkbox" id="chk_4_3"><label for="chk_4_3">購入予定史実馬のチェック</label></li>
-                </ul>
-                <h3>## 5月1週目</h3>
-                <ul>
-                    <li><input type="checkbox" id="chk_5_1"><label for="chk_5_1">新しく種牡馬入りした馬が基準交配を起こせないかチェック</label></li>
-                    <li><input type="checkbox" id="chk_5_2"><label for="chk_5_2">購入予定史実馬を買えるだけ買う</label></li>
-                    <li><input type="checkbox" id="chk_5_3"><label for="chk_5_3">史実繁殖牝馬の史実誕生条件で種付</label></li>
-                </ul>
+        <div class="container">
+            <div class="header-flex">
+                <h2>系統・種牡馬データ管理</h2>
+                <div class="game-year-box">
+                    <label for="currentGameYear">ゲーム内年:</label>
+                    <input type="number" id="currentGameYear" value="1968" />
+                </div>
             </div>
-            <div class="schedule-box">
-                <h3>## 8月1週目</h3>
-                <ul>
-                    <li><input type="checkbox" id="chk_8_1"><label for="chk_8_1">幼駒セールで購入予定の史実馬の分だけ売る</label></li>
-                </ul>
-                <h3>## 12月3週目</h3>
-                <ul>
-                    <li>
-                        <div>
-                            <input type="checkbox" id="chk_123_1"><label for="chk_123_1">海外トレセンで必要な空きの分だけ売る</label>
-                            <ul class="sub-list">
-                                <li><input type="checkbox" id="chk_123_1_a"><label for="chk_123_1_a">購入予定の史実馬を買う</label></li>
-                                <li><input type="checkbox" id="chk_123_1_b"><label for="chk_123_1_b">売った馬で印付きのやつは庭先取引で日本に買い戻す</label></li>
-                            </ul>
-                        </div>
-                    </li>
-                </ul>
-                <h3>## 12月4週目</h3>
-                <ul>
-                    <li>
-                        <div>
-                            <input type="checkbox" id="chk_124_1"><label for="chk_124_1">滅亡しそうな種牡馬系統のチェックしてセーブ</label>
-                            <ul class="sub-list">
-                                <li><input type="checkbox" id="chk_124_1_a"><label for="chk_124_1_a">一度年末の引退種牡馬まで進める</label></li>
-                                <li><input type="checkbox" id="chk_124_1_b"><label for="chk_124_1_b">滅亡寸前種牡馬が2頭以上引退していないかチェック</label></li>
-                                <li><input type="checkbox" id="chk_124_1_c"><label for="chk_124_1_c">引退していなければロードし直して普通に年末作業をする</label></li>
-                            </ul>
-                        </div>
-                    </li>
-                </ul>
-                <h4>### 滅亡寸前系統が2頭以上引退する場合</h4>
-                <ul>
-                    <li><input type="checkbox" id="chk_ext_1"><label for="chk_ext_1">一度オート進行で4月1週目まで進める</label></li>
-                    <li><input type="checkbox" id="chk_ext_2"><label for="chk_ext_2">誕生した幼駒に滅亡系統の牡馬がいるかチェックする</label></li>
-                    <li>
-                        <div>
-                            <input type="checkbox" id="chk_ext_3"><label for="chk_ext_3">いない場合は12月4周目の段階で牡馬がいるかチェックして購入する、いなければほぼ滅亡確定</label>
-                            <ul class="sub-list">
-                                <li><input type="checkbox" id="chk_ext_3_a"><label for="chk_ext_3_a">運が良ければ現役牡馬が種牡馬になるがほぼない</label></li>
-                            </ul>
-                        </div>
-                    </li>
-                </ul>
+
+            <!-- スケジュールパネル -->
+            <div id="scheduleSection">
+                <div class="schedule-grid">
+                    <div class="schedule-box">
+                        <h3>## 1月1週目にやること</h3>
+                        <ul>
+                            <li>
+                                <input type="checkbox" id="chk_1_1" /><label
+                                    for="chk_1_1"
+                                    >年表で念のため滅亡した系統がないかチェックする</label
+                                >
+                            </li>
+                            <li>
+                                <input type="checkbox" id="chk_1_2" /><label
+                                    for="chk_1_2"
+                                    >幼駒→競走馬、競走馬→繁殖入りした馬のマークを変更する</label
+                                >
+                            </li>
+                            <li>
+                                <input type="checkbox" id="chk_1_3" /><label
+                                    for="chk_1_3"
+                                    >海外遠征と三歳三冠のローテを設定</label
+                                >
+                            </li>
+                        </ul>
+                        <h3>## 4月1週目</h3>
+                        <ul>
+                            <li>
+                                <input type="checkbox" id="chk_4_1" /><label
+                                    for="chk_4_1"
+                                    >誕生した馬をルールに則ってマークする</label
+                                >
+                            </li>
+                            <li>
+                                <input type="checkbox" id="chk_4_2" /><label
+                                    for="chk_4_2"
+                                    >滅亡寸前産駒のチェック</label
+                                >
+                            </li>
+                            <li>
+                                <input type="checkbox" id="chk_4_3" /><label
+                                    for="chk_4_3"
+                                    >購入予定史実馬のチェック</label
+                                >
+                            </li>
+                        </ul>
+                        <h3>## 5月1週目</h3>
+                        <ul>
+                            <li>
+                                <input type="checkbox" id="chk_5_1" /><label
+                                    for="chk_5_1"
+                                    >新しく種牡馬入りした馬が基準交配を起こせないかチェック</label
+                                >
+                            </li>
+                            <li>
+                                <input type="checkbox" id="chk_5_2" /><label
+                                    for="chk_5_2"
+                                    >購入予定史実馬を買えるだけ買う</label
+                                >
+                            </li>
+                            <li>
+                                <input type="checkbox" id="chk_5_3" /><label
+                                    for="chk_5_3"
+                                    >史実繁殖牝馬の史実誕生条件で種付</label
+                                >
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="schedule-box">
+                        <h3>## 8月1週目</h3>
+                        <ul>
+                            <li>
+                                <input type="checkbox" id="chk_8_1" /><label
+                                    for="chk_8_1"
+                                    >幼駒セールで購入予定の史実馬の分だけ売る</label
+                                >
+                            </li>
+                        </ul>
+                        <h3>## 12月3週目</h3>
+                        <ul>
+                            <li>
+                                <div>
+                                    <input
+                                        type="checkbox"
+                                        id="chk_123_1"
+                                    /><label for="chk_123_1"
+                                        >海外トレセンで必要な空きの分だけ売る</label
+                                    >
+                                    <ul class="sub-list">
+                                        <li>
+                                            <input
+                                                type="checkbox"
+                                                id="chk_123_1_a"
+                                            /><label for="chk_123_1_a"
+                                                >購入予定の史実馬を買う</label
+                                            >
+                                        </li>
+                                        <li>
+                                            <input
+                                                type="checkbox"
+                                                id="chk_123_1_b"
+                                            /><label for="chk_123_1_b"
+                                                >売った馬で印付きのやつは庭先取引で日本に買い戻す</label
+                                            >
+                                        </li>
+                                    </ul>
+                                </div>
+                            </li>
+                        </ul>
+                        <h3>## 12月4週目</h3>
+                        <ul>
+                            <li>
+                                <div>
+                                    <input
+                                        type="checkbox"
+                                        id="chk_124_1"
+                                    /><label for="chk_124_1"
+                                        >滅亡しそうな種牡馬系統のチェックしてセーブ</label
+                                    >
+                                    <ul class="sub-list">
+                                        <li>
+                                            <input
+                                                type="checkbox"
+                                                id="chk_124_1_a"
+                                            /><label for="chk_124_1_a"
+                                                >一度年末の引退種牡馬まで進める</label
+                                            >
+                                        </li>
+                                        <li>
+                                            <input
+                                                type="checkbox"
+                                                id="chk_124_1_b"
+                                            /><label for="chk_124_1_b"
+                                                >滅亡寸前種牡馬が2頭以上引退していないかチェック</label
+                                            >
+                                        </li>
+                                        <li>
+                                            <input
+                                                type="checkbox"
+                                                id="chk_124_1_c"
+                                            /><label for="chk_124_1_c"
+                                                >引退していなければロードし直して普通に年末作業をする</label
+                                            >
+                                        </li>
+                                    </ul>
+                                </div>
+                            </li>
+                        </ul>
+                        <h4>### 滅亡寸前系統が2頭以上引退する場合</h4>
+                        <ul>
+                            <li>
+                                <input type="checkbox" id="chk_ext_1" /><label
+                                    for="chk_ext_1"
+                                    >一度オート進行で4月1週目まで進める</label
+                                >
+                            </li>
+                            <li>
+                                <input type="checkbox" id="chk_ext_2" /><label
+                                    for="chk_ext_2"
+                                    >誕生した幼駒に滅亡系統の牡馬がいるかチェックする</label
+                                >
+                            </li>
+                            <li>
+                                <div>
+                                    <input
+                                        type="checkbox"
+                                        id="chk_ext_3"
+                                    /><label for="chk_ext_3"
+                                        >いない場合は12月4周目の段階で牡馬がいるかチェックして購入する、いなければほぼ滅亡確定</label
+                                    >
+                                    <ul class="sub-list">
+                                        <li>
+                                            <input
+                                                type="checkbox"
+                                                id="chk_ext_3_a"
+                                            /><label for="chk_ext_3_a"
+                                                >運が良ければ現役牡馬が種牡馬になるがほぼない</label
+                                            >
+                                        </li>
+                                    </ul>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
             </div>
+
+            <!-- 年代別馬リストパネル -->
+            <div id="horseListSection">
+                <div class="horse-list-grid" id="filteredHorseList"></div>
+            </div>
+
+            <!-- メモエリア -->
+            <div id="memoArea">
+                <div class="memo-grid">
+                    <div class="memo-section">
+                        <h3>## 競走馬</h3>
+                        ☆ お気に入り/大事にしたい馬<br />◎ 強そうな馬<br />○
+                        滅亡寸前の保護馬<br />△ 繁殖上げ/血統保護
+                    </div>
+                    <div class="memo-section">
+                        <h3>## 種牡馬</h3>
+                        ☆ 基準交配馬<br />◎ 自家生産大成馬<br />○
+                        滅亡寸前の保護馬<br />△ 史実予後不良/せん馬
+                    </div>
+                    <div class="memo-section">
+                        <h3>## 繁殖牝馬</h3>
+                        ☆ 流星馬<br />◎ 爆発力40超え<br />○ 白馬<br />△ なし
+                    </div>
+                    <div class="memo-section">
+                        <h3>## 幼駒</h3>
+                        ☆ 誕生イベント等<br />◎ 印が強い馬<br />○
+                        購入、売却予定<br />△ 予後不良/血統保護
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <input type="text" id="newName" placeholder="系統名" />
+                <input
+                    type="number"
+                    id="newYear"
+                    placeholder="生年"
+                    style="width: 80px"
+                />
+                <input
+                    type="text"
+                    id="newHorseName"
+                    placeholder="所有種牡馬名（空なら種牡馬）"
+                />
+                <button id="addBtn" class="primary-btn">追加</button>
+                <button id="loadFileBtn" class="primary-btn">
+                    ファイルから読込
+                </button>
+                <button id="saveFileBtn">ファイルに保存</button>
+            </div>
+
+            <table id="horseTable">
+                <thead>
+                    <tr>
+                        <th style="width: 40px; cursor: default">移動</th>
+                        <th data-sort="order" style="width: 50px">順序</th>
+                        <th data-sort="name">系統名</th>
+                        <th style="width: 50px; cursor: default">年齢</th>
+                        <th data-sort="birthYear" style="width: 60px">生年</th>
+                        <th data-sort="horseName">所有種牡馬名</th>
+                        <th>他牧場の種牡馬</th>
+                        <th style="width: 70px; cursor: default">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="horseTableBody"></tbody>
+            </table>
         </div>
-    </div>
 
-    <!-- 年代別馬リストパネル -->
-    <div id="horseListSection">
-        <div class="horse-list-grid" id="filteredHorseList"></div>
-    </div>
-
-    <!-- メモエリア -->
-    <div id="memoArea">
-        <div class="memo-grid">
-            <div class="memo-section">
-                <h3>## 競走馬</h3>
-                ☆ お気に入り/大事にしたい馬<br>◎ 強そうな馬<br>○ 滅亡寸前の保護馬<br>△ 繁殖上げ/血統保護
-            </div>
-            <div class="memo-section">
-                <h3>## 種牡馬</h3>
-                ☆ 基準交配馬<br>◎ 自家生産大成馬<br>○ 滅亡寸前の保護馬<br>△ 史実予後不良/せん馬
-            </div>
-            <div class="memo-section">
-                <h3>## 繁殖牝馬</h3>
-                ☆ 流星馬<br>◎ 爆発力40超え<br>○ 白馬<br>△ なし
-            </div>
-            <div class="memo-section">
-                <h3>## 幼駒</h3>
-                ☆ 誕生イベント等<br>◎ 印が強い馬<br>○ 購入、売却予定<br>△ 予後不良/血統保護
-            </div>
-        </div>
-    </div>
-
-    <div class="controls">
-        <input type="text" id="newName" placeholder="系統名">
-        <input type="number" id="newYear" placeholder="生年" style="width: 80px;">
-        <input type="text" id="newHorseName" placeholder="所有種牡馬名（空なら種牡馬）">
-        <button id="addBtn" class="primary-btn">追加</button>
-        <button id="loadFileBtn" class="primary-btn">ファイルから読込</button>
-        <button id="saveFileBtn">ファイルに保存</button>
-    </div>
-
-    <table id="horseTable">
-        <thead>
-            <tr>
-                <th style="width: 40px; cursor: default;">移動</th>
-                <th data-sort="order" style="width: 50px;">順序</th>
-                <th data-sort="name">系統名</th>
-                <th style="width: 50px; cursor: default;">年齢</th>
-                <th data-sort="birthYear" style="width: 60px;">生年</th>
-                <th data-sort="horseName">所有種牡馬名</th>
-                <th>他牧場の種牡馬</th>
-                <th style="width: 70px; cursor: default;">操作</th>
-            </tr>
-        </thead>
-        <tbody id="horseTableBody"></tbody>
-    </table>
-</div>
-
-<script src="js/lib/sortable.min.js"></script>
-<script src="js/horse-logic.js"></script>
-<script src="js/app.js"></script>
-
-</body>
+        <script src="js/lib/sortable.min.js"></script>
+        <script src="js/horse-logic.js"></script>
+        <script src="js/app.js"></script>
+    </body>
 </html>

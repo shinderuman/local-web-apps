@@ -1,126 +1,214 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>高密度タブマネージャー</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>📚</text></svg>">
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>高密度タブマネージャー</title>
+        <link
+            rel="icon"
+            href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>📚</text></svg>"
+        />
+        <link rel="stylesheet" href="css/style.css" />
+    </head>
+    <body>
+        <div id="leftPanel" class="left-panel">
+            <div class="section-box">
+                <div class="section-title">① ウィンドウ枠作成</div>
+                <div class="form-group form-row">
+                    <input
+                        type="text"
+                        id="newWindowInput"
+                        placeholder="Enterまたはボタンで追加"
+                    />
+                    <button id="addWindowBtn">追加</button>
+                </div>
+            </div>
 
-<div id="leftPanel" class="left-panel">
-    <div class="section-box">
-        <div class="section-title">① ウィンドウ枠作成</div>
-        <div class="form-group form-row">
-            <input type="text" id="newWindowInput" placeholder="Enterまたはボタンで追加">
-            <button id="addWindowBtn">追加</button>
-        </div>
-    </div>
+            <div class="section-box">
+                <div class="section-title">② グループ作成</div>
+                <div class="form-group">
+                    <select id="targetWindowSelect"></select>
+                </div>
+                <div class="form-group form-row">
+                    <input
+                        type="text"
+                        id="newGroupInput"
+                        placeholder="Enterまたはボタンで追加"
+                    />
+                    <button id="addGroupBtn">追加</button>
+                </div>
+            </div>
 
-    <div class="section-box">
-        <div class="section-title">② グループ作成</div>
-        <div class="form-group">
-            <select id="targetWindowSelect"></select>
-        </div>
-        <div class="form-group form-row">
-            <input type="text" id="newGroupInput" placeholder="Enterまたはボタンで追加">
-            <button id="addGroupBtn">追加</button>
-        </div>
-    </div>
+            <div class="section-box">
+                <div class="section-title">③ アイテム登録</div>
+                <div class="form-group">
+                    <select id="itemWindowSelect"></select>
+                </div>
+                <div class="form-group">
+                    <select id="itemGroupSelect"></select>
+                </div>
+                <div class="form-group">
+                    <input
+                        type="text"
+                        id="title"
+                        placeholder="タイトル / 2行ペースト"
+                    />
+                </div>
+                <div class="form-group">
+                    <input
+                        type="text"
+                        id="url"
+                        placeholder="URL (https://...)"
+                    />
+                </div>
+                <div class="form-group">
+                    <div id="pasteArea" class="paste-area">
+                        ここを選択して Cmd+V サムネ
+                        <img
+                            id="preview"
+                            class="preview-img"
+                            alt="プレビュー"
+                        />
+                    </div>
+                </div>
+                <div class="form-group form-row" style="gap: 4px">
+                    <button id="saveBtn" class="btn-success" style="flex: 1">
+                        アイテムを保存
+                    </button>
+                    <button
+                        id="toggleAddPositionBtn"
+                        class="toggle-trigger"
+                        style="
+                            min-width: 36px;
+                            text-align: center;
+                            font-size: 13px;
+                        "
+                        title="追加位置: 先頭 / 末尾"
+                    >
+                        ⬆
+                    </button>
+                </div>
+            </div>
 
-    <div class="section-box">
-        <div class="section-title">③ アイテム登録</div>
-        <div class="form-group"><select id="itemWindowSelect"></select></div>
-        <div class="form-group"><select id="itemGroupSelect"></select></div>
-        <div class="form-group">
-            <input type="text" id="title" placeholder="タイトル / 2行ペースト">
-        </div>
-        <div class="form-group">
-            <input type="text" id="url" placeholder="URL (https://...)">
-        </div>
-        <div class="form-group">
-            <div id="pasteArea" class="paste-area">
-                ここを選択して Cmd+V サムネ
-                <img id="preview" class="preview-img" alt="プレビュー">
+            <div class="section-box">
+                <div class="section-title">
+                    ④ バックアップ (インポート/エクスポート)
+                </div>
+                <div class="io-btn-group">
+                    <button id="exportFileBtn">ファイルに保存</button>
+                    <button id="importFileBtn" class="btn-danger">
+                        ファイルから読込
+                    </button>
+                </div>
             </div>
         </div>
-        <div class="form-group form-row" style="gap: 4px;">
-            <button id="saveBtn" class="btn-success" style="flex: 1;">アイテムを保存</button>
-            <button id="toggleAddPositionBtn" class="toggle-trigger" style="min-width: 36px; text-align: center; font-size: 13px;" title="追加位置: 先頭 / 末尾">⬆</button>
-        </div>
-    </div>
 
-    <div class="section-box">
-        <div class="section-title">④ バックアップ (インポート/エクスポート)</div>
-        <div class="io-btn-group">
-            <button id="exportFileBtn">ファイルに保存</button>
-            <button id="importFileBtn" class="btn-danger">ファイルから読込</button>
-        </div>
-    </div>
-</div>
-
-<div class="right-panel">
-
-    <div class="control-bar">
-        <button id="toggleLeftBtn" class="toggle-trigger">◀▶ 左ペイン枠切替</button>
-        <button id="toggleNavBtn" class="toggle-trigger">▲▼ 上部フィルタ切替</button>
-        <button id="toggleEditModeBtn" class="toggle-trigger">✏ 編集</button>
-        <button id="fetchAllSynopsisBtn" class="toggle-trigger">📖 あらすじ全取得</button>
-        <button id="fetchAllSynopsisForceBtn" class="toggle-trigger warning-btn">📖 あらすじ全取得(上書き)</button>
-        <button id="emptyTrashBtn" class="toggle-trigger warning-btn">🗑 ゴミ箱を空にする</button>
-        <button id="toggleBlurBtn" class="toggle-trigger" style="margin-left: auto;">🔒 ぼかし</button>
-    </div>
-
-    <div id="navContainer" class="nav-container">
-        <div class="nav-row">
-            <div class="nav-label">ウィンドウ:</div>
-            <div id="windowFilterRow" class="nav-row"></div>
-            <span class="nav-sep">|</span>
-            <div class="nav-label">グループ:</div>
-            <div id="groupFilterRow" class="nav-row"></div>
-        </div>
-        <div class="nav-row">
-            <div class="nav-label">並び:</div>
-            <div id="sortRow" class="nav-row"></div>
-            <span class="nav-sep">|</span>
-            <button id="toggleDupCheckBtn" class="filter-btn">🔁 重複</button>
-            <span id="dupCheckLengthWrap" class="nav-row hidden">
-                <input type="number" id="dupCheckLengthInput" class="search-input" min="1" value="6" title="重複判定の作品名先頭文字数" style="max-width: 50px;">
-                <span class="nav-sep">|</span>
-            </span>
-            <input type="text" id="searchInput" class="search-input" placeholder="タイトルで絞り込み">
-            <span id="cardCount" class="card-count"></span>
-        </div>
-    </div>
-
-    <div class="main-content">
-        <div class="list-section-wrapper">
-            <div id="listSection" class="list-section"></div>
-        </div>
-        <div id="synopsisPanel" class="synopsis-panel">
-            <div class="synopsis-panel-header">
-                <h3 id="synopsisPanelTitle">あらすじ</h3>
-                <button id="synopsisPanelClose" class="synopsis-panel-close">×</button>
+        <div class="right-panel">
+            <div class="control-bar">
+                <button id="toggleLeftBtn" class="toggle-trigger">
+                    ◀▶ 左ペイン枠切替
+                </button>
+                <button id="toggleNavBtn" class="toggle-trigger">
+                    ▲▼ 上部フィルタ切替
+                </button>
+                <button id="toggleEditModeBtn" class="toggle-trigger">
+                    ✏ 編集
+                </button>
+                <button id="fetchAllSynopsisBtn" class="toggle-trigger">
+                    📖 あらすじ全取得
+                </button>
+                <button
+                    id="fetchAllSynopsisForceBtn"
+                    class="toggle-trigger warning-btn"
+                >
+                    📖 あらすじ全取得(上書き)
+                </button>
+                <button id="emptyTrashBtn" class="toggle-trigger warning-btn">
+                    🗑 ゴミ箱を空にする
+                </button>
+                <button
+                    id="toggleBlurBtn"
+                    class="toggle-trigger"
+                    style="margin-left: auto"
+                >
+                    🔒 ぼかし
+                </button>
             </div>
-            <div id="synopsisPanelBody" class="synopsis-panel-body">
-                <p class="synopsis-empty">カードを右クリックするとあらすじを表示します</p>
+
+            <div id="navContainer" class="nav-container">
+                <div class="nav-row">
+                    <div class="nav-label">ウィンドウ:</div>
+                    <div id="windowFilterRow" class="nav-row"></div>
+                    <span class="nav-sep">|</span>
+                    <div class="nav-label">グループ:</div>
+                    <div id="groupFilterRow" class="nav-row"></div>
+                </div>
+                <div class="nav-row">
+                    <div class="nav-label">並び:</div>
+                    <div id="sortRow" class="nav-row"></div>
+                    <span class="nav-sep">|</span>
+                    <button id="toggleDupCheckBtn" class="filter-btn">
+                        🔁 重複
+                    </button>
+                    <span id="dupCheckLengthWrap" class="nav-row hidden">
+                        <input
+                            type="number"
+                            id="dupCheckLengthInput"
+                            class="search-input"
+                            min="1"
+                            value="6"
+                            title="重複判定の作品名先頭文字数"
+                            style="max-width: 50px"
+                        />
+                        <span class="nav-sep">|</span>
+                    </span>
+                    <input
+                        type="text"
+                        id="searchInput"
+                        class="search-input"
+                        placeholder="タイトルで絞り込み"
+                    />
+                    <span id="cardCount" class="card-count"></span>
+                </div>
+            </div>
+
+            <div class="main-content">
+                <div class="list-section-wrapper">
+                    <div id="listSection" class="list-section"></div>
+                </div>
+                <div id="synopsisPanel" class="synopsis-panel">
+                    <div class="synopsis-panel-header">
+                        <h3 id="synopsisPanelTitle">あらすじ</h3>
+                        <button
+                            id="synopsisPanelClose"
+                            class="synopsis-panel-close"
+                        >
+                            ×
+                        </button>
+                    </div>
+                    <div id="synopsisPanelBody" class="synopsis-panel-body">
+                        <p class="synopsis-empty">
+                            カードを右クリックするとあらすじを表示します
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-</div>
 
-<!-- 共通トースト（右上） -->
-<div id="synopsisToast" class="synopsis-toast" style="display: none;"></div>
+        <!-- 共通トースト（右上） -->
+        <div
+            id="synopsisToast"
+            class="synopsis-toast"
+            style="display: none"
+        ></div>
 
-<script src="config.js"></script>
-<script src="js/lib/sortable.min.js"></script>
-<script src="js/title-parser.js"></script>
-<script src="js/item-logic.js"></script>
-<script src="js/filter-logic.js"></script>
-<script src="js/synopsis-logic.js"></script>
-<script src="js/ui-logic.js"></script>
-<script src="js/app.js"></script>
-
-</body>
+        <script src="config.js"></script>
+        <script src="js/lib/sortable.min.js"></script>
+        <script src="js/title-parser.js"></script>
+        <script src="js/item-logic.js"></script>
+        <script src="js/filter-logic.js"></script>
+        <script src="js/synopsis-logic.js"></script>
+        <script src="js/ui-logic.js"></script>
+        <script src="js/app.js"></script>
+    </body>
 </html>

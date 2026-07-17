@@ -4,21 +4,21 @@
 
 ## 含まれるアプリ
 
-| アプリ | 概要 |
-|--------|------|
-| [URL Vault](url-vault/) | サムネイル付きカードでURLを管理する高密度タブマネージャー |
-| [WP Data Manager](wp-data-manager/) | Winning Post向けの系統・種牡馬データ管理ツール |
-| [SMART Vault](smart-vault/) | 外付けストレージのS.M.A.R.T.情報を一元管理する資産台帳 |
-| [Price Vault](price-vault/) | 買い物商品の最安値・最高値を記録・比較する価格メモ |
+| アプリ                              | 概要                                                      |
+| ----------------------------------- | --------------------------------------------------------- |
+| [URL Vault](url-vault/)             | サムネイル付きカードでURLを管理する高密度タブマネージャー |
+| [WP Data Manager](wp-data-manager/) | Winning Post向けの系統・種牡馬データ管理ツール            |
+| [SMART Vault](smart-vault/)         | 外付けストレージのS.M.A.R.T.情報を一元管理する資産台帳    |
+| [Price Vault](price-vault/)         | 買い物商品の最安値・最高値を記録・比較する価格メモ        |
 
 ## 共通仕様
 
-| 項目 | 内容 |
-|------|------|
-| 動作環境 | モダンブラウザ（Chrome, Firefox, Edge, Safari） |
-| サーバー | 不要（HTMLファイルを直接開く） |
-| 外部通信 | なし（完全オフライン動作） |
-| データ保存 | ブラウザ内（IndexedDB / sessionStorage） |
+| 項目       | 内容                                            |
+| ---------- | ----------------------------------------------- |
+| 動作環境   | モダンブラウザ（Chrome, Firefox, Edge, Safari） |
+| サーバー   | 不要（HTMLファイルを直接開く）                  |
+| 外部通信   | なし（完全オフライン動作）                      |
+| データ保存 | ブラウザ内（IndexedDB / sessionStorage）        |
 
 各アプリの詳細は各ディレクトリの README.md を参照してください。
 

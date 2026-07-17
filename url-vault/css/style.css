@@ -55,7 +55,7 @@ body {
     display: flex;
     gap: 6px;
 }
-.form-row input[type="text"] {
+.form-row input[type='text'] {
     flex: 1;
 }
 label {
@@ -64,7 +64,8 @@ label {
     font-size: 11px;
     color: #aaa;
 }
-input[type="text"], select {
+input[type='text'],
+select {
     width: 100%;
     padding: 6px;
     box-sizing: border-box;
@@ -107,11 +108,21 @@ button {
     font-size: 12px;
     white-space: nowrap;
 }
-button:hover { background-color: #0062a3; }
-.btn-success { background-color: #2e7d32; }
-.btn-success:hover { background-color: #1b5e20; }
-.btn-danger { background-color: #c62828; }
-.btn-danger:hover { background-color: #b71c1c; }
+button:hover {
+    background-color: #0062a3;
+}
+.btn-success {
+    background-color: #2e7d32;
+}
+.btn-success:hover {
+    background-color: #1b5e20;
+}
+.btn-danger {
+    background-color: #c62828;
+}
+.btn-danger:hover {
+    background-color: #b71c1c;
+}
 
 /* 入出力エリア用のスタイル */
 .io-textarea {
@@ -235,9 +246,16 @@ button:hover { background-color: #0062a3; }
     opacity: 0.5;
     padding: 0 2px;
 }
-.filter-btn .icon:hover { opacity: 1; }
-.filter-btn .edit-icon { right: 16px; }
-.filter-btn .delete-icon { right: 4px; color: #ff5252; }
+.filter-btn .icon:hover {
+    opacity: 1;
+}
+.filter-btn .edit-icon {
+    right: 16px;
+}
+.filter-btn .delete-icon {
+    right: 4px;
+    color: #ff5252;
+}
 .filter-btn .edit-input {
     width: 100%;
     padding: 0;
@@ -309,7 +327,9 @@ button:hover { background-color: #0062a3; }
     flex-direction: column;
     position: relative;
     cursor: pointer;
-    transition: border-color 0.15s, transform 0.15s;
+    transition:
+        border-color 0.15s,
+        transform 0.15s;
     user-select: none;
 }
 .card:hover {
@@ -436,7 +456,7 @@ button:hover { background-color: #0062a3; }
     flex-direction: column;
     overflow: hidden;
 }
-.synopsis-panel[style*="display: flex"] {
+.synopsis-panel[style*='display: flex'] {
     /* 表示時 */
 }
 .synopsis-panel-header {
@@ -577,12 +597,24 @@ button:hover { background-color: #0062a3; }
     animation: toast-out 0.2s ease-in forwards;
 }
 @keyframes toast-in {
-    from { transform: translateX(40px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+    from {
+        transform: translateX(40px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
 @keyframes toast-out {
-    from { transform: translateX(0); opacity: 1; }
-    to { transform: translateX(40px); opacity: 0; }
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(40px);
+        opacity: 0;
+    }
 }
 
 /* 右ペイン表示アニメーション */
@@ -590,14 +622,26 @@ button:hover { background-color: #0062a3; }
     animation: synopsis-slide-in 0.18s ease-out;
 }
 @keyframes synopsis-slide-in {
-    from { transform: translateX(20px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+    from {
+        transform: translateX(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
 /* 右ペイン非表示アニメーション */
 .synopsis-panel-close {
     animation: synopsis-slide-out 0.18s ease-in forwards;
 }
 @keyframes synopsis-slide-out {
-    from { transform: translateX(0); opacity: 1; }
-    to { transform: translateX(20px); opacity: 0; }
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(20px);
+        opacity: 0;
+    }
 }

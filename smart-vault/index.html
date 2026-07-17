@@ -1,82 +1,125 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <title>S.M.A.R.T. ストレージ資産管理台帳</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>💿</text></svg>">
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
+    <head>
+        <meta charset="UTF-8" />
+        <title>S.M.A.R.T. ストレージ資産管理台帳</title>
+        <link
+            rel="icon"
+            href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>💿</text></svg>"
+        />
+        <link rel="stylesheet" href="css/style.css" />
+    </head>
+    <body>
+        <div class="container">
+            <header>
+                <h1>
+                    S.M.A.R.T. ストレージ資産管理台帳
+                    <span class="subtitle"
+                        >常時接続しない手持ちストレージのスペック・状態記録用</span
+                    >
+                </h1>
+            </header>
 
-<div class="container">
-    <header>
-        <h1>S.M.A.R.T. ストレージ資産管理台帳 <span class="subtitle">常時接続しない手持ちストレージのスペック・状態記録用</span></h1>
-    </header>
+            <div class="control-panel">
+                <div class="paste-zone" id="pasteZone" tabindex="0">
+                    ここにフォーカスを合わせて JSON をペースト (Cmd+V / Ctrl+V)
+                </div>
+                <div class="btn-container">
+                    <button class="btn-success" id="rebuildBtn">
+                        全再読み込み（再構築）
+                    </button>
+                    <button class="btn-secondary" id="exportBtn">
+                        バックアップ保存
+                    </button>
+                    <label for="fileInput" class="file-input-label">復元</label>
+                    <input type="file" id="fileInput" accept=".json" />
+                    <button id="exportSummaryBtn">一覧をコピー</button>
+                    <button id="exportSelectedBtn">選択中を .json 出力</button>
+                </div>
+            </div>
 
-    <div class="control-panel">
-        <div class="paste-zone" id="pasteZone" tabindex="0">
-            ここにフォーカスを合わせて JSON をペースト (Cmd+V / Ctrl+V)
+            <div class="filter-section" id="filterContainer">
+                <button class="filter-btn active" data-filter="all">
+                    すべて (<span id="count-all">0</span>)
+                </button>
+                <button class="filter-btn" data-filter="nvme">
+                    NVMe (<span id="count-nvme">0</span>)
+                </button>
+                <button class="filter-btn" data-filter="sata-ssd">
+                    SATA SSD (<span id="count-sata-ssd">0</span>)
+                </button>
+                <button class="filter-btn" data-filter="sshd">
+                    SSHD (<span id="count-sshd">0</span>)
+                </button>
+                <button class="filter-btn" data-filter="hdd-25">
+                    HDD 2.5" (<span id="count-hdd-25">0</span>)
+                </button>
+                <button class="filter-btn" data-filter="hdd-35">
+                    HDD 3.5" (<span id="count-hdd-35">0</span>)
+                </button>
+                <button class="filter-btn" data-filter="emmc">
+                    eMMC (<span id="count-emmc">0</span>)
+                </button>
+                <button class="filter-btn" data-filter="unknown">
+                    不明 (<span id="count-unknown">0</span>)
+                </button>
+                <div class="view-toggle-group">
+                    <button class="view-toggle active" data-view="smart">
+                        SMART
+                    </button>
+                    <button class="view-toggle" data-view="bench">
+                        ベンチ
+                    </button>
+                </div>
+            </div>
+
+            <div class="storage-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 160px" data-sort="vendor">
+                                メーカー
+                            </th>
+                            <th style="width: 120px" data-sort="size_bytes">
+                                容量
+                            </th>
+                            <th data-sort="model">モデル名</th>
+                            <th style="width: 160px" data-sort="serial">S/N</th>
+                            <th style="width: 110px" data-sort="customType">
+                                分類
+                            </th>
+                            <th style="width: 120px" data-sort="severityScore">
+                                状態
+                            </th>
+                            <th style="width: 100px" data-sort="lifePercent">
+                                残り寿命
+                            </th>
+                            <th style="width: 140px" data-sort="tbw_val">
+                                総書込量
+                            </th>
+                            <th style="width: 200px" data-sort="hours_val">
+                                通電時間 / 電源回数
+                            </th>
+                            <th>メモ欄</th>
+                            <th style="width: 36px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="storageTbody"></tbody>
+                </table>
+            </div>
         </div>
-        <div class="btn-container">
-            <button class="btn-success" id="rebuildBtn">全再読み込み（再構築）</button>
-            <button class="btn-secondary" id="exportBtn">バックアップ保存</button>
-            <label for="fileInput" class="file-input-label">復元</label>
-            <input type="file" id="fileInput" accept=".json">
-            <button id="exportSummaryBtn">一覧をコピー</button>
-            <button id="exportSelectedBtn">選択中を .json 出力</button>
-        </div>
-    </div>
 
-    <div class="filter-section" id="filterContainer">
-        <button class="filter-btn active" data-filter="all">すべて (<span id="count-all">0</span>)</button>
-        <button class="filter-btn" data-filter="nvme">NVMe (<span id="count-nvme">0</span>)</button>
-        <button class="filter-btn" data-filter="sata-ssd">SATA SSD (<span id="count-sata-ssd">0</span>)</button>
-        <button class="filter-btn" data-filter="sshd">SSHD (<span id="count-sshd">0</span>)</button>
-        <button class="filter-btn" data-filter="hdd-25">HDD 2.5" (<span id="count-hdd-25">0</span>)</button>
-        <button class="filter-btn" data-filter="hdd-35">HDD 3.5" (<span id="count-hdd-35">0</span>)</button>
-        <button class="filter-btn" data-filter="emmc">eMMC (<span id="count-emmc">0</span>)</button>
-        <button class="filter-btn" data-filter="unknown">不明 (<span id="count-unknown">0</span>)</button>
-        <div class="view-toggle-group">
-            <button class="view-toggle active" data-view="smart">SMART</button>
-            <button class="view-toggle" data-view="bench">ベンチ</button>
-        </div>
-    </div>
+        <div id="toastNotification" class="toast-notification"></div>
 
-    <div class="storage-list">
-        <table>
-            <thead>
-                <tr>
-                    <th style="width: 160px;" data-sort="vendor">メーカー</th>
-                    <th style="width: 120px;" data-sort="size_bytes">容量</th>
-                    <th data-sort="model">モデル名</th>
-                    <th style="width: 160px;" data-sort="serial">S/N</th>
-                    <th style="width: 110px;" data-sort="customType">分類</th>
-                    <th style="width: 120px;" data-sort="severityScore">状態</th>
-                    <th style="width: 100px;" data-sort="lifePercent">残り寿命</th>
-                    <th style="width: 140px;" data-sort="tbw_val">総書込量</th>
-                    <th style="width: 200px;" data-sort="hours_val">通電時間 / 電源回数</th>
-                    <th>メモ欄</th>
-                    <th style="width: 36px;"></th>
-                </tr>
-            </thead>
-            <tbody id="storageTbody">
-                </tbody>
-        </table>
-    </div>
-</div>
-
-<div id="toastNotification" class="toast-notification"></div>
-
-<script src="js/lib/sortable.min.js"></script>
-<script src="js/format-logic.js"></script>
-<script src="js/vendor-logic.js"></script>
-<script src="js/parse-logic.js"></script>
-<script src="js/health-logic.js"></script>
-<script src="js/json-normalize-logic.js"></script>
-<script src="js/bench-logic.js"></script>
-<script src="js/record-logic.js"></script>
-<script src="js/summary-logic.js"></script>
-<script src="js/app.js"></script>
-
-</body>
+        <script src="js/lib/sortable.min.js"></script>
+        <script src="js/format-logic.js"></script>
+        <script src="js/vendor-logic.js"></script>
+        <script src="js/parse-logic.js"></script>
+        <script src="js/health-logic.js"></script>
+        <script src="js/json-normalize-logic.js"></script>
+        <script src="js/bench-logic.js"></script>
+        <script src="js/record-logic.js"></script>
+        <script src="js/summary-logic.js"></script>
+        <script src="js/app.js"></script>
+    </body>
 </html>
