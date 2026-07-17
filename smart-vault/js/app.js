@@ -163,7 +163,9 @@ const TOAST = {
     EXPORT_NO_SELECTION: 'レコードが選択されていません',
     BENCH_REGISTERED: 'ベンチ結果を登録しました',
     BENCH_INVALID: 'エラー: fio結果として認識できません',
-    BENCH_DELETED: 'ベンチマーク結果を削除しました'
+    BENCH_DELETED: 'ベンチマーク結果を削除しました',
+    SUMMARY_COPIED: 'クリップボードへコピーしました',
+    SUMMARY_EMPTY: 'レコードがありません'
 };
 
 // ============================================================
@@ -234,6 +236,7 @@ const {
     reorderRecordsByVisiblePosition,
     isValidSmartRecordList
 } = window.RECORD_LOGIC;
+const { buildStorageSummaryMarkdown } = window.SUMMARY_LOGIC;
 
 // ============================================================
 // S.M.A.R.T. パース（モジュールを束ねてレコード生成）
@@ -674,6 +677,22 @@ const exportSelectedToJson = () => {
     }
     downloadJsonFile(content, 'smart-selected.json');
     showToast(TOAST.EXPORTED_FILE);
+};
+
+// 全レコードを種別ごとにサマったMarkdownをクリップボードへコピー
+const copySummaryToClipboard = () => {
+    if (db.length === 0) {
+        showToast(TOAST.SUMMARY_EMPTY);
+        return;
+    }
+    const markdown = buildStorageSummaryMarkdown(db, TYPE_LABELS);
+    navigator.clipboard
+        .writeText(markdown)
+        .then(() => showToast(TOAST.SUMMARY_COPIED))
+        .catch((e) => {
+            console.error('クリップボードへのコピーに失敗しました', e);
+            showToast(TOAST.SAVE_FAIL);
+        });
 };
 
 // ============================================================
@@ -1548,6 +1567,9 @@ const bindStaticEvents = () => {
     document
         .getElementById('exportSelectedBtn')
         .addEventListener('click', exportSelectedToJson);
+    document
+        .getElementById('exportSummaryBtn')
+        .addEventListener('click', copySummaryToClipboard);
 
     // フィルタボタン
     document.querySelectorAll('.filter-btn').forEach((btn) => {
