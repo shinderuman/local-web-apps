@@ -11,7 +11,7 @@ const {
 } = require('../js/bench-logic.js');
 
 // テスト用の最小fio結果（seq/rand それぞれ jobs[0].read を持つ統合JSON）
-const makeFio = (seqRead, randRead) =>
+const makeFio = (seqRead, randRead, latencyRead) =>
     JSON.stringify({
         seq: {
             fio_version: 'fio-3.42',
@@ -20,7 +20,15 @@ const makeFio = (seqRead, randRead) =>
         rand: {
             fio_version: 'fio-3.42',
             jobs: [{ jobname: 'sata_rand', read: randRead }]
-        }
+        },
+        ...(latencyRead
+            ? {
+                  latency: {
+                      fio_version: 'fio-3.42',
+                      jobs: [{ jobname: 'sata_latency', read: latencyRead }]
+                  }
+              }
+            : {})
     });
 
 const sampleRead = {
@@ -61,8 +69,10 @@ test('isFioJson: 空文字・null は false', () => {
 // ============================================================
 // splitBench
 // ============================================================
-test('splitBench: 統合JSON を seq/rand 別々の compact 文字列に分割', () => {
-    const { seq, rand } = splitBench(makeFio(sampleRead, sampleRead));
+test('splitBench: 統合JSON を用途別の compact 文字列に分割', () => {
+    const { seq, rand, latency } = splitBench(
+        makeFio(sampleRead, sampleRead, sampleRead)
+    );
     assert.strictEqual(
         seq,
         JSON.stringify({
@@ -75,6 +85,13 @@ test('splitBench: 統合JSON を seq/rand 別々の compact 文字列に分割',
         JSON.stringify({
             fio_version: 'fio-3.42',
             jobs: [{ jobname: 'sata_rand', read: sampleRead }]
+        })
+    );
+    assert.strictEqual(
+        latency,
+        JSON.stringify({
+            fio_version: 'fio-3.42',
+            jobs: [{ jobname: 'sata_latency', read: sampleRead }]
         })
     );
 });
@@ -95,20 +112,44 @@ test('splitBench: 不正JSON は両方 null', () => {
 // parseBench
 // ============================================================
 test('parseBench: seq/rand の帯域・IOPS・p99レイテンシを抽出', () => {
-    const { seq, rand } = splitBench(
-        makeFio(sampleRead, {
-            bw_bytes: 15240958,
-            iops: 3720.937,
-            clat_ns: { percentile: { '99.000000': 4297640 } }
-        })
+    const { seq, rand, latency } = splitBench(
+        makeFio(
+            sampleRead,
+            {
+                bw_bytes: 15240958,
+                iops: 3720.937,
+                clat_ns: { percentile: { '99.000000': 4297640 } }
+            },
+            {
+                bw_bytes: 0,
+                iops: 5600,
+                clat_ns: { percentile: { '99.000000': 178000 } }
+            }
+        )
     );
-    const result = parseBench(seq, rand);
+    const result = parseBench(seq, rand, latency);
     assert.strictEqual(result.seqBwBytes, 360243752);
     assert.strictEqual(result.seqIops, 343.555);
     assert.strictEqual(result.seqClatP99Ns, 2907020);
     assert.strictEqual(result.randBwBytes, 15240958);
     assert.strictEqual(result.randIops, 3720.937);
     assert.strictEqual(result.randClatP99Ns, 4297640);
+    assert.strictEqual(result.latencyClatP99Ns, 178000);
+});
+
+test('parseBench: fio が us 単位で出力した p99 を ns に換算', () => {
+    const result = parseBench(
+        JSON.stringify({
+            jobs: [
+                {
+                    read: {
+                        clat_us: { percentile: { '99.000000': 250 } }
+                    }
+                }
+            ]
+        })
+    );
+    assert.strictEqual(result.seqClatP99Ns, 250000);
 });
 
 test('parseBench: seq/rand 両方 null なら null', () => {

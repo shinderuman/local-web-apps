@@ -31,7 +31,7 @@
         }
     };
 
-    // fio JSON の jobs[0].read から帯域・IOPS・平均レイテンシを抽出
+    // fio JSON の jobs[0].read から帯域・IOPS・p99完了レイテンシを抽出
     // 該当ジョブ・値がない場合は各フィールド 0
     // レイテンシは mean ではなく p99（99百分位数）を採用。外れ値を含む最悪応答性を評価するため
     const extractReadMetrics = (fioRoot) => {
@@ -39,22 +39,40 @@
         return {
             bwBytes: Number(read.bw_bytes || 0),
             iops: Number(read.iops || 0),
-            clatP99Ns: Number(read.clat_ns?.percentile?.['99.000000'] || 0)
+            clatP99Ns: extractP99LatencyNs(read)
         };
     };
 
-    // 統合JSON（{seq,rand}）を seq/rand 別々の compact JSON 文字列に分割
-    // 不正時は { seq: null, rand: null }
+    // fio のレイテンシ単位（ns/us/ms）をナノ秒へ統一して p99 を返す
+    const extractP99LatencyNs = (read) => {
+        const percentile = '99.000000';
+        if (read.clat_ns?.percentile?.[percentile]) {
+            return Number(read.clat_ns.percentile[percentile]);
+        }
+        if (read.clat_us?.percentile?.[percentile]) {
+            return Number(read.clat_us.percentile[percentile]) * 1e3;
+        }
+        if (read.clat_ms?.percentile?.[percentile]) {
+            return Number(read.clat_ms.percentile[percentile]) * 1e6;
+        }
+        return 0;
+    };
+
+    // 統合JSON（{seq,rand,latency}）を用途別の compact JSON 文字列に分割
+    // latency は旧形式との互換のため任意。不正時は全項目 null
     const splitBench = (text) => {
         try {
             const obj = JSON.parse(text);
-            if (!obj || !obj.seq || !obj.rand) return { seq: null, rand: null };
+            if (!obj || !obj.seq || !obj.rand) {
+                return { seq: null, rand: null, latency: null };
+            }
             return {
                 seq: JSON.stringify(obj.seq),
-                rand: JSON.stringify(obj.rand)
+                rand: JSON.stringify(obj.rand),
+                latency: obj.latency ? JSON.stringify(obj.latency) : null
             };
         } catch {
-            return { seq: null, rand: null };
+            return { seq: null, rand: null, latency: null };
         }
     };
 
@@ -71,18 +89,20 @@
         }
     };
 
-    // seq/rand 両方の compact 文字列から表示用サマリオブジェクトを抽出
-    const parseBench = (seqText, randText) => {
+    // seq/rand/latency の compact 文字列から表示用サマリオブジェクトを抽出
+    const parseBench = (seqText, randText, latencyText) => {
         const seq = parseBenchPart(seqText);
         const rand = parseBenchPart(randText);
-        if (!seq && !rand) return null;
+        const latency = parseBenchPart(latencyText);
+        if (!seq && !rand && !latency) return null;
         return {
             seqBwBytes: seq?.bwBytes || 0,
             seqIops: seq?.iops || 0,
             seqClatP99Ns: seq?.clatP99Ns || 0,
             randBwBytes: rand?.bwBytes || 0,
             randIops: rand?.iops || 0,
-            randClatP99Ns: rand?.clatP99Ns || 0
+            randClatP99Ns: rand?.clatP99Ns || 0,
+            latencyClatP99Ns: latency?.clatP99Ns || 0
         };
     };
 

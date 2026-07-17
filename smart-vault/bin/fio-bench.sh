@@ -4,8 +4,10 @@
 FIO_TEST_FILE=""
 FIO_SEQ_JSON=""
 FIO_RAND_JSON=""
+FIO_LATENCY_JSON=""
 FIO_SEQ_ERR=""
 FIO_RAND_ERR=""
+FIO_LATENCY_ERR=""
 FIO_MERGED_JSON=""
 
 # 最新の測定結果JSON（再コピー用。初回は空）
@@ -16,8 +18,10 @@ cleanup_on_exit() {
     [ -n "$FIO_TEST_FILE" ] && rm -f "$FIO_TEST_FILE"
     [ -n "$FIO_SEQ_JSON" ] && rm -f "$FIO_SEQ_JSON"
     [ -n "$FIO_RAND_JSON" ] && rm -f "$FIO_RAND_JSON"
+    [ -n "$FIO_LATENCY_JSON" ] && rm -f "$FIO_LATENCY_JSON"
     [ -n "$FIO_SEQ_ERR" ] && rm -f "$FIO_SEQ_ERR"
     [ -n "$FIO_RAND_ERR" ] && rm -f "$FIO_RAND_ERR"
+    [ -n "$FIO_LATENCY_ERR" ] && rm -f "$FIO_LATENCY_ERR"
     [ -n "$FIO_MERGED_JSON" ] && rm -f "$FIO_MERGED_JSON"
 }
 trap cleanup_on_exit EXIT
@@ -45,8 +49,8 @@ print_fio_error() {
     echo "-----------------------"
 }
 
-# 指定種類の seq/rand 用 fio パラメータを配列へ設定
-# 引数: kind(hdd/sata/nvme), mode(seq/rand), filename, 結果を格納する配列名
+# 指定種類の seq/rand/latency 用 fio パラメータを配列へ設定
+# 引数: kind(hdd/sata/nvme), mode(seq/rand/latency), filename, 結果を格納する配列名
 build_fio_args() {
     local kind="$1"
     local mode="$2"
@@ -71,7 +75,7 @@ build_fio_args() {
     case "$kind" in
         hdd)
             size="1G"
-            if [ "$mode" = "seq" ]; then
+            if [ "$mode" = "seq" ] || [ "$mode" = "latency" ]; then
                 iodepth=1
                 numjobs=1
             else
@@ -81,7 +85,7 @@ build_fio_args() {
             ;;
         sata)
             size="2G"
-            if [ "$mode" = "seq" ]; then
+            if [ "$mode" = "seq" ] || [ "$mode" = "latency" ]; then
                 iodepth=1
                 numjobs=1
             else
@@ -93,6 +97,9 @@ build_fio_args() {
             size="4G"
             if [ "$mode" = "seq" ]; then
                 iodepth=32
+                numjobs=1
+            elif [ "$mode" = "latency" ]; then
+                iodepth=1
                 numjobs=1
             else
                 iodepth=128
@@ -124,7 +131,7 @@ build_fio_args() {
     eval "$out_var=(\"\${args[@]}\")"
 }
 
-# 対象ボリュームの seq/rand リードを測定し、1つのJSONに統合してクリップボードへコピー
+# 対象ボリュームの seq/rand リードと低キュー深度レイテンシを測定し、1つのJSONに統合してクリップボードへコピー
 run_fio_bench() {
     local target_device="$1"
     local mount_point="$2"
@@ -147,15 +154,19 @@ run_fio_bench() {
     local test_file="${mount_point}/fio_test"
     seq_json=$(mktemp)
     rand_json=$(mktemp)
+    latency_json=$(mktemp)
     seq_err=$(mktemp)
     rand_err=$(mktemp)
+    latency_err=$(mktemp)
 
     # 中断時のクリーンアップ用にグローバル変数へ保持
     FIO_TEST_FILE="$test_file"
     FIO_SEQ_JSON="$seq_json"
     FIO_RAND_JSON="$rand_json"
+    FIO_LATENCY_JSON="$latency_json"
     FIO_SEQ_ERR="$seq_err"
     FIO_RAND_ERR="$rand_err"
+    FIO_LATENCY_ERR="$latency_err"
 
     # seq read 測定
     local seq_args=()
@@ -165,12 +176,14 @@ run_fio_bench() {
     if ! fio "${seq_args[@]}" > "$seq_json" 2> "$seq_err"; then
         echo "エラー: シーケンシャルリード測定に失敗しました。"
         print_fio_error "$seq_json" "$seq_err"
-        rm -f "$test_file" "$seq_json" "$rand_json" "$seq_err" "$rand_err"
+        rm -f "$test_file" "$seq_json" "$rand_json" "$latency_json" "$seq_err" "$rand_err" "$latency_err"
         FIO_TEST_FILE=""
         FIO_SEQ_JSON=""
         FIO_RAND_JSON=""
+        FIO_LATENCY_JSON=""
         FIO_SEQ_ERR=""
         FIO_RAND_ERR=""
+        FIO_LATENCY_ERR=""
         return 1
     fi
 
@@ -182,12 +195,33 @@ run_fio_bench() {
     if ! fio "${rand_args[@]}" > "$rand_json" 2> "$rand_err"; then
         echo "エラー: ランダムリード測定に失敗しました。"
         print_fio_error "$rand_json" "$rand_err"
-        rm -f "$test_file" "$seq_json" "$rand_json" "$seq_err" "$rand_err"
+        rm -f "$test_file" "$seq_json" "$rand_json" "$latency_json" "$seq_err" "$rand_err" "$latency_err"
         FIO_TEST_FILE=""
         FIO_SEQ_JSON=""
         FIO_RAND_JSON=""
+        FIO_LATENCY_JSON=""
         FIO_SEQ_ERR=""
         FIO_RAND_ERR=""
+        FIO_LATENCY_ERR=""
+        return 1
+    fi
+
+    # 低キュー深度ランダムリードで応答性を測定
+    local latency_args=()
+    build_fio_args "$kind" "latency" "$test_file" "latency_args"
+    echo "$target_device で低キュー深度ランダムリードのレイテンシ測定を開始..."
+    echo "  fio ${latency_args[*]}"
+    if ! fio "${latency_args[@]}" > "$latency_json" 2> "$latency_err"; then
+        echo "エラー: レイテンシ測定に失敗しました。"
+        print_fio_error "$latency_json" "$latency_err"
+        rm -f "$test_file" "$seq_json" "$rand_json" "$latency_json" "$seq_err" "$rand_err" "$latency_err"
+        FIO_TEST_FILE=""
+        FIO_SEQ_JSON=""
+        FIO_RAND_JSON=""
+        FIO_LATENCY_JSON=""
+        FIO_SEQ_ERR=""
+        FIO_RAND_ERR=""
+        FIO_LATENCY_ERR=""
         return 1
     fi
 
@@ -195,7 +229,7 @@ run_fio_bench() {
     local merged_json
     merged_json=$(mktemp)
     FIO_MERGED_JSON="$merged_json"
-    if ! jq -n --slurpfile seq "$seq_json" --slurpfile rand "$rand_json" '{seq:$seq[0], rand:$rand[0]}' > "$merged_json" 2>/dev/null; then
+    if ! jq -n --slurpfile seq "$seq_json" --slurpfile rand "$rand_json" --slurpfile latency "$latency_json" '{seq:$seq[0], rand:$rand[0], latency:$latency[0]}' > "$merged_json" 2>/dev/null; then
         echo "エラー: 測定結果JSONの統合に失敗しました。fio出力が不正な可能性があります。"
         echo "--- seqメッセージ ---"
         cat "$seq_err" 2>/dev/null
@@ -206,23 +240,27 @@ run_fio_bench() {
         echo "--- rand出力(compact) ---"
         jq -c . "$rand_json" 2>/dev/null || cat "$rand_json"
         echo "---------------------------"
-        rm -f "$test_file" "$seq_json" "$rand_json" "$seq_err" "$rand_err" "$merged_json"
+        rm -f "$test_file" "$seq_json" "$rand_json" "$latency_json" "$seq_err" "$rand_err" "$latency_err" "$merged_json"
         FIO_TEST_FILE=""
         FIO_SEQ_JSON=""
         FIO_RAND_JSON=""
+        FIO_LATENCY_JSON=""
         FIO_SEQ_ERR=""
         FIO_RAND_ERR=""
+        FIO_LATENCY_ERR=""
         FIO_MERGED_JSON=""
         return 1
     fi
     # 統合JSONを最新結果として保持（再コピー用）
     LATEST_JSON=$(cat "$merged_json")
-    rm -f "$test_file" "$seq_json" "$rand_json" "$seq_err" "$rand_err" "$merged_json"
+    rm -f "$test_file" "$seq_json" "$rand_json" "$latency_json" "$seq_err" "$rand_err" "$latency_err" "$merged_json"
     FIO_TEST_FILE=""
     FIO_SEQ_JSON=""
     FIO_RAND_JSON=""
+    FIO_LATENCY_JSON=""
     FIO_SEQ_ERR=""
     FIO_RAND_ERR=""
+    FIO_LATENCY_ERR=""
     FIO_MERGED_JSON=""
     echo "ベンチマーク測定が完了しました。"
     echo "-------------------------------------"

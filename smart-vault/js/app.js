@@ -69,7 +69,10 @@ const SORT_INDEX_MAP = {
     severityScore: 5,
     lifePercent: 6,
     tbw_val: 7,
-    hours_val: 8
+    hours_val: 8,
+    seqBw: 6,
+    randIops: 7,
+    randClat: 8
 };
 
 // バックアップファイル名
@@ -290,6 +293,9 @@ const parseSmartJson = (rawText, existingRecord = null) => {
     const id = existingRecord ? existingRecord.id : Number(Date.now());
     const benchSeq = existingRecord ? existingRecord.benchSeq : undefined;
     const benchRand = existingRecord ? existingRecord.benchRand : undefined;
+    const benchLatency = existingRecord
+        ? existingRecord.benchLatency
+        : undefined;
 
     if (!vendor) vendor = detectVendor(data, model);
     const detected = detectCustomType(
@@ -346,7 +352,8 @@ const parseSmartJson = (rawText, existingRecord = null) => {
         customType,
         raw: compactRaw(rawText),
         ...(benchSeq !== undefined ? { benchSeq } : {}),
-        ...(benchRand !== undefined ? { benchRand } : {})
+        ...(benchRand !== undefined ? { benchRand } : {}),
+        ...(benchLatency !== undefined ? { benchLatency } : {})
     };
 };
 
@@ -416,7 +423,7 @@ const upsertRecord = (rawText) => {
     showToast(isUpdate ? TOAST.PARSE_UPDATED : TOAST.PARSE_OK);
 };
 
-// 選択中レコード（1件）に fio ベンチ結果を登録（seq/rand を分けて保存）
+// 選択中レコード（1件）に fio ベンチ結果を登録（用途別に保存）
 const registerBench = (rawText) => {
     if (!isFioJson(rawText)) {
         showToast(TOAST.BENCH_INVALID);
@@ -425,9 +432,14 @@ const registerBench = (rawText) => {
     const id = [...uiState.selectedIds][0];
     const idx = db.findIndex((item) => item.id === id);
     if (idx === -1) return;
-    const { seq, rand } = splitBench(rawText);
+    const { seq, rand, latency } = splitBench(rawText);
     db[idx].benchSeq = seq;
     db[idx].benchRand = rand;
+    if (latency) {
+        db[idx].benchLatency = latency;
+    } else {
+        delete db[idx].benchLatency;
+    }
     db[idx].updatedAt = new Date().toLocaleString();
     saveDb();
     renderTable();
@@ -505,6 +517,7 @@ const deleteBench = (id) => {
     if (idx === -1) return;
     delete db[idx].benchSeq;
     delete db[idx].benchRand;
+    delete db[idx].benchLatency;
     saveDb();
     renderTable();
     showToast(TOAST.BENCH_DELETED);
@@ -898,14 +911,18 @@ const getDisplayItems = () => {
         const BENCH_SORT_KEYS = {
             seqBw: 'seqBwBytes',
             randIops: 'randIops',
-            randClat: 'randClatP99Ns'
+            randClat: 'latencyClatP99Ns'
         };
         const benchKey = BENCH_SORT_KEYS[viewState.sortField];
         if (benchKey) {
             const enriched = db.map((item) => {
                 const bench =
-                    item.benchSeq || item.benchRand
-                        ? parseBench(item.benchSeq, item.benchRand)
+                    item.benchSeq || item.benchRand || item.benchLatency
+                        ? parseBench(
+                              item.benchSeq,
+                              item.benchRand,
+                              item.benchLatency
+                          )
                         : null;
                 return {
                     ...item,
@@ -973,8 +990,8 @@ const createBenchMetricCell = (bwBytes, iops, rate) => {
 // Seq読込セル（Seq帯域の評価で値を囲う）
 const createBenchSeqCell = (item) => {
     const bench =
-        item.benchSeq || item.benchRand
-            ? parseBench(item.benchSeq, item.benchRand)
+        item.benchSeq || item.benchRand || item.benchLatency
+            ? parseBench(item.benchSeq, item.benchRand, item.benchLatency)
             : null;
     if (!bench) {
         const td = document.createElement('td');
@@ -991,8 +1008,8 @@ const createBenchSeqCell = (item) => {
 // Rand読込セル（Rand IOPSの評価で値を囲う）
 const createBenchRandCell = (item) => {
     const bench =
-        item.benchSeq || item.benchRand
-            ? parseBench(item.benchSeq, item.benchRand)
+        item.benchSeq || item.benchRand || item.benchLatency
+            ? parseBench(item.benchSeq, item.benchRand, item.benchLatency)
             : null;
     if (!bench) {
         const td = document.createElement('td');
@@ -1006,22 +1023,26 @@ const createBenchRandCell = (item) => {
     );
 };
 
-// レイテンシセル（Seq/Rand の平均レイテンシを Randレイテンシの評価で囲う）
+// レイテンシセル（低キュー深度ランダム読込の p99 を評価して表示）
 const createBenchLatencyCell = (item) => {
     const td = document.createElement('td');
     const bench =
-        item.benchSeq || item.benchRand
-            ? parseBench(item.benchSeq, item.benchRand)
+        item.benchSeq || item.benchRand || item.benchLatency
+            ? parseBench(item.benchSeq, item.benchRand, item.benchLatency)
             : null;
     if (!bench) {
         td.innerText = '—';
         return td;
     }
+    if (!bench.latencyClatP99Ns) {
+        td.innerText = '—';
+        return td;
+    }
     const wrap = document.createElement('div');
     wrap.className = 'bench-latency';
-    const latencyRate = rateLatency(bench.randClatP99Ns, item.customType);
+    const latencyRate = rateLatency(bench.latencyClatP99Ns, item.customType);
     if (latencyRate) wrap.classList.add(`bench-rate-${latencyRate}`);
-    wrap.innerText = `Seq ${formatLatency(bench.seqClatP99Ns)} / Rand ${formatLatency(bench.randClatP99Ns)}`;
+    wrap.innerText = `Rand 4KiB p99 ${formatLatency(bench.latencyClatP99Ns)}`;
     td.appendChild(wrap);
     return td;
 };
@@ -1337,8 +1358,8 @@ const createCopyJsonButton = (rawText, label) => {
 
 // 詳細画面にベンチ結果ブロック（サマリ + Seq/Rand コピー + ベンチ削除）を追加
 const appendBenchBlock = (container, item) => {
-    if (!item.benchSeq && !item.benchRand) return;
-    const bench = parseBench(item.benchSeq, item.benchRand);
+    if (!item.benchSeq && !item.benchRand && !item.benchLatency) return;
+    const bench = parseBench(item.benchSeq, item.benchRand, item.benchLatency);
     if (!bench) return;
 
     const block = document.createElement('div');
@@ -1354,10 +1375,11 @@ const appendBenchBlock = (container, item) => {
     const fields = [
         ['Seq 帯域', formatBw(bench.seqBwBytes)],
         ['Seq IOPS', formatIops(bench.seqIops)],
-        ['Seq p99レイテンシ', formatLatency(bench.seqClatP99Ns)],
+        ['Seq負荷時 p99レイテンシ', formatLatency(bench.seqClatP99Ns)],
         ['Rand 帯域', formatBw(bench.randBwBytes)],
         ['Rand IOPS', formatIops(bench.randIops)],
-        ['Rand p99レイテンシ', formatLatency(bench.randClatP99Ns)]
+        ['Rand負荷時 p99レイテンシ', formatLatency(bench.randClatP99Ns)],
+        ['Rand 4KiB p99レイテンシ', formatLatency(bench.latencyClatP99Ns)]
     ];
     fields.forEach(([label, value]) => appendDetailField(grid, label, value));
     block.appendChild(grid);
@@ -1370,6 +1392,10 @@ const appendBenchBlock = (container, item) => {
     if (item.benchRand)
         actions.appendChild(
             createCopyJsonButton(item.benchRand, '📋 Rand Copy')
+        );
+    if (item.benchLatency)
+        actions.appendChild(
+            createCopyJsonButton(item.benchLatency, '📋 Latency Copy')
         );
     const benchDelBtn = document.createElement('button');
     benchDelBtn.className = 'btn-danger btn-mini';
