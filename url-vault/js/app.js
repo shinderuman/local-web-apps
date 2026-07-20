@@ -140,6 +140,23 @@ const refreshDataView = () => {
 };
 
 // ============================================================
+// 純粋関数（関連する *-logic.js ができたら移設）
+// ============================================================
+
+// ペーストテキストを行に分割（前後の空白削除・空行除去）
+const splitPasteLines = (pastedText) =>
+    pastedText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
+// ImageData の指定座標の色を RGB の整数値で取得
+const sampleColor = (data, width, x, y) => {
+    const i = (y * width + x) * 4;
+    return (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+};
+
+// ============================================================
 // UI 状態の保存と復元（sessionStorage）
 // ============================================================
 
@@ -542,11 +559,6 @@ const renderSaveBtn = () => {
 // ============================================================
 // 画像処理ユーティリティ
 // ============================================================
-
-const sampleColor = (data, width, x, y) => {
-    const i = (y * width + x) * 4;
-    return (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
-};
 
 const trimBackground = (img) => {
     const canvas = document.createElement('canvas');
@@ -1036,18 +1048,21 @@ const handleImagePaste = (e) => {
     }
 };
 
+// 2行目がURLの場合のみタイトルとURLをアイテム登録欄にセット
+const setFormItemFieldsFromLines = (lines) => {
+    if (lines.length < 2 || !lines[1].startsWith('http')) return false;
+    document.getElementById('title').value = lines[0];
+    document.getElementById('url').value = lines[1];
+    return true;
+};
+
 const handleTwoLinePaste = (e) => {
     const pastedText = (e.clipboardData || window.clipboardData).getData(
         'text'
     );
-    const lines = pastedText
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-    if (lines.length >= 2 && lines[1].startsWith('http')) {
+    const lines = splitPasteLines(pastedText);
+    if (setFormItemFieldsFromLines(lines)) {
         e.preventDefault();
-        document.getElementById('title').value = lines[0];
-        document.getElementById('url').value = lines[1];
     }
 };
 
@@ -1761,16 +1776,16 @@ document.getElementById('searchInput').addEventListener('paste', (e) => {
     const pastedText = (e.clipboardData || window.clipboardData).getData(
         'text'
     );
-    const lines = pastedText
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
+    const lines = splitPasteLines(pastedText);
     if (lines.length < 2) return;
     e.preventDefault();
     const searchQuery = parseBaseTitle(lines[0]);
     e.target.value = searchQuery;
     filterState.searchQuery = searchQuery;
     renderList({ resetScroll: true });
+    // 副次的作用: 未登録時の登録作業に備え、タイトルと2行目を事前入力
+    document.getElementById('title').value = lines[0];
+    document.getElementById('url').value = lines[1];
 });
 
 // セレクトボックス
