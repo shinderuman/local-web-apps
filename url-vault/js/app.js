@@ -1289,7 +1289,7 @@ const startEditFilter = (id, storeName, currentName, btnElement) => {
 
     input.onblur = finishEdit;
     input.onkeydown = (e) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !e.isComposing) {
             input.onblur = null;
             finishEdit();
         }
@@ -1797,23 +1797,11 @@ document
 document
     .getElementById('addWindowBtn')
     .addEventListener('click', executeAddWindow);
-document.getElementById('newWindowInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        executeAddWindow();
-    }
-});
 
 // グループ追加
 document
     .getElementById('addGroupBtn')
     .addEventListener('click', executeAddGroup);
-document.getElementById('newGroupInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        executeAddGroup();
-    }
-});
 
 // ペースト
 document.getElementById('title').addEventListener('paste', (e) => {
@@ -1839,20 +1827,6 @@ document.getElementById('url').addEventListener('paste', (e) => {
     if (hasImage && !hasPlainText) handleImagePaste(e);
 });
 pasteArea.addEventListener('paste', handleImagePaste);
-
-// Enter で保存
-document.getElementById('title').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        saveItem();
-    }
-});
-document.getElementById('url').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        saveItem();
-    }
-});
 
 // 保存
 document.getElementById('saveBtn').addEventListener('click', saveItem);
