@@ -5,5 +5,11 @@ url-vault/config.js
 .DS_Store
 .claude/
 
+# ディスク修復ツールのロック状態（ローカル専用）
+smart-vault/bin/locks.txt
+
+# fio の verify state ファイル（検証時等に生成される実行時ゴミ）
+*.state
+
 # Node.js依存パッケージ
 node_modules/
