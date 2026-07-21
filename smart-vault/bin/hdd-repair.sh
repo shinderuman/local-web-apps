@@ -97,30 +97,81 @@ plist_value() {
     plutil -extract "$key" raw -o - "$plist" 2>/dev/null
 }
 
-# ディスク容量と論理ブロックサイズから、容量を割り切れるブロックサイズを選ぶ。
-# デフォルト 64KiB から始め、割り切れない場合は半減し、論理ブロックサイズ未満にならない範囲で選ぶ。
-# 引数: 容量（bytes）, 論理ブロックサイズ（bytes）
-choose_io_bs() {
+# bs 選択肢（fio の --bs へ渡す文字列）
+BS_OPTIONS=("64k" "256k" "1m" "4m")
+
+# bs ごとの書込帯域（MiB/s）。1m は実測（≈36）、64k は実測 IOPS から換算（≈5）、256k/4m は外挿の暫定値。
+bs_write_mibps() {
+    case "$1" in
+        64k) echo 5 ;;
+        256k) echo 25 ;;
+        1m) echo 36 ;;
+        4m) echo 36 ;;
+        *) return 1 ;;
+    esac
+}
+
+# bs ごとの検証（読戻し）帯域（MiB/s）。実測がまだ不安定なため安全側の暫定値。
+bs_verify_mibps() {
+    case "$1" in
+        64k) echo 5 ;;
+        256k) echo 20 ;;
+        1m) echo 20 ;;
+        4m) echo 20 ;;
+        *) return 1 ;;
+    esac
+}
+
+# bs 文字列（64k/256k/1m/4m）をバイト数へ変換
+bs_to_bytes() {
+    case "$1" in
+        64k) echo 65536 ;;
+        256k) echo 262144 ;;
+        1m) echo 1048576 ;;
+        4m) echo 4194304 ;;
+        *) return 1 ;;
+    esac
+}
+
+# 秒数を「N日 HH:MM:SS」表記へ整形
+format_duration() {
+    local total="$1"
+    local days=$(( total / 86400 ))
+    local h=$(( (total % 86400) / 3600 ))
+    local m=$(( (total % 3600) / 60 ))
+    local s=$(( total % 60 ))
+    if [ "$days" -gt 0 ]; then
+        printf '%d日 %02d:%02d:%02d' "$days" "$h" "$m" "$s"
+    else
+        printf '%02d:%02d:%02d' "$h" "$m" "$s"
+    fi
+}
+
+# ディスク容量と bs から、書込＋検証の2フェーズ分の概算所要時間（秒）を見積もる。
+# 書込と検証は速度特性が異なるため帯域を別々に持つ。実測が揃っていない bs は暫定値で、あくまで目安。
+# 引数: 容量（bytes）, bs 文字列
+estimate_runtime_sec() {
     local disk_size="$1"
-    local logical_block_size="$2"
-    local bs=65536
+    local bs_str="$2"
+    local write_mibps verify_mibps
+    write_mibps=$(bs_write_mibps "$bs_str") || return 1
+    verify_mibps=$(bs_verify_mibps "$bs_str") || return 1
+    awk -v size="$disk_size" -v w="$write_mibps" -v v="$verify_mibps" \
+        'BEGIN { printf "%.0f", size / (w * 1048576) + size / (v * 1048576) }'
+}
 
-    if [[ ! "$logical_block_size" =~ ^[0-9]+$ ]] ||
-       [ "$logical_block_size" -le 0 ] ||
-       [ "$((disk_size % logical_block_size))" -ne 0 ]; then
-        return 1
-    fi
-
-    while [ "$bs" -gt "$logical_block_size" ] &&
-          [ "$((disk_size % bs))" -ne 0 ]; do
-        bs=$((bs / 2))
-    done
-
-    if [ "$((bs % logical_block_size))" -ne 0 ] ||
-       [ "$((disk_size % bs))" -ne 0 ]; then
-        return 1
-    fi
-    printf '%s\n' "$bs"
+# バイト数を3桁ごとにカンマ区切りへ整形（数値変換せず文字列として処理）
+format_bytes_with_commas() {
+    awk 'BEGIN {
+        s = ARGV[1]
+        result = ""
+        while (length(s) > 3) {
+            result = "," substr(s, length(s) - 2) result
+            s = substr(s, 1, length(s) - 3)
+        }
+        print s result
+        exit
+    }' "$1"
 }
 
 # diskutil info の plist を1回取得し、主要情報を Unit Separator 区切りで出力。
@@ -245,12 +296,14 @@ persist_locks() {
 #   $2 選択時のモデル名（実行直前の再照合用）
 #   $3 選択時の総容量（実行直前の再照合用）
 #   $4 選択時のプロトコル（実行直前の再照合用）
+#   $5 bs（fio の --bs へ渡す文字列。64k/256k/1m/4m）
 # 戻り値: 0=成功 / 1=異常・対象変化など / 2=I/O・検証エラー検出
 run_repair() {
     local device="$1"
     local sel_model="$2"
     local sel_size="$3"
     local sel_protocol="$4"
+    local io_bs="$5"
     local raw_device="/dev/r$device"
     local block_device="/dev/$device"
 
@@ -277,11 +330,23 @@ run_repair() {
     fi
 
     local disk_size="$now_size"
-    local io_bs
-    if ! io_bs=$(choose_io_bs "$disk_size" "$now_block_size"); then
-        echo "ブロックサイズを決定できませんでした（容量=$disk_size / 論理block=$now_block_size）"
+
+    # bs の整合性確認（アンマウント前）: 実バイト数へ変換し、論理ブロックサイズの倍数であることを確認
+    local io_bs_bytes
+    if ! io_bs_bytes=$(bs_to_bytes "$io_bs"); then
+        echo "不正なブロックサイズです: $io_bs"
         return 1
     fi
+    if [ $((io_bs_bytes % now_block_size)) -ne 0 ]; then
+        echo "選択したブロックサイズが論理ブロックサイズの倍数ではありません。"
+        echo "  bs=$io_bs_bytes / logical=$now_block_size"
+        return 1
+    fi
+
+    echo "disk size:    $(format_bytes_with_commas "$disk_size") bytes ($(human_size "$disk_size"))"
+    echo "io block:     $io_bs ($(format_bytes_with_commas "$io_bs_bytes") bytes / logical block=$(format_bytes_with_commas "$now_block_size") bytes)"
+    echo "target(raw):  $raw_device"
+    echo "-------------------------------------"
 
     # ディスク全体を強制アンマウント（使用中でも解除。書込失敗を防ぐ）
     if ! sudo diskutil unmountDisk force "$block_device" >/dev/null 2>&1; then
@@ -295,11 +360,6 @@ run_repair() {
         return 1
     fi
 
-    echo "disk size:    $disk_size bytes ($(human_size "$disk_size"))"
-    echo "io block:     $io_bs bytes (logical block=$now_block_size)"
-    echo "target(raw):  $raw_device"
-    echo "-------------------------------------"
-
     # fio は root 権限で動くため、結果ファイルをユーザー権限で事前作成しておく。
     # fio は既存ファイルへ書き込むため所有者・権限が維持され、後続の awk/jq が確実に読める。
     : > "$fio_output" || {
@@ -309,7 +369,8 @@ run_repair() {
 
     # fio 実行（フォアグラウンド。1回で書込＋CRC検証を完結）
     # --time_based/--runtime は verify フェーズが走らなくなるため使わない
-    # --direct=1 で直接書込するため fsync 不要。end_fsync は raw デバイスで ENOTTY を起こすため付けない
+    # --direct=1 で非バッファ I/O を行う。
+    # end_fsync は macOS の raw デバイスで ENOTTY になるため付けない。
     # --allow_file_create=0 で raw デバイス消失時に新規ファイル作成を防ぐ
     # --verify_state_save=0 で中断時の verify state ファイル（再利用しない）を出さない
     # --output=<file> で結果JSONを別ファイルへ出すと、stdout へ ETA 進捗
@@ -386,15 +447,17 @@ run_repair() {
     echo "fio exit:       $fio_status"
     echo "first error:    $first_error"
     echo "total errors:   $total_errors"
-    echo "written bytes:  $write_bytes / $disk_size"
-    echo "verified bytes: $read_bytes / $disk_size"
+    echo "written bytes:  $(format_bytes_with_commas "$write_bytes") / $(format_bytes_with_commas "$disk_size")"
+    echo "verified bytes: $(format_bytes_with_commas "$read_bytes") / $(format_bytes_with_commas "$disk_size")"
 
     # 最初のエラーまたは総エラー数があれば I/O・検証エラー検出（書込/検証の到達状況で表示切り分け）
     if [ "$first_error" -gt 0 ] || [ "$total_errors" -gt 0 ]; then
         if [ "$write_bytes" -eq "$disk_size" ] && [ "$read_bytes" -eq "$disk_size" ]; then
             echo "repair pass completed with errors: I/O・検証エラーを検出しました"
+        elif [ "$write_bytes" -eq "$disk_size" ] && [ "$read_bytes" -eq 0 ]; then
+            echo "repair pass ended with errors: 全域書込後にエラーが発生し、検証フェーズへ到達できませんでした"
         elif [ "$read_bytes" -eq 0 ]; then
-            echo "repair pass ended with errors: 書込後にエラー発生、検証フェーズへ到達できませんでした"
+            echo "repair pass ended with errors: 書込中にエラーが発生し、検証フェーズへ到達できませんでした"
         else
             echo "repair pass ended with errors: I/O・検証エラーと転送量不足を検出しました"
         fi
@@ -520,8 +583,28 @@ main() {
             continue
         fi
 
-        # 実行確認
+        # bs 選択メニュー（各 bs ごとの概算所要時間を表示）
+        local target_size="${disk_sizes[$cursor]}"
+        local bs_options=()
+        local b
+        for b in "${BS_OPTIONS[@]}"; do
+            local eta
+            eta=$(estimate_runtime_sec "$target_size" "$b")
+            bs_options+=("$b (概算: $(format_duration "$eta"))")
+        done
+        bs_options+=("戻る")
+        select_menu "=== ブロックサイズを選択（大きいほど高速になりやすいが、エラー粒度は粗くなる） ===" "${bs_options[@]}"
+        local bs_choice=$?
+        if [ "$bs_choice" -eq $((${#bs_options[@]} - 1)) ]; then
+            echo "キャンセルしました。"
+            echo "-------------------------------------"
+            continue
+        fi
+        local sel_bs="${BS_OPTIONS[$bs_choice]}"
+
+        # 最終実行確認（bs 選択後）
         echo "対象: ${options[$cursor]}"
+        echo "ブロックサイズ: $sel_bs"
         echo "このディスク全体のデータは全て失われます。よろしいですか？ [y/N]"
         local confirm
         read -r confirm
@@ -543,7 +626,8 @@ main() {
             "${selectable_disks[$cursor]}" \
             "${disk_models[$cursor]}" \
             "${disk_sizes[$cursor]}" \
-            "${disk_protocols[$cursor]}"
+            "${disk_protocols[$cursor]}" \
+            "$sel_bs"
         repair_status=$?
         echo "-------------------------------------"
         break
