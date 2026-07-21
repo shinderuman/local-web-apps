@@ -313,7 +313,7 @@ run_repair() {
     # --allow_file_create=0 で raw デバイス消失時に新規ファイル作成を防ぐ
     # --verify_state_save=0 で中断時の verify state ファイル（再利用しない）を出さない
     # --output=<file> で結果JSONを別ファイルへ出すと、stdout へ ETA 進捗
-    # （%・速度・IOPS・残り時間・フェーズ）が表示される
+    # （%・速度・IOPS・残り時間・フェーズ）が同一行を更新して表示される
     local fio_args=(
         --name=surface-repair
         --filename="$raw_device"
@@ -333,8 +333,6 @@ run_repair() {
         --output-format=json
         --output="$fio_output"
         --eta=always
-        --eta-interval=2s
-        --eta-newline=2s
     )
     local fio_status
     LC_ALL=C sudo "$FIO_BIN" "${fio_args[@]}" 2>"$fio_err"
