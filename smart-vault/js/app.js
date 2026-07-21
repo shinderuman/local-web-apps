@@ -444,6 +444,7 @@ const registerBench = (rawText) => {
     saveDb();
     renderTable();
     highlightRow(id);
+    clearSelection();
     showToast(TOAST.BENCH_REGISTERED);
 };
 
