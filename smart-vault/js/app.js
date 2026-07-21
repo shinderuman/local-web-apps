@@ -488,7 +488,9 @@ const rebuildDatabaseFromRaw = () => {
         // 手動レコード・raw未保持レコードは再構築対象外（そのまま維持）
         if (!oldRecord.raw) return oldRecord;
         try {
-            return parseSmartJson(oldRecord.raw, oldRecord);
+            // 再構築は内容の再パースが目的なので最終更新日時は維持する
+            const rebuilt = parseSmartJson(oldRecord.raw, oldRecord);
+            return { ...rebuilt, updatedAt: oldRecord.updatedAt };
         } catch {
             return oldRecord;
         }
