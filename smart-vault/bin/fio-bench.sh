@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# fio-bench.sh — マウント中ボリュームの Seq/Rand/Latency を測定し JSON をクリップボードへコピー
+# 詳細は README.md を参照。
+# 導入: brew install fio jq
+# 終了コード: 0=成功・メニューから終了 / 1=異常
+
 # fio テストファイル・一時ファイルのパス（中断時のクリーンアップ用グローバル変数）
 FIO_TEST_FILE=""
 FIO_SEQ_JSON=""
@@ -139,13 +144,13 @@ run_fio_bench() {
 
     # fio と jq の存在確認
     if ! command -v fio >/dev/null 2>&1; then
-        echo "エラー: fio がインストールされていません。'brew install fio' で導入してください。"
+        warn "fio がインストールされていません。'brew install fio' で導入してください。"
         echo "-------------------------------------"
         echo ""
         return 1
     fi
     if ! command -v jq >/dev/null 2>&1; then
-        echo "エラー: jq がインストールされていません。'brew install jq' で導入してください。"
+        warn "jq がインストールされていません。'brew install jq' で導入してください。"
         echo "-------------------------------------"
         echo ""
         return 1
@@ -174,7 +179,7 @@ run_fio_bench() {
     echo "$target_device でシーケンシャルリード測定を開始..."
     echo "  fio ${seq_args[*]}"
     if ! fio "${seq_args[@]}" > "$seq_json" 2> "$seq_err"; then
-        echo "エラー: シーケンシャルリード測定に失敗しました。"
+        warn "シーケンシャルリード測定に失敗しました。"
         print_fio_error "$seq_json" "$seq_err"
         rm -f "$test_file" "$seq_json" "$rand_json" "$latency_json" "$seq_err" "$rand_err" "$latency_err"
         FIO_TEST_FILE=""
@@ -193,7 +198,7 @@ run_fio_bench() {
     echo "$target_device でランダムリード測定を開始..."
     echo "  fio ${rand_args[*]}"
     if ! fio "${rand_args[@]}" > "$rand_json" 2> "$rand_err"; then
-        echo "エラー: ランダムリード測定に失敗しました。"
+        warn "ランダムリード測定に失敗しました。"
         print_fio_error "$rand_json" "$rand_err"
         rm -f "$test_file" "$seq_json" "$rand_json" "$latency_json" "$seq_err" "$rand_err" "$latency_err"
         FIO_TEST_FILE=""
@@ -212,7 +217,7 @@ run_fio_bench() {
     echo "$target_device で低キュー深度ランダムリードのレイテンシ測定を開始..."
     echo "  fio ${latency_args[*]}"
     if ! fio "${latency_args[@]}" > "$latency_json" 2> "$latency_err"; then
-        echo "エラー: レイテンシ測定に失敗しました。"
+        warn "レイテンシ測定に失敗しました。"
         print_fio_error "$latency_json" "$latency_err"
         rm -f "$test_file" "$seq_json" "$rand_json" "$latency_json" "$seq_err" "$rand_err" "$latency_err"
         FIO_TEST_FILE=""
@@ -230,7 +235,7 @@ run_fio_bench() {
     merged_json=$(mktemp)
     FIO_MERGED_JSON="$merged_json"
     if ! jq -n --slurpfile seq "$seq_json" --slurpfile rand "$rand_json" --slurpfile latency "$latency_json" '{seq:$seq[0], rand:$rand[0], latency:$latency[0]}' > "$merged_json" 2>/dev/null; then
-        echo "エラー: 測定結果JSONの統合に失敗しました。fio出力が不正な可能性があります。"
+        warn "測定結果JSONの統合に失敗しました。fio出力が不正な可能性があります。"
         echo "--- seqメッセージ ---"
         cat "$seq_err" 2>/dev/null
         echo "--- seq出力(compact) ---"
@@ -274,12 +279,10 @@ run_fio_bench() {
 
 # fio と jq の存在確認（起動時）
 if ! command -v fio >/dev/null 2>&1; then
-    echo "エラー: fio がインストールされていません。'brew install fio' で導入してください。"
-    exit 1
+    die "fio がインストールされていません。'brew install fio' で導入してください。"
 fi
 if ! command -v jq >/dev/null 2>&1; then
-    echo "エラー: jq がインストールされていません。'brew install jq' で導入してください。"
-    exit 1
+    die "jq がインストールされていません。'brew install jq' で導入してください。"
 fi
 
 while true; do

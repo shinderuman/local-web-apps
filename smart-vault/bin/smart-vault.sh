@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# smart-vault.sh — 外付けディスクの S.M.A.R.T. 情報を取得し JSON をクリップボードへコピー
+# 詳細は README.md を参照。
+# 導入: brew install smartmontools
+# 終了コード: 0=成功・メニューから終了 / 1=異常
+
 # 共通UI関数（read_key, select_menu）を読み込み
 source "$(dirname "$0")/common.sh"
 
@@ -13,7 +18,7 @@ run_smartctl() {
 
     # smartctl の存在確認
     if ! command -v smartctl >/dev/null 2>&1; then
-        echo "エラー: smartctl がインストールされていません。'brew install smartmontools' で導入してください。"
+        warn "smartctl がインストールされていません。'brew install smartmontools' で導入してください。"
         echo "-------------------------------------"
         echo ""
         return 1

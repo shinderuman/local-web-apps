@@ -1,11 +1,8 @@
 #!/bin/bash
 
-# fio によるディスク全域書込＋検証を行う修復ツール
-# Smart/Fio のシェルで結果が芳しくなかった外付けディスクに対し、全域への CRC＋オフセット
-# パターン書込と読戻し照合を行い、不良セクタの再割当てを促す。
-# 成否は fio の終了状態・全域の書込/読込バイト数・I/Oおよび検証エラー数で判定。
-# 進捗は fio のライブ表示（%・速度・eta）。詳細な状態確認は Smart/Fio のシェルで行う前提。
-# Tab キーで任意ディスクをロック（実行禁止）でき、ロック状態は locks.txt へ永続化する。
+# hdd-repair.sh — 外付けディスク全体へ fio で CRC＋オフセットパターン書込と読戻し照合を行い不良セクタの再割当てを促す
+# 詳細は README.md を参照。
+# 導入: brew install fio jq
 # 終了コード: 0=成功 / 1=異常・JSON不正・対象変化など / 2=I/O・検証エラー検出
 
 set -o pipefail
@@ -64,38 +61,9 @@ trap 'handle_signal 130' INT
 trap 'handle_signal 143' TERM
 
 # ========================================
-# ディスク情報収集
+# ディスク情報収集（collect_disks / human_size / format_bytes_with_commas /
+# plist_value / fetch_disk_summary / play_result_sound は common.sh を使用）
 # ========================================
-
-# 外付け物理ディスク（external physical）の識別子を標準出力へ1行1つ出力。
-# diskutil list の絞り込みにより、内蔵・APFS synthesized・仮想ディスク・パーティションを除外。
-# 失敗時は非0を返す（pipefail によりパイプ内の失敗を捕捉）。
-collect_disks() {
-    diskutil list -plist external physical 2>/dev/null \
-        | plutil -convert json -o - -- - 2>/dev/null \
-        | "$JQ_BIN" -r '.WholeDisks[]?'
-}
-
-# 人間が読みやすいサイズ表記（バイト数 → GB/TB）に変換
-human_size() {
-    local bytes="$1"
-    awk -v b="$bytes" 'BEGIN {
-        gb = b / 1000000000
-        if (gb >= 1000) {
-            printf "%.1fTB", gb / 1000
-        } else {
-            printf "%.0fGB", gb
-        }
-    }'
-}
-
-# 指定 plist ファイルからキーの値を抽出（plutil -extract の raw 出力を使用）
-# 引数: キー名, plist ファイルパス
-plist_value() {
-    local key="$1"
-    local plist="$2"
-    plutil -extract "$key" raw -o - "$plist" 2>/dev/null
-}
 
 # bs 選択肢（fio の --bs へ渡す文字列）
 BS_OPTIONS=("64k" "256k" "1m" "4m")
@@ -160,61 +128,10 @@ estimate_runtime_sec() {
         'BEGIN { printf "%.0f", size / (w * 1048576) + size / (v * 1048576) }'
 }
 
-# バイト数を3桁ごとにカンマ区切りへ整形（数値変換せず文字列として処理）
-format_bytes_with_commas() {
-    awk 'BEGIN {
-        s = ARGV[1]
-        result = ""
-        while (length(s) > 3) {
-            result = "," substr(s, length(s) - 2) result
-            s = substr(s, 1, length(s) - 3)
-        }
-        print s result
-        exit
-    }' "$1"
-}
-
-# diskutil info の plist を1回取得し、主要情報を Unit Separator 区切りで出力。
-# 抜き差し中の情報混在を防ぐため1回の取得から全項目を読み取る。
-# 項目のいずれかが取得不能・不正、または内蔵ディスクなら失敗（return 1）。
-# 引数: デバイス（diskN）, 出力先 plist ファイルパス
-# 標準出力: "モデル<US>容量<US>プロトコル<US>論理ブロックサイズ"
-fetch_disk_summary() {
-    local device="$1"
-    local plist="$2"
-    if ! diskutil info -plist "/dev/$device" > "$plist" 2>/dev/null; then
-        return 1
-    fi
-    local model size internal protocol block_size
-    model=$(plist_value "IORegistryEntryName" "$plist")
-    size=$(plist_value "TotalSize" "$plist")
-    internal=$(plist_value "Internal" "$plist")
-    protocol=$(plist_value "BusProtocol" "$plist")
-    block_size=$(plist_value "DeviceBlockSize" "$plist")
-
-    # いずれかが不正、または内蔵ディスクなら判定不能として除外
-    if [ -z "$model" ] ||
-       [[ ! "$size" =~ ^[0-9]+$ ]] ||
-       [ "$size" -le 0 ] ||
-       [ "$internal" != "false" ] ||
-       [ -z "$protocol" ] ||
-       [[ ! "$block_size" =~ ^[0-9]+$ ]] ||
-       [ "$block_size" -le 0 ]; then
-        return 1
-    fi
-
-    printf '%s\x1f%s\x1f%s\x1f%s\n' "$model" "$size" "$protocol" "$block_size"
-}
-
 # ロック識別キー（モデル名＋総容量＋プロトコル）を生成
 # 引数: モデル名, 容量, プロトコル（いずれも fetch_disk_summary で非空・正の整数を保証済み）
 make_lock_key() {
     printf '%s|%s|%s\n' "$1" "$2" "$3"
-}
-
-# 修復結果の通知音を鳴らす（失敗しても結果へ影響させない）
-play_result_sound() {
-    afplay /System/Library/Sounds/Glass.aiff >/dev/null 2>&1 || true
 }
 
 # ========================================

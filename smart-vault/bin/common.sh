@@ -5,6 +5,7 @@
 # 1文字のキー入力を読み取る（矢印キーはエスケープシーケンス込みで返す）
 read_key() {
     local key
+    local old_stty_cfg
     old_stty_cfg=$(stty -g)
     stty raw -echo
     key=$(dd bs=1 count=1 2>/dev/null)
@@ -145,4 +146,136 @@ select_menu_lock() {
     tput cnorm
     echo ""
     return "$cursor"
+}
+
+# ========================================
+# ディスク情報ヘルパー（hdd-repair.sh / timemachine-clone.sh で共有）
+# 呼び出し元は JQ_BIN を定義しておくこと。
+# ========================================
+
+# 外付けディスク（物理＋AppleRAID仮想）の識別子を標準出力へ1行1つ出力。
+# 内蔵・APFS synthesized・パーティション（diskNsM）は除外。
+# AppleRAID メンバー個別ディスクは除外し、RAID Device Node のみ出す
+# （メンバーを直接選ぶとRAID構成を破壊するため）。
+collect_disks() {
+    local seen physical raid_disks d internal
+
+    # 外付け物理ディスク
+    physical=$(diskutil list -plist external physical 2>/dev/null \
+        | plutil -convert json -o - -- - 2>/dev/null \
+        | "$JQ_BIN" -r '.WholeDisks[]?')
+
+    # AppleRAID 仮想ディスク（Device Node: diskN）。内蔵は除外。
+    raid_disks=$(diskutil appleRAID list 2>/dev/null \
+        | awk '/Device Node:/ { print $3 }')
+
+    # 単体の外付け物理ディスクを出力。
+    # Apple_RAID（Offline含む）パーティションを持つディスクはRAIDメンバーのため除外する。
+    while IFS= read -r d; do
+        [ -n "$d" ] || continue
+        if diskutil list "/dev/$d" 2>/dev/null | grep -qE 'Apple_RAID(_Offline)?'; then
+            continue
+        fi
+        seen="$seen $d "
+        printf '%s\n' "$d"
+    done <<< "$physical"
+
+    # AppleRAID 仮想ディスクを追記（重複・内蔵除外）
+    while IFS= read -r d; do
+        [ -n "$d" ] || continue
+        case "$seen" in *" $d "*) continue ;; esac
+        internal=$(diskutil info -plist "/dev/$d" 2>/dev/null \
+            | plutil -extract Internal raw -o - -- - 2>/dev/null)
+        [ "$internal" = "false" ] || continue
+        printf '%s\n' "$d"
+    done <<< "$raid_disks"
+}
+
+# 人間が読みやすいサイズ表記（バイト数 → GB/TB）に変換
+human_size() {
+    local bytes="$1"
+    awk -v b="$bytes" 'BEGIN {
+        gb = b / 1000000000
+        if (gb >= 1000) {
+            printf "%.1fTB", gb / 1000
+        } else {
+            printf "%.0fGB", gb
+        }
+    }'
+}
+
+# バイト数を3桁ごとにカンマ区切りへ整形（数値変換せず文字列として処理）
+format_bytes_with_commas() {
+    awk 'BEGIN {
+        s = ARGV[1]
+        result = ""
+        while (length(s) > 3) {
+            result = "," substr(s, length(s) - 2) result
+            s = substr(s, 1, length(s) - 3)
+        }
+        print s result
+        exit
+    }' "$1"
+}
+
+# 指定 plist ファイルからキーの値を抽出（plutil -extract の raw 出力を使用）
+# 引数: キー名, plist ファイルパス
+plist_value() {
+    local key="$1"
+    local plist="$2"
+    plutil -extract "$key" raw -o - "$plist" 2>/dev/null
+}
+
+# diskutil info の plist を1回取得し、主要情報を Unit Separator 区切りで出力。
+# 抜き差し中の情報混在を防ぐため1回の取得から全項目を読み取る。
+# 項目のいずれかが取得不能・不正、または内蔵ディスクなら失敗（return 1）。
+# 引数: デバイス（diskN）, 出力先 plist ファイルパス
+# 標準出力: "モデル<US>容量<US>プロトコル<US>論理ブロックサイズ"
+fetch_disk_summary() {
+    local device="$1"
+    local plist="$2"
+    if ! diskutil info -plist "/dev/$device" > "$plist" 2>/dev/null; then
+        return 1
+    fi
+    local model size internal protocol block_size
+    model=$(plist_value "IORegistryEntryName" "$plist")
+    size=$(plist_value "TotalSize" "$plist")
+    internal=$(plist_value "Internal" "$plist")
+    protocol=$(plist_value "BusProtocol" "$plist")
+    block_size=$(plist_value "DeviceBlockSize" "$plist")
+
+    # いずれかが不正、または内蔵ディスクなら判定不能として除外
+    if [ -z "$model" ] ||
+       [[ ! "$size" =~ ^[0-9]+$ ]] ||
+       [ "$size" -le 0 ] ||
+       [ "$internal" != "false" ] ||
+       [ -z "$protocol" ] ||
+       [[ ! "$block_size" =~ ^[0-9]+$ ]] ||
+       [ "$block_size" -le 0 ]; then
+        return 1
+    fi
+
+    printf '%s\x1f%s\x1f%s\x1f%s\n' "$model" "$size" "$protocol" "$block_size"
+}
+
+# 通知音を鳴らす（失敗しても結果へ影響させない）
+play_result_sound() {
+    afplay /System/Library/Sounds/Glass.aiff >/dev/null 2>&1 || true
+}
+
+# タイムスタンプ付きログ出力
+log() {
+    printf '\n[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
+}
+
+# 警告出力（標準エラー）
+warn() {
+    printf '\n警告: %s\n' "$*" >&2
+}
+
+# エラー出力後、通知音を鳴らして終了コード1で終了
+die() {
+    printf '\nエラー: %s\n' "$*" >&2
+    play_result_sound
+    exit 1
 }
