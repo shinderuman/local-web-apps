@@ -410,6 +410,11 @@ button:hover {
     border-color: #d4a373;
     box-shadow: 0 0 8px rgba(212, 163, 115, 0.4);
 }
+/* カードクリック時のフォーカスカード（読了後の削除対象を見失わないため） */
+.card.card-focused {
+    border-color: #e53935;
+    box-shadow: 0 0 10px rgba(229, 57, 53, 0.6);
+}
 /* あらすじ未取得インジケータ */
 .card.has-synopsis::after {
     content: '📖';

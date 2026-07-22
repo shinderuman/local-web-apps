@@ -82,6 +82,7 @@ const editState = {
 // UI状態
 const uiState = {
     synopsisPanelItemId: null, // 右ペイン表示中のアイテムID（トグル用）
+    focusedItemId: null, // カードクリックでフォーカス表示中のアイテムID
     toastTimer: null, // トーストの自動消滅タイマー
     toastVisible: false, // トースト表示中フラグ
     blurEnabled: false // サムネぼかし有効フラグ
@@ -848,6 +849,23 @@ const renderSynopsisForm = (item, bodyEl, editedState) => {
     bodyEl.appendChild(formWrap);
 };
 
+// カードフォーカス共通処理：前回のフォーカスを解除し対象を強調
+// stateKey: uiStateの保持キー、className: 付与するCSSクラス
+const setCardFocus = (stateKey, itemId, className) => {
+    clearCardFocus(stateKey, className);
+    uiState[stateKey] = itemId;
+    const target = document.querySelector(`.card[data-id="${itemId}"]`);
+    if (target) target.classList.add(className);
+};
+
+// カードフォーカスを解除
+const clearCardFocus = (stateKey, className) => {
+    uiState[stateKey] = null;
+    document
+        .querySelectorAll(`.card.${className}`)
+        .forEach((c) => c.classList.remove(className));
+};
+
 const showSynopsisPanel = (item, editedState) => {
     const panel = document.getElementById('synopsisPanel');
     const titleEl = document.getElementById('synopsisPanelTitle');
@@ -860,12 +878,10 @@ const showSynopsisPanel = (item, editedState) => {
     }
     uiState.synopsisPanelItemId = item.id;
 
-    // フォーカス表示：前回のフォーカスを解除し、対象カードを強調
-    document
-        .querySelectorAll('.card.synopsis-active')
-        .forEach((c) => c.classList.remove('synopsis-active'));
+    // フォーカス表示：左クリックのフォーカスを解除し、対象カードを強調（あらすじ表示が優先）
+    clearCardFocus('focusedItemId', 'card-focused');
+    setCardFocus('synopsisPanelItemId', item.id, 'synopsis-active');
     const activeCard = document.querySelector(`.card[data-id="${item.id}"]`);
-    if (activeCard) activeCard.classList.add('synopsis-active');
 
     titleEl.textContent = item.title;
     bodyEl.innerHTML = '';
@@ -886,12 +902,8 @@ const hideSynopsisPanel = () => {
     const panel = document.getElementById('synopsisPanel');
     const bodyEl = document.getElementById('synopsisPanelBody');
     const titleEl = document.getElementById('synopsisPanelTitle');
-    // 非表示中は再侵入を防ぐためIDをnull化
-    uiState.synopsisPanelItemId = null;
-    // フォーカス表示を解除
-    document
-        .querySelectorAll('.card.synopsis-active')
-        .forEach((c) => c.classList.remove('synopsis-active'));
+    // 非表示中は再侵入を防ぐためIDをnull化・フォーカス表示を解除
+    clearCardFocus('synopsisPanelItemId', 'synopsis-active');
     // 閉じるアニメーション後に非表示
     panel.classList.remove('synopsis-panel-open');
     panel.classList.add('synopsis-panel-close');
@@ -1459,6 +1471,9 @@ const createCardElement = (item) => {
     if (uiState.synopsisPanelItemId === item.id) {
         card.classList.add('synopsis-active');
     }
+    if (uiState.focusedItemId === item.id) {
+        card.classList.add('card-focused');
+    }
     if (hasSynopsis(item)) {
         card.classList.add('has-synopsis');
     } else if (isKindleUrl(item.url)) {
@@ -1468,13 +1483,14 @@ const createCardElement = (item) => {
     card.tabIndex = 0;
     card.title = item.title;
 
-    // シングルクリックでリンクオープン、右クリックであらすじ表示（右ペイン）
+    // シングルクリックでリンクオープン＆フォーカス、右クリックであらすじ表示（右ペイン）
     card.onclick = (e) => {
         if (e.target.closest('.delete-icon-btn')) return;
         if (editState.isEditMode) {
             startItemEdit(item);
             return;
         }
+        setCardFocus('focusedItemId', item.id, 'card-focused');
         window.open(item.url, '_blank', 'noopener,noreferrer');
     };
     card.oncontextmenu = (e) => {
