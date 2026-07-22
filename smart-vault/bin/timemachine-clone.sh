@@ -559,6 +559,9 @@ main() {
 
     # --- サイズ比較・最終確認 ---
     local source_size target_size
+    local source_was_shrunk=0
+    local source_shrink_size=""
+    local shrink_margin_gb=1
     source_size=$(device_size "$SOURCE_STORE")
     target_size=$(device_size "$TARGET_STORE")
 
@@ -571,13 +574,40 @@ main() {
     if [ -n "$source_size" ] && [ -n "$target_size" ]; then
         printf '\nコピー元サイズ: %s bytes (%s)\n' "$(format_bytes_with_commas "$source_size")" "$(human_size "$source_size")"
         printf 'コピー先サイズ: %s bytes (%s)\n' "$(format_bytes_with_commas "$target_size")" "$(human_size "$target_size")"
-        [ "$target_size" -ge "$source_size" ] ||
-            die "コピー先がコピー元より小さいため実行できません"
+        if [ "$target_size" -lt "$source_size" ]; then
+            local target_size_gb shrink_size_gb
+            target_size_gb=$((target_size / 1000000000))
+            shrink_size_gb=$((target_size_gb - shrink_margin_gb))
+            [ "$shrink_size_gb" -gt 0 ] ||
+                die "コピー先容量から縮小サイズを算出できませんでした"
+            source_was_shrunk=1
+            source_shrink_size="${shrink_size_gb}g"
+            warn "コピー先が小さいため、コピー元APFSコンテナを一時的に${source_shrink_size}へ縮小します"
+        else
+            log "コピー先容量はコピー元APFSコンテナ以上です"
+        fi
     else
         warn "サイズを自動取得できませんでした。コピー先がコピー元以上か手動確認してください"
     fi
 
-    cat <<EOF_CONFIRM
+    if [ "$source_was_shrunk" -eq 1 ]; then
+        cat <<EOF_CONFIRM
+
+コピー元: /dev/$SOURCE_STORE
+コピー先: /dev/$TARGET_STORE
+
+コピー先がコピー元より小さいため、コピー元APFSコンテナを一時的に${source_shrink_size}へ縮小します。
+縮小に失敗した場合はコピーを開始しません。
+コピー完了後、コピー元コンテナを最大容量へ戻します。
+
+処理を途中で中断した場合、コピー元が縮小されたまま残ることがあります。
+その場合は diskutil apfs resizeContainer 対象コンテナ 0 で元に戻せます。
+
+コピー先の内容は完全に失われます。
+APFS修復に失敗した場合は履歴を段階的に削除し、最終的にコピー先APFSを新規作成する可能性があります。
+EOF_CONFIRM
+    else
+        cat <<EOF_CONFIRM
 
 コピー元: /dev/$SOURCE_STORE
 コピー先: /dev/$TARGET_STORE
@@ -585,6 +615,7 @@ main() {
 コピー先の内容は完全に失われます。
 APFS修復に失敗した場合は履歴を段階的に削除し、最終的にコピー先APFSを新規作成する可能性があります。
 EOF_CONFIRM
+    fi
 
     printf '\nこのディスク全体のデータは全て失われます。よろしいですか？ [y/N] '
     local confirm
@@ -597,6 +628,29 @@ EOF_CONFIRM
     # --- コピー前の停止・アンマウント ---
     log "Time Machineを停止"
     stop_time_machine
+
+    if [ "$source_was_shrunk" -eq 1 ]; then
+        log "コピー元APFSコンテナを一時的に縮小: $source_shrink_size"
+
+        unmount_tm_snapshot_mounts "$SOURCE_TM_VOLUME"
+
+        sudo diskutil apfs resizeContainer \
+            "/dev/$SOURCE_CONTAINER" \
+            "$source_shrink_size" ||
+            die "コピー元APFSコンテナを${source_shrink_size}へ縮小できませんでした"
+
+        source_size=$(device_size "$SOURCE_STORE")
+
+        [ -n "$source_size" ] ||
+            die "縮小後のコピー元サイズを取得できませんでした"
+
+        [ "$source_size" -le "$target_size" ] ||
+            die "縮小後もコピー元がコピー先より大きいためコピーできません"
+
+        printf '縮小後のコピー元サイズ: %s bytes (%s)\n' \
+            "$(format_bytes_with_commas "$source_size")" \
+            "$(human_size "$source_size")"
+    fi
 
     log "コピー元のTime Machineスナップショットの個別マウントを解除"
     unmount_tm_snapshot_mounts "$SOURCE_TM_VOLUME"
@@ -676,6 +730,21 @@ EOF
         sudo diskutil eject "/dev/$TARGET_EJECT_DISK" ||
             die "コピー先をejectできませんでした。物理切断前に安全な状態へできません"
     fi
+
+    # コピー先が接続されたままコピー元をリサイズしないこと（同一APFS UUIDのため）
+    if [ "$source_was_shrunk" -eq 1 ]; then
+        log "コピー元APFSコンテナを最大容量へ戻す"
+
+        if sudo diskutil apfs resizeContainer "/dev/$SOURCE_CONTAINER" 0; then
+            log "コピー元APFSコンテナを最大容量へ戻しました"
+        else
+            warn "コピー元APFSコンテナを最大容量へ戻せませんでした"
+            warn "コピー元は縮小された状態ですが、APFSデータ自体はそのままです"
+            warn "後で次のコマンドを実行してください:"
+            warn "sudo diskutil apfs resizeContainer /dev/$SOURCE_CONTAINER 0"
+        fi
+    fi
+
     if [ -n "$SOURCE_EJECT_DISK" ]; then
         sudo diskutil eject "/dev/$SOURCE_EJECT_DISK" ||
             die "コピー元をejectできませんでした。アンマウント状況を確認してください"
