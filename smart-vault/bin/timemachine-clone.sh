@@ -82,6 +82,21 @@ device_size() {
     printf '%s' "$size"
 }
 
+# APFS Container の縮小可能な最小サイズ（bytes）を返す。
+# resizeContainer limits はリサイズを実行せず、有効なリサイズ範囲を取得するだけ。
+# MinimumSizeNoGuard はファイル・スナップショット・quota・メタデータで制約された最小値
+# （推奨値の MinimumSizePreferred ではなく、実データ制約の hard floor）。
+get_apfs_minimum_resize_size() {
+    local container="$1"
+    local min_size
+    min_size=$(diskutil apfs resizeContainer "/dev/$container" limits -plist 2>/dev/null |
+        plutil -extract MinimumSizeNoGuard raw -o - -- - 2>/dev/null)
+    if ! [[ "$min_size" =~ ^[0-9]+$ ]] || [ "$min_size" -le 0 ]; then
+        return 1
+    fi
+    printf '%s' "$min_size"
+}
+
 # デバイスの要約情報を表示
 show_device() {
     printf '\n--- /dev/%s ---\n' "$1"
@@ -561,7 +576,10 @@ main() {
     local source_size target_size
     local source_was_shrunk=0
     local source_shrink_size=""
-    local shrink_margin_gb=1
+    # APFSが報告する最小縮小サイズへ追加する空き容量
+    local shrink_free_margin_bytes=5000000000
+    # コピー先末尾に残す余裕
+    local target_end_margin_bytes=1000000000
     source_size=$(device_size "$SOURCE_STORE")
     target_size=$(device_size "$TARGET_STORE")
 
@@ -575,13 +593,40 @@ main() {
         printf '\nコピー元サイズ: %s bytes (%s)\n' "$(format_bytes_with_commas "$source_size")" "$(human_size "$source_size")"
         printf 'コピー先サイズ: %s bytes (%s)\n' "$(format_bytes_with_commas "$target_size")" "$(human_size "$target_size")"
         if [ "$target_size" -lt "$source_size" ]; then
-            local target_size_gb shrink_size_gb
-            target_size_gb=$((target_size / 1000000000))
-            shrink_size_gb=$((target_size_gb - shrink_margin_gb))
-            [ "$shrink_size_gb" -gt 0 ] ||
-                die "コピー先容量から縮小サイズを算出できませんでした"
+            local source_minimum_size desired_shrink_size target_max_size
+            source_minimum_size=$(get_apfs_minimum_resize_size "$SOURCE_CONTAINER") ||
+                die "コピー元APFSコンテナの縮小可能な最小サイズを取得できませんでした"
+
+            desired_shrink_size=$((source_minimum_size + shrink_free_margin_bytes))
+            target_max_size=$((target_size - target_end_margin_bytes))
+
+            [ "$target_max_size" -gt 0 ] ||
+                die "コピー先容量から有効な最大コピーサイズを算出できませんでした"
+
+            if [ "$desired_shrink_size" -gt "$target_max_size" ]; then
+                printf 'APFS最小縮小サイズ: %s bytes (%s)\n' \
+                    "$(format_bytes_with_commas "$source_minimum_size")" "$(human_size "$source_minimum_size")"
+                printf '安全余白:            %s bytes (%s)\n' \
+                    "$(format_bytes_with_commas "$shrink_free_margin_bytes")" "$(human_size "$shrink_free_margin_bytes")"
+                printf '縮小予定サイズ:     %s bytes (%s)\n' \
+                    "$(format_bytes_with_commas "$desired_shrink_size")" "$(human_size "$desired_shrink_size")"
+                printf 'コピー先容量:      %s bytes (%s)\n' \
+                    "$(format_bytes_with_commas "$target_size")" "$(human_size "$target_size")"
+                die "コピー元APFSコンテナの最小必要サイズは$(human_size "$source_minimum_size")です。5GBの安全余白を含めるとコピー先へ収まらないため、コピーを開始しません。"
+            fi
+
             source_was_shrunk=1
-            source_shrink_size="${shrink_size_gb}g"
+            source_shrink_size="${desired_shrink_size}B"
+            printf 'APFS最小縮小サイズ: %s bytes (%s)\n' \
+                "$(format_bytes_with_commas "$source_minimum_size")" "$(human_size "$source_minimum_size")"
+            printf '安全余白:            %s bytes (%s)\n' \
+                "$(format_bytes_with_commas "$shrink_free_margin_bytes")" "$(human_size "$shrink_free_margin_bytes")"
+            printf '縮小予定サイズ:     %s bytes (%s)\n' \
+                "$(format_bytes_with_commas "$desired_shrink_size")" "$(human_size "$desired_shrink_size")"
+            printf 'コピー先容量:      %s bytes (%s)\n' \
+                "$(format_bytes_with_commas "$target_size")" "$(human_size "$target_size")"
+            printf 'コピー先に残す余裕: %s bytes (%s)\n' \
+                "$(format_bytes_with_commas "$target_end_margin_bytes")" "$(human_size "$target_end_margin_bytes")"
             warn "コピー先が小さいため、コピー元APFSコンテナを一時的に${source_shrink_size}へ縮小します"
         else
             log "コピー先容量はコピー元APFSコンテナ以上です"
@@ -791,13 +836,32 @@ EOF_RECONNECT
 
     # 保存先登録に失敗した場合は startbackup をスキップする。
     # 登録できていない状態でバックアップを走らせると、別の保存先へ書き込む危険があるため。
+    # 縮小コピー時は空き容量が少ないため、保存先登録前にコピー先全体へ拡張する。
+    local resize_succeeded=0
+    local allow_initial_backup=1
+
+    if [ "$source_was_shrunk" -eq 1 ]; then
+        log "縮小コピーしたAPFSコンテナをコピー先全体へ拡張"
+        if try_resize_without_repair "$TARGET_CONTAINER" "$TARGET_TM_VOLUME"; then
+            resize_succeeded=1
+        else
+            warn "コピー先APFSコンテナを直ちに拡張できませんでした"
+            warn "空き容量が少ない可能性があるため、最初のバックアップをスキップします"
+            allow_initial_backup=0
+        fi
+    fi
+
     log "コピー先をTime Machineの保存先として設定"
     if sudo tmutil setdestination "$TM_MOUNT_PATH"; then
-        log "Time Machineを1回実行して自動整理を試す"
-        sudo tmutil enable || true
-        # --auto で通常の自動バックアップに近いモード。Time Machine自身の標準履歴整理が動く可能性を高める
-        sudo tmutil startbackup --auto --block ||
-            warn "最初のバックアップは失敗しました。履歴修復処理は継続します"
+        if [ "$allow_initial_backup" -eq 1 ]; then
+            log "Time Machineを1回実行して自動整理を試す"
+            sudo tmutil enable || true
+            # --auto で通常の自動バックアップに近いモード。Time Machine自身の標準履歴整理が動く可能性を高める
+            sudo tmutil startbackup --auto --block ||
+                warn "最初のバックアップは失敗しました。履歴修復処理は継続します"
+        else
+            warn "コピー先を拡張できていないため、最初のバックアップをスキップします"
+        fi
     else
         warn "Time Machine保存先として登録できなかったため、最初のバックアップをスキップします"
     fi
@@ -809,15 +873,17 @@ EOF_RECONNECT
     fi
 
     # --- 自動修復・履歴間引き・リサイズ ---
-    local resize_succeeded=0
     local delete_file
 
     # 第0段階: 削除せず修復・リサイズのみ
-    if try_resize_without_repair "$TARGET_CONTAINER" "$TARGET_TM_VOLUME"; then
-        resize_succeeded=1
-    elif repair_and_try_resize "第0段階: Time Machine実行後の履歴を維持したまま修復・リサイズ" \
-             "$TARGET_CONTAINER" "$TARGET_TM_VOLUME"; then
-        resize_succeeded=1
+    # 縮小コピー時にすでに拡張成功済み（resize_succeeded=1）なら再度リサイズしない
+    if [ "$resize_succeeded" -eq 0 ]; then
+        if try_resize_without_repair "$TARGET_CONTAINER" "$TARGET_TM_VOLUME"; then
+            resize_succeeded=1
+        elif repair_and_try_resize "第0段階: Time Machine実行後の履歴を維持したまま修復・リサイズ" \
+                 "$TARGET_CONTAINER" "$TARGET_TM_VOLUME"; then
+            resize_succeeded=1
+        fi
     fi
 
     # 第1段階: 直近24時間を最新1件だけ残す
