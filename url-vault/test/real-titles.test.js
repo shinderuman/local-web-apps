@@ -5,26 +5,25 @@ const {
     parseBaseTitle,
     normalizeDigits
 } = require('../js/title-parser.js');
+// { タイトル: 期待巻数 } の実データスナップショット（キー=actual入力, 値=expected正解）
 const titles = require('./real-titles.json');
-const expected = require('./real-titles.expected.json');
 
-// 実データ全168件のスナップショットテスト
+// 実データ全件のスナップショットテスト
 // parseVolume の結果が期待値と一致するか検証（将来のデグレ防止）
 test('実データ全件: parseVolume が期待値と一致', () => {
-    titles.forEach((title) => {
+    Object.entries(titles).forEach(([title, expected]) => {
         const actual = parseVolume(title);
-        const exp = expected[title];
         assert.strictEqual(
             actual,
-            exp,
-            `巻数不一致: "${title.slice(0, 30)}..." expected=${exp} actual=${actual}`
+            expected,
+            `巻数不一致: "${title.slice(0, 30)}..." expected=${expected} actual=${actual}`
         );
     });
 });
 
 // parseBaseTitle の確認：メインタイトル（最初の〜/～の前）の先頭が保持されているか
 test('実データ全件: parseBaseTitle がメインタイトル先頭を保持', () => {
-    titles.forEach((title) => {
+    Object.keys(titles).forEach((title) => {
         const base = parseBaseTitle(title);
         // メインタイトル（最初の〜/～の前）を抽出し、その先頭部分が base に含まれるか検証
         // 数字・括弧・「第」「巻」は巻数表記の可能性があるため除外して比較
@@ -38,15 +37,23 @@ test('実データ全件: parseBaseTitle がメインタイトル先頭を保持
     });
 });
 
-// 既知の制限：以下は自動判定不可（右ペインで手動調整前提）
-test('既知の制限: 特殊形式タイトルは手動調整対象', () => {
-    // これらは現状 vol=1 となるが、正しくは別の巻数
-    const manualCases = [
-        '魔石グルメ 　11　魔物の力を食べたオレは最強！ 魔石グルメ　魔物の力を食べたオレは最強！ (ドラゴンコミックスエイジ)',
-        '３５歳の選択～異世界転生を選んだ場合～（ノヴァコミックス）５ 35歳の選択～異世界転生を選んだ場合～'
+// 本編再掲形式（本編〜サブ〜本編(N)）の救済フォールバックの検証
+test('本編再掲形式: 後半に巻数がある形式を正しく抽出', () => {
+    const cases = [
+        {
+            title: '魔石グルメ 　11　魔物の力を食べたオレは最強！ 魔石グルメ　魔物の力を食べたオレは最強！ (ドラゴンコミックスエイジ)',
+            expected: 11
+        },
+        {
+            title: '３５歳の選択～異世界転生を選んだ場合～（ノヴァコミックス）５ 35歳の選択～異世界転生を選んだ場合～',
+            expected: 5
+        }
     ];
-    manualCases.forEach((title) => {
-        // 現状の実装では取れないことを記録（将来改善時はこのテストを更新）
-        assert.strictEqual(parseVolume(title), 1);
+    cases.forEach(({ title, expected: exp }) => {
+        assert.strictEqual(
+            parseVolume(title),
+            exp,
+            `本編再掲形式の巻数不一致: "${title.slice(0, 30)}..."`
+        );
     });
 });

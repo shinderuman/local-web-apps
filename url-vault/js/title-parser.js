@@ -47,6 +47,33 @@
         const mainTail = main.match(/([0-9]+)\s*$/);
         if (mainTail) return parseInt(mainTail[1], 10);
 
+        // 7. 本編再掲形式（本編〜サブ〜本編(N)）の救済フォールバック。
+        //    厳密ルール(1〜6)で取れなかった場合のみ、緩いルールで本文中の巻数候補を探す
+        //    7a. 〜区切りの各パート内にある (N)/（N）/第N巻/N巻 の最後（例: 「...（ノヴァコミックス）5」）
+        const parts = n.split(/[〜～]/);
+        let fallback = null;
+        for (const p of parts) {
+            const matches = p.match(/[（(]([0-9]+)[）)]|第?([0-9]+)巻/g);
+            if (matches) {
+                for (const m of matches) {
+                    const d = m.match(/[0-9]+/);
+                    if (d) fallback = parseInt(d[0], 10);
+                }
+            }
+        }
+        if (fallback !== null) return fallback;
+
+        //    7b. 括弧の直後に続く裸の数字（例: 「...）5」「...（...）11」）
+        const afterParen = n.match(/[）)]\s*([0-9]+)/);
+        if (afterParen) return parseInt(afterParen[1], 10);
+
+        //    7c. 空白区切りの単独数字トークンの最後（例: 「魔石グルメ 　11　...」）
+        const tokens = n.split(/[　\s]+/).filter(Boolean);
+        const numTokens = tokens.filter((t) => /^[0-9]+$/.test(t));
+        if (numTokens.length) {
+            return parseInt(numTokens[numTokens.length - 1], 10);
+        }
+
         return 1;
     };
 
