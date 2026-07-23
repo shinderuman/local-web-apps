@@ -192,6 +192,12 @@ const updateDupCheckBtn = () => {
     wrap.classList.toggle('hidden', !filterState.dupCheckEnabled);
 };
 
+// 検索クリアボタンの表示切替（入力値が空なら非表示）
+const updateSearchClearBtn = () => {
+    document.getElementById('searchClearBtn').hidden =
+        document.getElementById('searchInput').value === '';
+};
+
 // 重複チェックON/OFF切替
 const toggleDupCheck = () => {
     filterState.dupCheckEnabled = !filterState.dupCheckEnabled;
@@ -1789,7 +1795,18 @@ document.getElementById('toggleBlurBtn').addEventListener('click', () => {
 // 検索
 document.getElementById('searchInput').addEventListener('input', (e) => {
     filterState.searchQuery = e.target.value.trim();
+    updateSearchClearBtn();
     renderList({ resetScroll: true });
+});
+
+// 検索クリアボタン: 入力を消去して再描画
+document.getElementById('searchClearBtn').addEventListener('click', () => {
+    const searchInput = document.getElementById('searchInput');
+    searchInput.value = '';
+    filterState.searchQuery = '';
+    updateSearchClearBtn();
+    renderList({ resetScroll: true });
+    searchInput.focus();
 });
 
 // 検索欄へのペースト: 2行（タイトル＋URL）ならURL行を排除し、
@@ -1804,6 +1821,7 @@ document.getElementById('searchInput').addEventListener('paste', (e) => {
     const searchQuery = parseBaseTitle(lines[0]);
     e.target.value = searchQuery;
     filterState.searchQuery = searchQuery;
+    updateSearchClearBtn();
     renderList({ resetScroll: true });
     // 副次的作用: 未登録時の登録作業に備え、タイトルと2行目を事前入力
     document.getElementById('title').value = lines[0];

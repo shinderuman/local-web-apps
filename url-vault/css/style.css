@@ -277,6 +277,35 @@ button:hover {
     border-radius: 3px;
     font-size: 11px;
 }
+.search-input-wrapper {
+    position: relative;
+    flex: 1;
+    max-width: 300px;
+}
+.search-input-wrapper .search-input {
+    width: 100%;
+    padding-right: 22px;
+}
+.search-clear-btn {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    background-color: transparent;
+    color: #888;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 50%;
+}
+.search-clear-btn:hover {
+    color: #fff;
+    background-color: #3d3d3d;
+}
 .card-count {
     font-size: 11px;
     color: #888;

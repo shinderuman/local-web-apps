@@ -162,12 +162,23 @@
                         />
                         <span class="nav-sep">|</span>
                     </span>
-                    <input
-                        type="text"
-                        id="searchInput"
-                        class="search-input"
-                        placeholder="タイトルで絞り込み"
-                    />
+                    <span class="search-input-wrapper">
+                        <input
+                            type="text"
+                            id="searchInput"
+                            class="search-input"
+                            placeholder="タイトルで絞り込み"
+                        />
+                        <button
+                            id="searchClearBtn"
+                            type="button"
+                            class="search-clear-btn"
+                            aria-label="検索条件をクリア"
+                            hidden
+                        >
+                            ×
+                        </button>
+                    </span>
                     <span id="cardCount" class="card-count"></span>
                 </div>
             </div>
