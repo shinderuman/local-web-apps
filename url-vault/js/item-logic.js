@@ -30,8 +30,9 @@
         };
     };
 
-    // アイテム配列をソート（非破壊）
-    const sortItems = (items, sortKey, asc) => {
+    // アイテム配列をソート（非破壊）。
+    // volumeソート時は parseVolumeFn で各タイトルの巻数を取り出して比較する（巻数抽出関数は外部注入）
+    const sortItems = (items, sortKey, asc, parseVolumeFn) => {
         const sorted = [...items];
         if (sortKey === 'sortOrder') {
             sorted.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
@@ -45,6 +46,12 @@
             sorted.sort((a, b) =>
                 asc ? a.createdAt - b.createdAt : b.createdAt - a.createdAt
             );
+        } else if (sortKey === 'volume' && parseVolumeFn) {
+            sorted.sort((a, b) => {
+                const va = parseVolumeFn(a.title);
+                const vb = parseVolumeFn(b.title);
+                return asc ? va - vb : vb - va;
+            });
         }
         return sorted;
     };

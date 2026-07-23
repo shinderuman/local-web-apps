@@ -172,6 +172,43 @@ test('sortItems: 元配列は変更しない（非破壊）', () => {
     assert.strictEqual(items[0].sortOrder, 2);
 });
 
+test('sortItems: 巻数順昇順（parseVolumeFn注入）', () => {
+    const items = [
+        { title: '作品 (3)' },
+        { title: '作品 (1)' },
+        { title: '作品 (2)' }
+    ];
+    const parseVolume = (t) => parseInt(t.match(/\((\d+)\)/)[1], 10);
+    const result = sortItems(items, 'volume', true, parseVolume);
+    assert.deepStrictEqual(
+        result.map((i) => i.title),
+        ['作品 (1)', '作品 (2)', '作品 (3)']
+    );
+});
+
+test('sortItems: 巻数順降順', () => {
+    const items = [
+        { title: '作品 (3)' },
+        { title: '作品 (1)' },
+        { title: '作品 (2)' }
+    ];
+    const parseVolume = (t) => parseInt(t.match(/\((\d+)\)/)[1], 10);
+    const result = sortItems(items, 'volume', false, parseVolume);
+    assert.deepStrictEqual(
+        result.map((i) => i.title),
+        ['作品 (3)', '作品 (2)', '作品 (1)']
+    );
+});
+
+test('sortItems: volume指定でもparseVolumeFn未渡し時はソートしない', () => {
+    const items = [{ title: '作品 (3)' }, { title: '作品 (1)' }];
+    const result = sortItems(items, 'volume', true);
+    assert.deepStrictEqual(
+        result.map((i) => i.title),
+        ['作品 (3)', '作品 (1)']
+    );
+});
+
 // ============================================================
 // isValidItemInput: アイテム入力値のバリデーション
 // ============================================================

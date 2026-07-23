@@ -12,6 +12,7 @@ const DB = {
 const SORT_OPTIONS = [
     { key: 'sortOrder', label: '手動順' },
     { key: 'title', label: 'タイトル順' },
+    { key: 'volume', label: '巻数順' },
     { key: 'createdAt', label: '登録順' }
 ];
 
@@ -1544,7 +1545,12 @@ const renderList = ({ resetScroll = false } = {}) => {
             filterState.searchQuery,
             TRASH.WINDOW_ID
         );
-        items = sortItems(items, filterState.sortKey, filterState.sortAsc);
+        items = sortItems(
+            items,
+            filterState.sortKey,
+            filterState.sortAsc,
+            parseVolume
+        );
         if (filterState.dupCheckEnabled) {
             items = filterDuplicates(
                 items,
