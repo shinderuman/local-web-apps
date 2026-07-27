@@ -30,7 +30,7 @@ const TIMING = {
     PANEL_ANIM: 180,
     SYNOPSIS: {
         FETCH_INTERVAL: 1200, // 全取得の1件ごとの間隔
-        RETRY_INTERVAL: 500 // 短縮再リクエストの間隔
+        RETRY_INTERVAL: 1200 // 短縮再リクエストの間隔
     }
 };
 
