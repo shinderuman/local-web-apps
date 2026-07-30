@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Expense Vault</title>
+        <link rel="stylesheet" href="css/style.css" />
+        <link
+            rel="icon"
+            type="image/svg+xml"
+            href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23172033'/%3E%3Crect x='12' y='17' width='40' height='30' rx='6' fill='%23f5f7fa'/%3E%3Cpath d='M12 25h40v7H12z' fill='%2371e6b1'/%3E%3Ccircle cx='42' cy='40' r='6' fill='%23172033'/%3E%3Cpath d='M42 34a6 6 0 0 1 6 6h-6z' fill='%2371e6b1'/%3E%3C/svg%3E"
+        />
+        <meta name="theme-color" content="#172033" />
+    </head>
+    <body>
+        <div class="container">
+            <header class="app-header">
+                <div>
+                    <h1>Expense Vault</h1>
+                    <p>クレジットカード明細の月別・期間別分類集計</p>
+                </div>
+                <div class="header-actions">
+                    <label for="csvFileInput" class="button button-primary">
+                        CSVを取り込む
+                    </label>
+                    <input
+                        id="csvFileInput"
+                        type="file"
+                        accept=".csv,text/csv"
+                    />
+                    <button id="settingsButton" class="button button-secondary">
+                        設定
+                    </button>
+                    <button id="backupButton" class="button button-secondary">
+                        バックアップ保存
+                    </button>
+                    <label
+                        for="backupFileInput"
+                        class="button button-secondary"
+                    >
+                        復元
+                    </label>
+                    <input
+                        id="backupFileInput"
+                        type="file"
+                        accept=".json,application/json"
+                    />
+                </div>
+            </header>
+
+            <section class="panel period-panel">
+                <div class="segmented-control" aria-label="集計期間モード">
+                    <button
+                        id="monthlyModeButton"
+                        class="segment-button active"
+                        data-period-mode="monthly"
+                    >
+                        月次
+                    </button>
+                    <button
+                        id="rangeModeButton"
+                        class="segment-button"
+                        data-period-mode="range"
+                    >
+                        指定期間
+                    </button>
+                </div>
+                <div id="monthlyPeriodControls" class="period-controls">
+                    <button id="previousMonthButton" class="icon-button">
+                        ←
+                    </button>
+                    <input id="selectedMonthInput" type="month" />
+                    <button id="nextMonthButton" class="icon-button">→</button>
+                </div>
+                <div id="rangePeriodControls" class="period-controls hidden">
+                    <label>
+                        開始月
+                        <input id="rangeStartInput" type="month" />
+                    </label>
+                    <span>～</span>
+                    <label>
+                        終了月
+                        <input id="rangeEndInput" type="month" />
+                    </label>
+                </div>
+            </section>
+
+            <section class="summary-layout">
+                <div class="panel summary-panel">
+                    <div class="summary-total">
+                        <span>合計</span>
+                        <strong id="grandTotal">0円</strong>
+                    </div>
+                    <div id="categorySummary" class="category-summary"></div>
+                    <div
+                        id="unknownSummary"
+                        class="unknown-summary hidden"
+                    ></div>
+                </div>
+                <div class="panel chart-panel">
+                    <canvas
+                        id="categoryChart"
+                        width="360"
+                        height="280"
+                        aria-label="カテゴリ別円グラフ"
+                    ></canvas>
+                    <div id="chartLegend" class="chart-legend"></div>
+                </div>
+            </section>
+
+            <section class="panel list-panel">
+                <div class="list-toolbar">
+                    <div class="filter-row">
+                        <input
+                            id="merchantSearchInput"
+                            type="search"
+                            placeholder="店舗名で検索"
+                        />
+                        <select id="categoryFilterSelect"></select>
+                        <select id="statusFilterSelect">
+                            <option value="all">すべての状態</option>
+                            <option value="unknown">不明のみ</option>
+                            <option value="manual-required">
+                                常に手動のみ
+                            </option>
+                            <option value="automatic">自動分類のみ</option>
+                            <option value="manual">手動分類のみ</option>
+                        </select>
+                    </div>
+                    <div class="bulk-row">
+                        <span id="selectedCountLabel">0件選択</span>
+                        <select id="bulkCategorySelect"></select>
+                        <select id="bulkSubcategorySelect"></select>
+                        <button
+                            id="bulkApplyButton"
+                            class="button button-primary"
+                        >
+                            選択明細へ適用
+                        </button>
+                        <button
+                            id="clearSelectionButton"
+                            class="button button-secondary"
+                        >
+                            選択解除
+                        </button>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table class="transaction-table">
+                        <thead>
+                            <tr>
+                                <th class="checkbox-column">
+                                    <input
+                                        id="selectAllCheckbox"
+                                        type="checkbox"
+                                    />
+                                </th>
+                                <th>利用日</th>
+                                <th>利用店名</th>
+                                <th class="amount-column">金額</th>
+                                <th>分類</th>
+                                <th>取込状態</th>
+                                <th class="action-column"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionTableBody"></tbody>
+                    </table>
+                </div>
+                <div id="emptyState" class="empty-state hidden">
+                    表示対象の明細がありません。
+                </div>
+            </section>
+        </div>
+
+        <div id="transactionModal" class="modal-overlay hidden">
+            <div class="modal-dialog modal-wide">
+                <div class="modal-header">
+                    <div>
+                        <h2>明細の分類</h2>
+                        <p id="transactionModalSummary"></p>
+                    </div>
+                    <button
+                        id="transactionModalCloseButton"
+                        class="modal-close"
+                        aria-label="閉じる"
+                    >
+                        ×
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="allocation-toolbar">
+                        <button
+                            id="addAllocationButton"
+                            class="button button-secondary"
+                        >
+                            按分行を追加
+                        </button>
+                        <button
+                            id="equalAllocationButton"
+                            class="button button-secondary"
+                        >
+                            均等按分
+                        </button>
+                    </div>
+                    <div id="allocationRows" class="allocation-rows"></div>
+                    <div class="allocation-total-row">
+                        <span>按分合計</span>
+                        <strong id="allocationTotal">0円</strong>
+                        <span id="allocationDifference"></span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button
+                        id="transactionMarkUnknownButton"
+                        class="button button-danger"
+                    >
+                        不明へ戻す
+                    </button>
+                    <button
+                        id="transactionModalCancelButton"
+                        class="button button-secondary"
+                    >
+                        キャンセル
+                    </button>
+                    <button
+                        id="transactionModalSaveButton"
+                        class="button button-primary"
+                    >
+                        保存
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="settingsModal" class="modal-overlay hidden">
+            <div class="modal-dialog settings-dialog">
+                <div class="modal-header">
+                    <div>
+                        <h2>設定</h2>
+                        <p>カテゴリ・サブカテゴリ・常に手動分類する店舗</p>
+                    </div>
+                    <button
+                        id="settingsModalCloseButton"
+                        class="modal-close"
+                        aria-label="閉じる"
+                    >
+                        ×
+                    </button>
+                </div>
+                <div class="modal-body settings-body">
+                    <section class="settings-section">
+                        <h3>カテゴリ</h3>
+                        <form id="categoryAddForm" class="inline-form">
+                            <input
+                                id="categoryNameInput"
+                                type="text"
+                                placeholder="カテゴリ名"
+                                required
+                            />
+                            <button class="button button-primary" type="submit">
+                                追加
+                            </button>
+                        </form>
+                        <div
+                            id="categorySettingsList"
+                            class="settings-list"
+                        ></div>
+                    </section>
+
+                    <section class="settings-section">
+                        <h3>サブカテゴリ</h3>
+                        <form id="subcategoryAddForm" class="inline-form">
+                            <select id="subcategoryParentSelect"></select>
+                            <input
+                                id="subcategoryNameInput"
+                                type="text"
+                                placeholder="サブカテゴリ名"
+                                required
+                            />
+                            <button class="button button-primary" type="submit">
+                                追加
+                            </button>
+                        </form>
+                        <div
+                            id="subcategorySettingsList"
+                            class="settings-list"
+                        ></div>
+                    </section>
+
+                    <section class="settings-section">
+                        <h3>常に手動分類する店舗</h3>
+                        <form id="manualRuleAddForm" class="inline-form">
+                            <input
+                                id="manualRulePatternInput"
+                                type="text"
+                                placeholder="店舗名または含まれる文字列"
+                                required
+                            />
+                            <select id="manualRuleMatchTypeSelect">
+                                <option value="exact">完全一致</option>
+                                <option value="contains">部分一致</option>
+                            </select>
+                            <button class="button button-primary" type="submit">
+                                追加
+                            </button>
+                        </form>
+                        <div id="manualRuleList" class="settings-list"></div>
+                    </section>
+
+                    <section class="settings-section danger-zone">
+                        <h3>データ管理</h3>
+                        <button
+                            id="clearAllDataButton"
+                            class="button button-danger"
+                        >
+                            全データを削除
+                        </button>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <div id="importResultModal" class="modal-overlay hidden">
+            <div class="modal-dialog">
+                <div class="modal-header">
+                    <div>
+                        <h2>CSV取込結果</h2>
+                        <p id="importResultSummary"></p>
+                    </div>
+                    <button
+                        id="importResultCloseButton"
+                        class="modal-close"
+                        aria-label="閉じる"
+                    >
+                        ×
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div id="importResultDetails"></div>
+                </div>
+                <div class="modal-footer">
+                    <button
+                        id="importResultOkButton"
+                        class="button button-primary"
+                    >
+                        閉じる
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="toastNotification" class="toast-notification"></div>
+
+        <script src="js/csv-logic.js"></script>
+        <script src="js/transaction-logic.js"></script>
+        <script src="js/summary-logic.js"></script>
+        <script src="js/export-logic.js"></script>
+        <script src="js/db.js"></script>
+        <script src="js/app.js"></script>
+    </body>
+</html>
