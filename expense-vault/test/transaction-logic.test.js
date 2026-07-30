@@ -248,4 +248,5 @@ test('一致した既存明細が不明なら過去の手動分類履歴で再�
             amount: 1590
         }
     ]);
+    assert.equal(plan.statistics.newCount, 0);
 });
