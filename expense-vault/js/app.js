@@ -194,7 +194,7 @@ const bindSettingsEvents = () => {
 // バックアップ・復元イベントを登録する
 const bindBackupEvents = () => {
     getElement('backupButton').addEventListener('click', exportBackup);
-    getElement('backupFileInput').addEventListener('change', importBackup);
+    getElement('restoreButton').addEventListener('click', importBackup);
 };
 
 // CSV取込結果モーダルのイベントを登録する
@@ -1792,7 +1792,7 @@ const deleteAllData = async () => {
 // ============================================================
 
 // 全データをJSONファイルとして保存する
-const exportBackup = () => {
+const exportBackup = async () => {
     try {
         const backup = buildBackupData({
             transactions: appState.transactions,
@@ -1802,27 +1802,40 @@ const exportBackup = () => {
             exportedAt: new Date().toISOString()
         });
 
-        downloadTextFile(
-            JSON.stringify(backup, null, 2),
-            APP_CONFIG.backupFilename,
-            'application/json;charset=utf-8'
-        );
+        const handle = await window.showSaveFilePicker({
+            suggestedName: APP_CONFIG.backupFilename,
+            types: [
+                {
+                    description: 'JSON File',
+                    accept: { 'application/json': ['.json'] }
+                }
+            ]
+        });
+        const writable = await handle.createWritable();
+
+        await writable.write(JSON.stringify(backup, null, 2));
+        await writable.close();
         showToast('バックアップを保存しました');
     } catch (error) {
-        console.error('exportBackup失敗:', error);
-        showToast(`バックアップ保存に失敗しました: ${error.message}`);
+        if (error.name !== 'AbortError') {
+            console.error('exportBackup失敗:', error);
+            showToast(`バックアップ保存に失敗しました: ${error.message}`);
+        }
     }
 };
 
 // JSONバックアップを読み込み全データを置き換える
-const importBackup = async (event) => {
-    const file = event.target.files[0];
-
-    if (!file) {
-        return;
-    }
-
+const importBackup = async () => {
     try {
+        const [handle] = await window.showOpenFilePicker({
+            types: [
+                {
+                    description: 'JSON File',
+                    accept: { 'application/json': ['.json'] }
+                }
+            ]
+        });
+        const file = await handle.getFile();
         const backupData = validateBackupData(JSON.parse(await file.text()));
 
         if (!backupData) {
@@ -1839,22 +1852,11 @@ const importBackup = async (event) => {
         refreshAllViews();
         showToast('バックアップから復元しました');
     } catch (error) {
-        console.error('importBackup失敗:', error);
-        showToast(`復元に失敗しました: ${error.message}`);
-    } finally {
-        event.target.value = '';
+        if (error.name !== 'AbortError') {
+            console.error('importBackup失敗:', error);
+            showToast(`復元に失敗しました: ${error.message}`);
+        }
     }
-};
-
-// 文字列をローカルファイルとしてダウンロードする
-const downloadTextFile = (text, filename, mimeType) => {
-    const url = URL.createObjectURL(new Blob([text], { type: mimeType }));
-    const anchor = document.createElement('a');
-
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
 };
 
 initApp();
