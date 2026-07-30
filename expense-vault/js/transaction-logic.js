@@ -203,6 +203,35 @@
         };
     };
 
+    // 一致した既存明細を引き継ぐか、必要なら再分類する
+    const resolveMatchedTransaction = (
+        incomingRecord,
+        matchedTransaction,
+        manualRules,
+        learnedClassifications,
+        importMetadata
+    ) => {
+        if (!isTransactionUnknown(matchedTransaction)) {
+            return inheritMatchedTransaction(
+                incomingRecord,
+                matchedTransaction,
+                importMetadata
+            );
+        }
+
+        const reclassifiedTransaction = classifyNewTransaction(
+            incomingRecord,
+            manualRules,
+            learnedClassifications,
+            importMetadata
+        );
+
+        return {
+            ...reclassifiedTransaction,
+            id: matchedTransaction.id
+        };
+    };
+
     // 過去履歴または手動対象ルールから新明細の分類を決める
     const classifyNewTransaction = (
         incomingRecord,
@@ -283,12 +312,28 @@
             };
 
             if (matched) {
-                inheritedCount += 1;
-                return inheritMatchedTransaction(
+                const resolvedTransaction = resolveMatchedTransaction(
                     incomingRecord,
                     matched,
+                    manualRules,
+                    learnedClassifications,
                     metadata
                 );
+
+                if (!isTransactionUnknown(matched)) {
+                    inheritedCount += 1;
+                }
+
+                if (
+                    resolvedTransaction.classificationSource ===
+                    CLASSIFICATION_SOURCE.AUTOMATIC
+                ) {
+                    automaticCount += 1;
+                } else if (isTransactionUnknown(resolvedTransaction)) {
+                    unknownCount += 1;
+                }
+
+                return resolvedTransaction;
             }
 
             const classified = classifyNewTransaction(

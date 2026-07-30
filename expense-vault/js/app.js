@@ -718,6 +718,18 @@ const createTransactionRow = (transaction) => {
         'transaction-unknown',
         isTransactionUnknown(transaction)
     );
+    // 明細行のどこを押してもチェックボックスをトグルする
+    row.addEventListener('click', () => {
+        toggleTransactionSelection(
+            transaction.id,
+            !appState.selectedIds.has(transaction.id)
+        );
+        const checkbox = row.querySelector('input[type="checkbox"]');
+
+        if (checkbox) {
+            checkbox.checked = appState.selectedIds.has(transaction.id);
+        }
+    });
     row.appendChild(createSelectionCell(transaction));
     row.appendChild(
         createElement('td', null, transaction.usedAt.replaceAll('-', '/'))
@@ -739,6 +751,11 @@ const createSelectionCell = (transaction) => {
 
     checkbox.type = 'checkbox';
     checkbox.checked = appState.selectedIds.has(transaction.id);
+    // チェックボックス自身のクリックは行クリックに伝播させない（二重トグル防止）
+    checkbox.addEventListener('click', (event) => {
+        event.stopPropagation();
+    });
+    // チェックボックス直接操作でも選択状態を更新する
     checkbox.addEventListener('change', () => {
         toggleTransactionSelection(transaction.id, checkbox.checked);
     });
@@ -863,7 +880,9 @@ const createEditCell = (transaction) => {
     const cell = createElement('td', 'action-column');
     const button = createElement('button', 'edit-button', '編集');
 
-    button.addEventListener('click', () => {
+    button.addEventListener('click', (event) => {
+        // 編集ボタンのクリックは行クリックに伝播させない（チェックトグル防止）
+        event.stopPropagation();
         openTransactionModal(transaction.id);
     });
     cell.appendChild(button);
