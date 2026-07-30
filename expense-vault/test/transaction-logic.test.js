@@ -114,6 +114,84 @@ test('均等按分は端数を最後の割当に寄せる', () => {
     assert.deepEqual(createEqualAllocationAmounts(1000, 3), [333, 333, 334]);
 });
 
+test('学習履歴がない不明明細は再分類されず不明のまま', () => {
+    const unknownTransaction = createTransaction({
+        id: 1,
+        usedAt: '2026-04-10',
+        monthKey: '2026-04',
+        merchant: 'NETFLIX',
+        amount: 1590,
+        sourceType: 'confirmed',
+        allocations: [],
+        classificationSource: CLASSIFICATION_SOURCE.UNKNOWN
+    });
+    const plan = buildImportPlan({
+        incomingRecords: [
+            {
+                usedAt: '2026-04-10',
+                monthKey: '2026-04',
+                merchant: 'NETFLIX',
+                amount: 1590,
+                sourceType: 'confirmed'
+            }
+        ],
+        existingTransactions: [unknownTransaction],
+        manualRules: [],
+        sourceType: 'confirmed',
+        importedAt: '2026-07-31T00:00:00.000Z',
+        importBatchId: 'batch-no-history'
+    });
+
+    assert.equal(plan.recordsToSave[0].id, 1);
+    assert.equal(
+        plan.recordsToSave[0].classificationSource,
+        CLASSIFICATION_SOURCE.UNKNOWN
+    );
+    assert.deepEqual(plan.recordsToSave[0].allocations, []);
+});
+
+test('常に手動分類する店舗の不明明細は要手動のまま', () => {
+    const unknownTransaction = createTransaction({
+        id: 1,
+        usedAt: '2026-04-10',
+        monthKey: '2026-04',
+        merchant: 'NETFLIX',
+        amount: 1590,
+        sourceType: 'confirmed',
+        allocations: [],
+        classificationSource: CLASSIFICATION_SOURCE.UNKNOWN
+    });
+    const plan = buildImportPlan({
+        incomingRecords: [
+            {
+                usedAt: '2026-04-10',
+                monthKey: '2026-04',
+                merchant: 'NETFLIX',
+                amount: 1590,
+                sourceType: 'confirmed'
+            }
+        ],
+        existingTransactions: [unknownTransaction],
+        manualRules: [
+            {
+                enabled: true,
+                pattern: 'NETFLIX',
+                matchType: 'equals'
+            }
+        ],
+        sourceType: 'confirmed',
+        importedAt: '2026-07-31T00:00:00.000Z',
+        importBatchId: 'batch-manual-required'
+    });
+
+    assert.equal(plan.recordsToSave[0].id, 1);
+    assert.equal(
+        plan.recordsToSave[0].classificationSource,
+        CLASSIFICATION_SOURCE.MANUAL_REQUIRED
+    );
+    assert.deepEqual(plan.recordsToSave[0].allocations, []);
+});
+
 test('一致した既存明細が不明なら過去の手動分類履歴で再分類する', () => {
     const unknownTransaction = createTransaction({
         id: 1,

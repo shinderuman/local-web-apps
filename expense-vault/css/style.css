@@ -338,7 +338,6 @@ button:focus-visible {
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
-    border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
     background: var(--panel);
     padding: 12px 16px;

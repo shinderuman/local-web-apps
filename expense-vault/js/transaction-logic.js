@@ -301,6 +301,7 @@
         let inheritedCount = 0;
         let automaticCount = 0;
         let unknownCount = 0;
+        let matchedCount = 0;
 
         const recordsToSave = incomingRecords.map((incomingRecord) => {
             const matched = matchGroups
@@ -312,6 +313,7 @@
             };
 
             if (matched) {
+                matchedCount += 1;
                 const resolvedTransaction = resolveMatchedTransaction(
                     incomingRecord,
                     matched,
@@ -363,7 +365,7 @@
             statistics: {
                 automaticCount,
                 inheritedCount,
-                newCount: recordsToSave.length - inheritedCount,
+                newCount: recordsToSave.length - matchedCount,
                 replacedCount: replacementCandidates.length,
                 unknownCount
             }
