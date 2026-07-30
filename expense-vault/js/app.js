@@ -26,7 +26,8 @@ const appState = {
     periodMode: 'monthly',
     selectedIds: new Set(),
     editingTransactionId: null,
-    toastTimer: null
+    toastTimer: null,
+    amountMasked: false
 };
 const { decodeCsvBuffer, parseExpenseCsv } = window.CSV_LOGIC;
 const {
@@ -91,6 +92,10 @@ const bindEvents = () => {
     bindSettingsEvents();
     bindBackupEvents();
     bindImportResultEvents();
+    getElement('toggleAmountMaskButton').addEventListener(
+        'click',
+        toggleAmountMask
+    );
 };
 
 // CSV取込関連のイベントを登録する
@@ -253,9 +258,15 @@ const formatMonthInputValue = (date) => {
     ].join('-');
 };
 
-// 金額を日本円表示へ変換する
+// 金額を日本円表示へ変換する（モザイク時は伏せ字にする）
 const formatCurrency = (amount) => {
-    return `${Number(amount || 0).toLocaleString('ja-JP')}円`;
+    const formatted = `${Number(amount || 0).toLocaleString('ja-JP')}円`;
+
+    if (appState.amountMasked) {
+        return '████円';
+    }
+
+    return formatted;
 };
 
 // HTML要素を生成する
@@ -513,6 +524,18 @@ const refreshAllViews = () => {
     renderCategoryFilterOptions();
     renderBulkCategoryOptions();
     renderSettingsLists();
+    refreshDataView();
+};
+
+// 金額のモザイク表示を切り替える
+const toggleAmountMask = () => {
+    appState.amountMasked = !appState.amountMasked;
+    const button = getElement('toggleAmountMaskButton');
+
+    button.textContent = appState.amountMasked
+        ? '金額を表示'
+        : '金額をモザイク';
+    button.setAttribute('aria-pressed', String(appState.amountMasked));
     refreshDataView();
 };
 
