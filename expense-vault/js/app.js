@@ -6,6 +6,7 @@ const APP_CONFIG = {
     backupFilename: 'expense-vault.json',
     toastDuration: 2800,
     unknownColor: '#cf222e',
+    periodStorageKey: 'expense-vault.period',
     categoryPalette: [
         '#0969da',
         '#8250df',
@@ -45,6 +46,7 @@ const {
     sortTransactionsByDate
 } = window.SUMMARY_LOGIC;
 const { buildBackupData, validateBackupData } = window.EXPORT_LOGIC;
+const { serializePeriod, deserializePeriod } = window.PERIOD_LOGIC;
 const {
     applyImportPlan,
     clearAllData,
@@ -74,13 +76,42 @@ const initApp = async () => {
 // 初期化・イベント
 // ============================================================
 
+// 現在の期間指定をsessionStorageへ保存する
+const savePeriodToStorage = () => {
+    sessionStorage.setItem(
+        APP_CONFIG.periodStorageKey,
+        serializePeriod({
+            mode: appState.periodMode,
+            month: getElement('selectedMonthInput').value,
+            rangeStart: getElement('rangeStartInput').value,
+            rangeEnd: getElement('rangeEndInput').value
+        })
+    );
+};
+
+// sessionStorageから期間指定を復元する（無ければ現在月で初期化）
+const restorePeriodFromStorage = () => {
+    const fallbackMonth = formatMonthInputValue(new Date());
+    const state = deserializePeriod(
+        sessionStorage.getItem(APP_CONFIG.periodStorageKey),
+        fallbackMonth
+    );
+
+    const mode = state?.mode ?? 'monthly';
+    const month = state?.month ?? fallbackMonth;
+    const rangeStart = state?.rangeStart ?? `${month.slice(0, 4)}-01`;
+    const rangeEnd = state?.rangeEnd ?? month;
+
+    getElement('selectedMonthInput').value = month;
+    getElement('rangeStartInput').value = rangeStart;
+    getElement('rangeEndInput').value = rangeEnd;
+    appState.periodMode = mode;
+    applyPeriodModeUI(mode);
+};
+
 // 現在月を初期表示期間へ設定する
 const setInitialPeriodValues = () => {
-    const currentMonth = formatMonthInputValue(new Date());
-
-    getElement('selectedMonthInput').value = currentMonth;
-    getElement('rangeStartInput').value = `${currentMonth.slice(0, 4)}-01`;
-    getElement('rangeEndInput').value = currentMonth;
+    restorePeriodFromStorage();
 };
 
 // 画面イベントをまとめて登録する
@@ -300,9 +331,8 @@ const showToast = (message) => {
 // 期間・フィルタ
 // ============================================================
 
-// 月次・指定期間モードを切り替える
-const setPeriodMode = (mode) => {
-    appState.periodMode = mode;
+// 月次・指定期間モード切替ボタンとコントロールの表示を反映する
+const applyPeriodModeUI = (mode) => {
     getElement('monthlyModeButton').classList.toggle(
         'active',
         mode === 'monthly'
@@ -316,7 +346,14 @@ const setPeriodMode = (mode) => {
         'hidden',
         mode !== 'range'
     );
+};
+
+// 月次・指定期間モードを切り替える
+const setPeriodMode = (mode) => {
+    appState.periodMode = mode;
+    applyPeriodModeUI(mode);
     clearSelection();
+    savePeriodToStorage();
     refreshDataView();
 };
 
@@ -333,6 +370,7 @@ const moveSelectedMonth = (offset) => {
 // 期間変更時に一覧選択を解除して再描画する
 const onPeriodChanged = () => {
     clearSelection();
+    savePeriodToStorage();
     refreshDataView();
 };
 

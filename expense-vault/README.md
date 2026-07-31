@@ -9,6 +9,7 @@ SMBCカードのCSV明細を取り込み、支出をカテゴリ・サブカテ�
 - 確定CSV・未確定CSVの取込
 - 月次集計
 - 開始月から終了月までの期間集計
+- 選択月と期間モードをsessionStorageへ保持し再読込時に復元
 - 全合計・カテゴリ別合計・サブカテゴリ別内訳
 - 親カテゴリ単位の円グラフ
 - 過去の手動分類履歴による自動分類
@@ -129,11 +130,13 @@ expense-vault/
 │   ├── csv-logic.js
 │   ├── db.js
 │   ├── export-logic.js
+│   ├── period-logic.js
 │   ├── summary-logic.js
 │   └── transaction-logic.js
 └── test/
     ├── csv-logic.test.js
     ├── export-logic.test.js
+    ├── period-logic.test.js
     ├── summary-logic.test.js
     └── transaction-logic.test.js
 ```
