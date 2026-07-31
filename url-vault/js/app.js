@@ -1996,6 +1996,15 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') hideSynopsisPanel();
 });
 
+// カードリストの空き領域クリックでフォーカス解除
+document
+    .querySelector('.list-section-wrapper')
+    .addEventListener('click', (e) => {
+        // カード本体のクリックはフォーカス制御の対象外
+        if (e.target.closest('.card')) return;
+        clearCardFocus('focusedItemId', 'card-focused');
+    });
+
 document
     .getElementById('toggleAddPositionBtn')
     .addEventListener('click', () => {
