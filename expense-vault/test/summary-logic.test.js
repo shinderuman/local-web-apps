@@ -2,6 +2,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     buildSummary,
+    createChartEmptyMessage,
+    createChartItems,
+    createChartLegendRatio,
     filterTransactionsByPeriod
 } = require('../js/summary-logic.js');
 
@@ -72,4 +75,86 @@ test('按分・サブカテゴリ・不明を集計する', () => {
     assert.deepEqual(summary.categories[0].subcategories, [
         { name: 'Kindle', amount: 600 }
     ]);
+});
+
+test('返金は月額とカテゴリ合計から差し引く', () => {
+    const summary = buildSummary(
+        [
+            transactions[0],
+            {
+                id: 4,
+                monthKey: '2026-07',
+                amount: -200,
+                allocations: [
+                    {
+                        categoryId: 'fun',
+                        subcategoryId: 'kindle',
+                        amount: -200
+                    }
+                ]
+            }
+        ],
+        categories,
+        subcategories
+    );
+
+    assert.equal(summary.totalAmount, 800);
+    assert.equal(summary.categories[0].amount, 400);
+    assert.deepEqual(summary.categories[0].subcategories, [
+        { name: 'Kindle', amount: 400 }
+    ]);
+});
+
+test('返金超過カテゴリは凡例へ残し円グラフの扇形から除外する', () => {
+    const items = createChartItems(
+        {
+            categories: [
+                { name: '遊び', amount: 1000, color: '#000' },
+                { name: '生活用品', amount: -300, color: '#111' },
+                { name: '月額', amount: 0, color: '#222' }
+            ],
+            unknownAmount: -100
+        },
+        '#f00'
+    );
+
+    assert.deepEqual(items, [
+        {
+            label: '遊び',
+            amount: 1000,
+            chartAmount: 1000,
+            color: '#000'
+        },
+        {
+            label: '生活用品',
+            amount: -300,
+            chartAmount: 0,
+            color: '#111'
+        },
+        {
+            label: '不明',
+            amount: -100,
+            chartAmount: 0,
+            color: '#f00'
+        }
+    ]);
+});
+
+test('返金超過と正の支出の凡例表示を返す', () => {
+    assert.equal(
+        createChartLegendRatio({ amount: -300, chartAmount: 0 }, 1000),
+        '返金超過'
+    );
+    assert.equal(
+        createChartLegendRatio({ amount: 250, chartAmount: 250 }, 1000),
+        '25%'
+    );
+});
+
+test('支出がない円グラフの表示文言を返す', () => {
+    assert.equal(createChartEmptyMessage([]), 'データなし');
+    assert.equal(
+        createChartEmptyMessage([{ amount: -100, chartAmount: 0 }]),
+        '返金のみ'
+    );
 });

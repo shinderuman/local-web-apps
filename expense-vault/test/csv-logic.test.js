@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
     normalizeDate,
+    parseAmount,
     parseCsvRows,
     parseExpenseCsv
 } = require('../js/csv-logic.js');
@@ -44,4 +45,19 @@ test('未確定CSVは7列目の金額だけを利用する', () => {
 
     assert.equal(parsed.sourceType, 'provisional');
     assert.equal(parsed.records[0].amount, 1312);
+});
+
+test('マイナス金額を返金として解析する', () => {
+    assert.equal(parseAmount('-1,312'), -1312);
+    assert.equal(parseAmount('－1312'), -1312);
+    assert.equal(parseAmount('−1312'), -1312);
+    assert.equal(parseAmount('0'), null);
+});
+
+test('未確定CSVの返金明細を解析する', () => {
+    const parsed = parseExpenseCsv(
+        "2026/7/26,ＡＭＡＺＯＮ．ＣＯ．ＪＰ,ご本人,1回払い,,'26/08,-1312,-1312,,,,,"
+    );
+
+    assert.equal(parsed.records[0].amount, -1312);
 });

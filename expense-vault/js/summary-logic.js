@@ -172,6 +172,51 @@
         };
     };
 
+    // 円グラフと凡例に使う項目を構築する
+    const createChartItems = (summary, unknownColor) => {
+        const items = (summary.categories || [])
+            .filter((category) => category.amount !== 0)
+            .map((category) => ({
+                label: category.name,
+                amount: category.amount,
+                chartAmount: Math.max(category.amount, 0),
+                color: category.color
+            }));
+
+        if (summary.unknownAmount !== 0) {
+            items.push({
+                label: '不明',
+                amount: summary.unknownAmount,
+                chartAmount: Math.max(summary.unknownAmount, 0),
+                color: unknownColor
+            });
+        }
+
+        return items;
+    };
+
+    // 円グラフを描けない場合の表示文言を返す
+    const createChartEmptyMessage = (items) => {
+        if (items.length === 0) {
+            return 'データなし';
+        }
+
+        return '返金のみ';
+    };
+
+    // 円グラフ凡例へ表示する比率または返金状態を返す
+    const createChartLegendRatio = (item, total) => {
+        if (item.amount < 0) {
+            return '返金超過';
+        }
+
+        if (total === 0) {
+            return '0%';
+        }
+
+        return `${Math.round((item.chartAmount / total) * 100)}%`;
+    };
+
     // 明細を利用日降順、同日ではID降順に並べる
     const sortTransactionsByDate = (transactions) => {
         return [...(transactions || [])].sort((left, right) => {
@@ -187,6 +232,9 @@
 
     return {
         buildSummary,
+        createChartEmptyMessage,
+        createChartItems,
+        createChartLegendRatio,
         filterTransactionsByPeriod,
         filterTransactionsForView,
         isMonthInRange,

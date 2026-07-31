@@ -18,6 +18,20 @@
         MANUAL_REQUIRED: 'manual-required',
         UNKNOWN: 'unknown'
     };
+    // CSVファイル名から明細所属月をYYYY-MM形式で取得する
+    const parseStatementKey = (fileName) => {
+        const match = String(fileName ?? '')
+            .trim()
+            .match(/^(\d{4})(0[1-9]|1[0-2])(?:\s*\(\d+\))?\.csv$/i);
+
+        if (!match) {
+            throw new Error(
+                'CSVファイル名から明細所属月を判定できません。YYYYMM.csv形式のファイルを使用してください'
+            );
+        }
+
+        return `${match[1]}-${match[2]}`;
+    };
 
     // 明細の完全一致キーを作成する
     const createMatchKey = (transaction) => {
@@ -170,10 +184,29 @@
         return priority;
     };
 
-    // 取込対象月に置換される既存明細を抽出する
-    const getReplacementCandidates = (transactions, sourceType, monthKeys) => {
+    // 同じCSV所属月に置換される既存明細を抽出する
+    const getReplacementCandidates = (
+        transactions,
+        sourceType,
+        statementKey
+    ) => {
         return (transactions || []).filter((transaction) => {
-            if (!monthKeys.has(transaction.monthKey)) {
+            if (transaction.statementKey !== statementKey) {
+                return false;
+            }
+
+            if (sourceType === 'confirmed') {
+                return true;
+            }
+
+            return transaction.sourceType === 'provisional';
+        });
+    };
+
+    // statementKey導入前の既存明細から安全に照合できる候補を抽出する
+    const getLegacyMatchCandidates = (transactions, sourceType) => {
+        return (transactions || []).filter((transaction) => {
+            if (transaction.statementKey) {
                 return false;
             }
 
@@ -281,100 +314,137 @@
         existingTransactions,
         manualRules,
         sourceType,
+        statementKey,
         importedAt,
         importBatchId
     }) => {
-        const monthKeys = new Set(
-            incomingRecords.map((record) => record.monthKey)
-        );
+        const resolvedStatementKey =
+            statementKey ||
+            incomingRecords
+                .map((record) => record.statementKey || record.monthKey)
+                .sort()
+                .at(-1);
+        const normalizedIncomingRecords = incomingRecords.map((record) => ({
+            ...record,
+            statementKey: resolvedStatementKey
+        }));
         const replacementCandidates = getReplacementCandidates(
             existingTransactions,
             sourceType,
-            monthKeys
+            resolvedStatementKey
         );
-        const matchGroups = groupMatchCandidates(
+        const replacementMatchGroups = groupMatchCandidates(
             replacementCandidates,
+            sourceType
+        );
+        const legacyMatchGroups = groupMatchCandidates(
+            getLegacyMatchCandidates(existingTransactions, sourceType),
             sourceType
         );
         const learnedClassifications =
             buildLearnedClassifications(existingTransactions);
+        const legacyMatchedIds = new Set();
         let inheritedCount = 0;
         let automaticCount = 0;
         let unknownCount = 0;
         let matchedCount = 0;
 
-        const recordsToSave = incomingRecords.map((incomingRecord) => {
-            const matched = matchGroups
-                .get(createMatchKey(incomingRecord))
-                ?.shift();
-            const metadata = {
-                importedAt,
-                importBatchId
-            };
+        const recordsToSave = normalizedIncomingRecords.map(
+            (incomingRecord) => {
+                const matchKey = createMatchKey(incomingRecord);
+                const replacementMatched = replacementMatchGroups
+                    .get(matchKey)
+                    ?.shift();
+                const legacyMatched = replacementMatched
+                    ? null
+                    : legacyMatchGroups.get(matchKey)?.shift();
+                const matched = replacementMatched || legacyMatched;
+                const metadata = {
+                    importedAt,
+                    importBatchId
+                };
 
-            if (matched) {
-                matchedCount += 1;
-                const resolvedTransaction = resolveMatchedTransaction(
+                if (legacyMatched) {
+                    legacyMatchedIds.add(legacyMatched.id);
+                }
+
+                if (matched) {
+                    matchedCount += 1;
+                    const resolvedTransaction = resolveMatchedTransaction(
+                        incomingRecord,
+                        matched,
+                        manualRules,
+                        learnedClassifications,
+                        metadata
+                    );
+
+                    if (!isTransactionUnknown(matched)) {
+                        inheritedCount += 1;
+                    }
+
+                    if (
+                        resolvedTransaction.classificationSource ===
+                        CLASSIFICATION_SOURCE.AUTOMATIC
+                    ) {
+                        automaticCount += 1;
+                    } else if (isTransactionUnknown(resolvedTransaction)) {
+                        unknownCount += 1;
+                    }
+
+                    return resolvedTransaction;
+                }
+
+                const classified = classifyNewTransaction(
                     incomingRecord,
-                    matched,
                     manualRules,
                     learnedClassifications,
                     metadata
                 );
 
-                if (!isTransactionUnknown(matched)) {
-                    inheritedCount += 1;
-                }
-
                 if (
-                    resolvedTransaction.classificationSource ===
+                    classified.classificationSource ===
                     CLASSIFICATION_SOURCE.AUTOMATIC
                 ) {
                     automaticCount += 1;
-                } else if (isTransactionUnknown(resolvedTransaction)) {
+                } else if (isTransactionUnknown(classified)) {
                     unknownCount += 1;
                 }
 
-                return resolvedTransaction;
+                return classified;
             }
+        );
 
-            const classified = classifyNewTransaction(
-                incomingRecord,
-                manualRules,
-                learnedClassifications,
-                metadata
-            );
-
-            if (
-                classified.classificationSource ===
-                CLASSIFICATION_SOURCE.AUTOMATIC
-            ) {
-                automaticCount += 1;
-            } else if (isTransactionUnknown(classified)) {
-                unknownCount += 1;
-            }
-
-            return classified;
-        });
+        const deleteIds = [
+            ...replacementCandidates.map((transaction) => transaction.id),
+            ...legacyMatchedIds
+        ];
 
         return {
-            deleteIds: replacementCandidates.map(
-                (transaction) => transaction.id
-            ),
+            deleteIds,
             recordsToSave,
             statistics: {
                 automaticCount,
                 inheritedCount,
                 newCount: recordsToSave.length - matchedCount,
-                replacedCount: replacementCandidates.length,
+                replacedCount: deleteIds.length,
                 unknownCount
             }
         };
     };
 
+    // 按分額が明細金額と同じ符号か判定する
+    const hasSameAmountSign = (transactionAmount, allocationAmount) => {
+        return Math.sign(transactionAmount) === Math.sign(allocationAmount);
+    };
+
     // 按分合計と元金額が一致するか検証する
     const validateAllocations = (transactionAmount, allocations) => {
-        if (!Array.isArray(allocations) || allocations.length === 0) {
+        if (
+            !Number.isSafeInteger(transactionAmount) ||
+            transactionAmount === 0 ||
+            !Array.isArray(allocations) ||
+            allocations.length === 0
+        ) {
             return false;
         }
 
@@ -383,7 +453,8 @@
                 (allocation) =>
                     !allocation.categoryId ||
                     !Number.isSafeInteger(allocation.amount) ||
-                    allocation.amount <= 0
+                    allocation.amount === 0 ||
+                    !hasSameAmountSign(transactionAmount, allocation.amount)
             )
         ) {
             return false;
@@ -398,15 +469,24 @@
 
     // 指定カテゴリ数で均等按分する
     const createEqualAllocationAmounts = (transactionAmount, count) => {
-        if (!Number.isSafeInteger(transactionAmount) || count <= 0) {
+        if (
+            !Number.isSafeInteger(transactionAmount) ||
+            transactionAmount === 0 ||
+            count <= 0
+        ) {
             return [];
         }
 
-        const baseAmount = Math.floor(transactionAmount / count);
-        const remainder = transactionAmount - baseAmount * count;
+        const sign = Math.sign(transactionAmount);
+        const absoluteAmount = Math.abs(transactionAmount);
+        const baseAmount = Math.floor(absoluteAmount / count);
+        const remainder = absoluteAmount - baseAmount * count;
 
         return Array.from({ length: count }, (_, index) => {
-            return baseAmount + (index === count - 1 ? remainder : 0);
+            const allocationAmount =
+                baseAmount + (index === count - 1 ? remainder : 0);
+
+            return allocationAmount * sign;
         });
     };
 
@@ -417,10 +497,12 @@
         cloneAllocations,
         createEqualAllocationAmounts,
         createMatchKey,
+        getLegacyMatchCandidates,
         getReplacementCandidates,
         getSingleAllocation,
         isTransactionUnknown,
         matchesManualRule,
+        parseStatementKey,
         requiresManualClassification,
         validateAllocations
     };

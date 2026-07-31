@@ -36,11 +36,15 @@ const {
     buildImportPlan,
     createEqualAllocationAmounts,
     isTransactionUnknown,
+    parseStatementKey,
     requiresManualClassification,
     validateAllocations
 } = window.TRANSACTION_LOGIC;
 const {
     buildSummary,
+    createChartEmptyMessage,
+    createChartItems,
+    createChartLegendRatio,
     filterTransactionsByPeriod,
     filterTransactionsForView,
     sortTransactionsByDate
@@ -447,7 +451,10 @@ const handleCsvImport = async (event) => {
         const parsed = parseExpenseCsv(
             decodeCsvBuffer(await file.arrayBuffer())
         );
-        const importPlan = createCsvImportPlan(parsed);
+        const importPlan = createCsvImportPlan(
+            parsed,
+            parseStatementKey(file.name)
+        );
 
         await applyImportPlan(importPlan.deleteIds, importPlan.recordsToSave);
         await reloadAllData();
@@ -464,12 +471,13 @@ const handleCsvImport = async (event) => {
 };
 
 // 解析済みCSVから差分更新計画を構築する
-const createCsvImportPlan = (parsed) => {
+const createCsvImportPlan = (parsed, statementKey) => {
     return buildImportPlan({
         incomingRecords: parsed.records,
         existingTransactions: appState.transactions,
         manualRules: appState.manualRules,
         sourceType: parsed.sourceType,
+        statementKey,
         importedAt: new Date().toISOString(),
         importBatchId: createEntityId('import')
     });
@@ -659,36 +667,24 @@ const renderUnknownSummary = (summary) => {
 
 // 円グラフと凡例を描画する
 const renderChart = (summary) => {
-    const chartItems = summary.categories
-        .filter((category) => category.amount > 0)
-        .map((category) => ({
-            label: category.name,
-            amount: category.amount,
-            color: category.color
-        }));
+    const items = createChartItems(summary, APP_CONFIG.unknownColor);
+    const pieItems = items.filter((item) => item.chartAmount > 0);
+    const emptyMessage = createChartEmptyMessage(items);
 
-    if (summary.unknownAmount > 0) {
-        chartItems.push({
-            label: '不明',
-            amount: summary.unknownAmount,
-            color: APP_CONFIG.unknownColor
-        });
-    }
-
-    drawPieChart(chartItems);
-    renderChartLegend(chartItems);
+    drawPieChart(pieItems, emptyMessage);
+    renderChartLegend(items);
 };
 
 // Canvasへカテゴリ別円グラフを描く
-const drawPieChart = (items) => {
+const drawPieChart = (items, emptyMessage) => {
     const canvas = getElement('categoryChart');
     const context = canvas.getContext('2d');
-    const total = items.reduce((sum, item) => sum + item.amount, 0);
+    const total = items.reduce((sum, item) => sum + item.chartAmount, 0);
 
     context.clearRect(0, 0, canvas.width, canvas.height);
 
     if (total === 0) {
-        drawEmptyChart(context, canvas);
+        drawEmptyChart(context, canvas, emptyMessage);
         return;
     }
 
@@ -698,7 +694,7 @@ const drawPieChart = (items) => {
     const radius = Math.min(canvas.width, canvas.height) * 0.4;
 
     items.forEach((item) => {
-        const angle = (item.amount / total) * Math.PI * 2;
+        const angle = (item.chartAmount / total) * Math.PI * 2;
 
         context.beginPath();
         context.moveTo(centerX, centerY);
@@ -710,19 +706,19 @@ const drawPieChart = (items) => {
     });
 };
 
-// データなし状態の円グラフを描く
-const drawEmptyChart = (context, canvas) => {
+// 円グラフを描けない状態のメッセージを表示する
+const drawEmptyChart = (context, canvas, message) => {
     context.fillStyle = '#68717c';
     context.font = '16px sans-serif';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    context.fillText('データなし', canvas.width / 2, canvas.height / 2);
+    context.fillText(message, canvas.width / 2, canvas.height / 2);
 };
 
 // 円グラフ凡例を描画する
 const renderChartLegend = (items) => {
     const container = getElement('chartLegend');
-    const total = items.reduce((sum, item) => sum + item.amount, 0);
+    const total = items.reduce((sum, item) => sum + item.chartAmount, 0);
 
     container.replaceChildren();
     items.forEach((item) => {
@@ -734,7 +730,6 @@ const renderChartLegend = (items) => {
 const createChartLegendItem = (item, total) => {
     const row = createElement('div', 'chart-legend-item');
     const color = createElement('span', 'chart-legend-color');
-    const percentage = total > 0 ? Math.round((item.amount / total) * 100) : 0;
 
     color.style.setProperty('--legend-color', item.color);
     row.appendChild(color);
@@ -743,7 +738,10 @@ const createChartLegendItem = (item, total) => {
         createElement(
             'span',
             null,
-            `${formatCurrency(item.amount)} (${percentage}%)`
+            `${formatCurrency(item.amount)} (${createChartLegendRatio(
+                item,
+                total
+            )})`
         )
     );
     return row;
@@ -1217,13 +1215,20 @@ const createAllocationSubcategorySelect = (
 // 按分金額入力を作る
 const createAllocationAmountInput = (amount) => {
     const input = document.createElement('input');
+    const transactionAmount = getEditingTransaction()?.amount || amount;
 
     input.className = 'allocation-amount-input';
     input.type = 'number';
-    input.min = '1';
     input.step = '1';
-    input.inputMode = 'numeric';
+    input.inputMode = transactionAmount < 0 ? 'decimal' : 'numeric';
     input.value = String(amount || 0);
+
+    if (transactionAmount < 0) {
+        input.max = '-1';
+    } else {
+        input.min = '1';
+    }
+
     return input;
 };
 

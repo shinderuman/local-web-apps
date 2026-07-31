@@ -107,19 +107,20 @@
         ].join('-');
     };
 
-    // 金額文字列を整数へ変換し、正の整数でなければnullを返す
+    // 金額文字列を整数へ変換し、0または整数でなければnullを返す
     const parseAmount = (value) => {
         const normalizedValue = String(value ?? '')
             .replace(/[￥¥,\s]/g, '')
+            .replace(/^[－−]/, '-')
             .trim();
 
-        if (!/^\d+$/.test(normalizedValue)) {
+        if (!/^-?\d+$/.test(normalizedValue)) {
             return null;
         }
 
         const amount = Number.parseInt(normalizedValue, 10);
 
-        if (!Number.isSafeInteger(amount) || amount <= 0) {
+        if (!Number.isSafeInteger(amount) || amount === 0) {
             return null;
         }
 
@@ -233,7 +234,11 @@
 
         try {
             return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-        } catch {
+        } catch (error) {
+            console.error(
+                'UTF-8デコードに失敗しShift_JISへフォールバック',
+                error
+            );
             return new TextDecoder('shift_jis').decode(bytes);
         }
     };
