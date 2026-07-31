@@ -69,7 +69,8 @@ const filterState = {
     renderId: 0,
     selectedGroupByWindow: {}, // ウィンドウごとの最終選択グループID { windowId: groupId }
     dupCheckEnabled: false, // 重複チェックON（表示中リストの重複候補のみ表示）
-    dupCheckLength: 6 // 重複判定の作品名先頭文字数
+    dupCheckLength: 6, // 重複判定の作品名先頭文字数
+    noSynopsisOnly: false // あらすじ未取得のみ表示ON（Kindleドメインかつ未取得）
 };
 
 // アイテム編集状態
@@ -115,7 +116,8 @@ const {
     updateGroupMemory,
     getRememberedGroup,
     validateRememberedGroup,
-    filterDuplicates
+    filterDuplicates,
+    isNoSynopsisItem
 } = window.FILTER_LOGIC;
 const {
     buildRakutenUrl,
@@ -187,6 +189,7 @@ const loadToggleStates = () => {
 
     updateAddPositionBtn();
     updateDupCheckBtn();
+    updateNoSynopsisBtn();
     document.getElementById('dupCheckLengthInput').value =
         filterState.dupCheckLength;
 };
@@ -199,6 +202,13 @@ const updateDupCheckBtn = () => {
     wrap.classList.toggle('hidden', !filterState.dupCheckEnabled);
 };
 
+// あらすじ未取得のみ表示ボタンのON/OFF見た目を反映（ON=filter-btnのactive）
+const updateNoSynopsisBtn = () => {
+    document
+        .getElementById('toggleNoSynopsisBtn')
+        .classList.toggle('active', filterState.noSynopsisOnly);
+};
+
 // 検索クリアボタンの表示切替（入力値が空なら非表示）
 const updateSearchClearBtn = () => {
     document.getElementById('searchClearBtn').hidden =
@@ -209,6 +219,14 @@ const updateSearchClearBtn = () => {
 const toggleDupCheck = () => {
     filterState.dupCheckEnabled = !filterState.dupCheckEnabled;
     updateDupCheckBtn();
+    saveUIState();
+    renderList({ resetScroll: true });
+};
+
+// あらすじ未取得のみ表示ON/OFF切替
+const toggleNoSynopsisOnly = () => {
+    filterState.noSynopsisOnly = !filterState.noSynopsisOnly;
+    updateNoSynopsisBtn();
     saveUIState();
     renderList({ resetScroll: true });
 };
@@ -232,7 +250,8 @@ const saveUIState = () => {
             addPositionTop: editState.addPositionTop,
             selectedGroupByWindow: filterState.selectedGroupByWindow,
             dupCheckEnabled: filterState.dupCheckEnabled,
-            dupCheckLength: filterState.dupCheckLength
+            dupCheckLength: filterState.dupCheckLength,
+            noSynopsisOnly: filterState.noSynopsisOnly
         })
     );
 };
@@ -248,6 +267,7 @@ const loadUIState = () => {
     filterState.selectedGroupByWindow = state.selectedGroupByWindow;
     filterState.dupCheckEnabled = state.dupCheckEnabled;
     filterState.dupCheckLength = state.dupCheckLength;
+    filterState.noSynopsisOnly = state.noSynopsisOnly;
 };
 
 // ゴミ箱ウィンドウ/グループが存在しなければ作成
@@ -1631,6 +1651,9 @@ const renderList = ({ resetScroll = false } = {}) => {
             filterState.searchQuery,
             TRASH.WINDOW_ID
         );
+        if (filterState.noSynopsisOnly) {
+            items = items.filter(isNoSynopsisItem);
+        }
         items = sortItems(
             items,
             filterState.sortKey,
@@ -1852,6 +1875,11 @@ document.getElementById('toggleEditModeBtn').addEventListener('click', () => {
 document
     .getElementById('toggleDupCheckBtn')
     .addEventListener('click', toggleDupCheck);
+
+// あらすじ未取得のみ表示トグル
+document
+    .getElementById('toggleNoSynopsisBtn')
+    .addEventListener('click', toggleNoSynopsisOnly);
 
 // 重複判定の先頭文字数
 document

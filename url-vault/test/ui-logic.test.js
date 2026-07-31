@@ -73,6 +73,7 @@ test('deserializeUIState: フィールド欠落時はデフォルト', () => {
     assert.deepStrictEqual(state.selectedGroupByWindow, {});
     assert.strictEqual(state.dupCheckEnabled, false);
     assert.strictEqual(state.dupCheckLength, 6);
+    assert.strictEqual(state.noSynopsisOnly, false);
 });
 
 test('deserializeUIState: 重複チェック設定があれば復元', () => {

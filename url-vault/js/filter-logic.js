@@ -82,6 +82,10 @@ const KINDLE_URL_PATTERN = /^https?:\/\/read\.amazon\.co\.jp\//;
         );
     };
 
+    // Kindleドメインかつあらすじ未取得か判定
+    const isNoSynopsisItem = (item) =>
+        isKindleUrl(item.url) && !hasSynopsis(item);
+
     const FILTER_LOGIC = {
         isKindleUrl,
         hasSynopsis,
@@ -92,6 +96,7 @@ const KINDLE_URL_PATTERN = /^https?:\/\/read\.amazon\.co\.jp\//;
         validateRememberedGroup,
         duplicateKey,
         filterDuplicates,
+        isNoSynopsisItem,
         KINDLE_URL_PATTERN
     };
 

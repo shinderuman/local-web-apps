@@ -9,7 +9,8 @@ const {
     getRememberedGroup,
     validateRememberedGroup,
     duplicateKey,
-    filterDuplicates
+    filterDuplicates,
+    isNoSynopsisItem
 } = require('../js/filter-logic.js');
 const { parseBaseTitle } = require('../js/title-parser.js');
 
@@ -308,4 +309,39 @@ test('filterDuplicates: 元配列を変更しない（非破壊）', () => {
     ];
     filterDuplicates(items, 3, parseBaseTitle);
     assert.strictEqual(items.length, 2);
+});
+
+// ============================================================
+// isNoSynopsisItem
+// ============================================================
+
+const KINDLE_URL = 'https://read.amazon.co.jp/sample';
+const OTHER_URL = 'https://example.com/sample';
+
+test('isNoSynopsisItem: Kindleドメインかつ未取得ならtrue', () => {
+    assert.strictEqual(
+        isNoSynopsisItem({ url: KINDLE_URL, synopsis: undefined }),
+        true
+    );
+    assert.strictEqual(
+        isNoSynopsisItem({ url: KINDLE_URL, synopsis: [] }),
+        true
+    );
+});
+
+test('isNoSynopsisItem: Kindleドメインで取得済みならfalse', () => {
+    assert.strictEqual(
+        isNoSynopsisItem({
+            url: KINDLE_URL,
+            synopsis: [{ volume: 1, caption: 'あらすじ' }]
+        }),
+        false
+    );
+});
+
+test('isNoSynopsisItem: Kindle以外は未取得でもfalse', () => {
+    assert.strictEqual(
+        isNoSynopsisItem({ url: OTHER_URL, synopsis: undefined }),
+        false
+    );
 });

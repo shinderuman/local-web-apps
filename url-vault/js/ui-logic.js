@@ -19,7 +19,8 @@
                 addPositionTop: state.addPositionTop ?? true,
                 selectedGroupByWindow: state.selectedGroupByWindow ?? {},
                 dupCheckEnabled: state.dupCheckEnabled ?? false,
-                dupCheckLength: state.dupCheckLength ?? 6
+                dupCheckLength: state.dupCheckLength ?? 6,
+                noSynopsisOnly: state.noSynopsisOnly ?? false
             };
         } catch {
             return null;
