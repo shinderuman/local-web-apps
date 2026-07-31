@@ -89,6 +89,12 @@ const uiState = {
     blurEnabled: false // サムネぼかし有効フラグ
 };
 
+// あらすじ取得状態（保存しない・リロードで破棄）
+const synopsisState = {
+    // アイテムIDごとの取得失敗レスポンス。{ [itemId]: { rawResponses: [...] } }
+    errorResponsesByItem: {}
+};
+
 // ============================================================
 // モジュール関数のインポート
 // ============================================================
@@ -116,7 +122,8 @@ const {
     buildVolumeMap,
     selectTargetVolumes,
     tokenizeQuery,
-    shortenQuery
+    shortenQuery,
+    formatSynopsisResponses
 } = window.SYNOPSIS_LOGIC;
 const { serializeUIState, deserializeUIState } = window.UI_LOGIC;
 
@@ -628,7 +635,13 @@ const resizeToJpeg = (img, trimLeft, trimW, trimH) => {
 
 // 楽天APIでタイトル検索し、該当巻の前後2巻（最大3巻）のあらすじを取得
 // 楽天APIでタイトル検索。0件なら段階的にクエリを短くして再検索（フォールバック）
-const searchItemsByTitle = async (applicationId, accessKey, query) => {
+// rawResponses: 全リクエストの生レスポンスを蓄積する配列（デバッグ表示用）
+const searchItemsByTitle = async (
+    applicationId,
+    accessKey,
+    query,
+    rawResponses
+) => {
     // 戻り値: { data } | { error } （dataは楽天レスポンス、errorは'http'|'api'|'network'）
     const searchOnce = async (q) => {
         const url = buildRakutenUrl(applicationId, accessKey, q);
@@ -642,6 +655,17 @@ const searchItemsByTitle = async (applicationId, accessKey, query) => {
         }
         if (!res.ok) {
             console.error('[synopsis] HTTPエラー:', res.status);
+            // HTTPエラー時も本文JSONを記録（取れなければステータス情報）
+            let errBody = null;
+            try {
+                errBody = await res.json();
+            } catch {
+                errBody = {
+                    httpStatus: res.status,
+                    statusText: res.statusText
+                };
+            }
+            rawResponses.push({ query: q, error: 'http', body: errBody });
             return { error: 'http' };
         }
         let data;
@@ -651,6 +675,8 @@ const searchItemsByTitle = async (applicationId, accessKey, query) => {
             console.error('[synopsis] JSONパース例外:', e);
             return { error: 'network' };
         }
+        // APIエラー・成功問わず生レスポンスを記録
+        rawResponses.push({ query: q, body: data });
         if (data.error || data.errors) {
             console.error('[synopsis] APIエラー:', data);
             return { error: 'api' };
@@ -696,16 +722,19 @@ const fetchSynopsis = async (title, explicitVolume) => {
         currentVolume + ')'
     );
 
+    // 全リクエストの生レスポンスを蓄積（デバッグ表示用）
+    const rawResponses = [];
     const result = await searchItemsByTitle(
         applicationId,
         accessKey,
-        baseTitle
+        baseTitle,
+        rawResponses
     );
-    if (result.error) return { error: result.error };
+    if (result.error) return { error: result.error, rawResponses };
     const data = result.data;
     if (!data.Items || data.Items.length === 0) {
         console.warn('[synopsis] 最終的に検索結果0件:', baseTitle);
-        return null;
+        return { empty: true, rawResponses };
     }
 
     // タイトル→巻数→あらすじ に整理
@@ -719,14 +748,14 @@ const fetchSynopsis = async (title, explicitVolume) => {
             '[synopsis] あらすじデータなし（APIレスポンスにitemCaptionが無い）:',
             baseTitle
         );
-        return null;
+        return { empty: true, rawResponses };
     }
     console.log(
         '[synopsis] 取得巻:',
         targetVolumes.map((t) => t.volume).join(',')
     );
 
-    return targetVolumes;
+    return { synopsis: targetVolumes, rawResponses };
 };
 
 // 指定アイテムのあらすじを取得して保存。エラー時はトースト表示して { error } を返す
@@ -740,10 +769,11 @@ const updateSynopsis = async (itemId, title, url, explicitVolume) => {
         showToast(`${msg}: ${title.slice(0, TOAST_TITLE_MAX_LEN)}`, {
             error: true
         });
-        return { error: result.error };
+        return { error: result.error, rawResponses: result.rawResponses };
     }
-    const synopsis = result;
-    if (!synopsis) return { empty: true };
+    if (!result || result.empty)
+        return { empty: true, rawResponses: result?.rawResponses };
+    const synopsis = result.synopsis;
     const tx = db.transaction(['items'], 'readwrite');
     const store = tx.objectStore('items');
     store.get(itemId).onsuccess = (e) => {
@@ -799,7 +829,14 @@ const createRefetchButton = (item, titleInput, volInput) => {
         if (!editedTitle) return;
         btn.disabled = true;
         btn.textContent = '取得中...';
-        await updateSynopsis(item.id, editedTitle, item.url, editedVolume);
+        const r = await updateSynopsis(
+            item.id,
+            editedTitle,
+            item.url,
+            editedVolume
+        );
+        // 取得結果をアイテムID紐付けで状態に反映（成功時は削除）
+        storeSynopsisResponse(item.id, r);
         db
             .transaction(['items'], 'readonly')
             .objectStore('items')
@@ -813,6 +850,39 @@ const createRefetchButton = (item, titleInput, volInput) => {
         };
     };
     return btn;
+};
+
+// 取得結果をアイテムID紐付けで状態に反映（失敗・空なら保持、成功なら削除）
+const storeSynopsisResponse = (itemId, result) => {
+    const isError =
+        result && (result.error || result.empty) && result.rawResponses;
+    if (isError) {
+        synopsisState.errorResponsesByItem[itemId] = {
+            rawResponses: result.rawResponses
+        };
+    } else {
+        delete synopsisState.errorResponsesByItem[itemId];
+    }
+};
+
+// 取得失敗・あらすじ無し時のレスポンスJSONを表示（書き直し・追記しない）
+const renderSynopsisErrorResponse = (result, jsonContainer) => {
+    if (!jsonContainer) return;
+    jsonContainer.innerHTML = '';
+
+    const responses = result?.rawResponses;
+    const jsonText = formatSynopsisResponses(responses);
+    if (!jsonText) return;
+
+    const title = document.createElement('p');
+    title.className = 'synopsis-json-title';
+    title.textContent = 'APIレスポンス（取得失敗 / あらすじ無し）';
+    jsonContainer.appendChild(title);
+
+    const pre = document.createElement('pre');
+    pre.className = 'synopsis-json';
+    pre.textContent = jsonText;
+    jsonContainer.appendChild(pre);
 };
 
 // あらすじ編集フォーム（タイトル・巻数・再取得ボタン）を描画
@@ -844,6 +914,13 @@ const renderSynopsisForm = (item, bodyEl, editedState) => {
     volInput.className = 'synopsis-input synopsis-volume-input';
     volInput.value = editedState ? editedState.volume : parseVolume(item.title);
 
+    // 取得失敗時のレスポンスJSON表示領域（取得ボタンの下）
+    // 現在表示中のアイテムに紐付く失敗レスポンスのみ表示
+    const jsonContainer = document.createElement('div');
+    jsonContainer.className = 'synopsis-json-container';
+    const errorResponse = synopsisState.errorResponsesByItem[item.id] ?? null;
+    renderSynopsisErrorResponse(errorResponse, jsonContainer);
+
     const refetchBtn = createRefetchButton(item, titleInput, volInput);
 
     const volRow = document.createElement('div');
@@ -852,6 +929,7 @@ const renderSynopsisForm = (item, bodyEl, editedState) => {
     volRow.appendChild(volInput);
     volRow.appendChild(refetchBtn);
     formWrap.appendChild(volRow);
+    formWrap.appendChild(jsonContainer);
 
     bodyEl.appendChild(formWrap);
 };
@@ -1017,6 +1095,8 @@ const fetchAllSynopsis = async (force) => {
                 { persistent: true }
             );
             const r = await updateSynopsis(item.id, item.title, item.url);
+            // 取得結果をアイテムID紐付けで状態に反映（全取得でも後から個別表示できる）
+            storeSynopsisResponse(item.id, r);
             done++;
             if (r && r.error) errorCount++;
             // レートリミット対策: 1.2秒間隔に間引く（最後は待たない）

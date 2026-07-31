@@ -5,7 +5,8 @@ const {
     buildVolumeMap,
     selectTargetVolumes,
     tokenizeQuery,
-    shortenQuery
+    shortenQuery,
+    formatSynopsisResponses
 } = require('../js/synopsis-logic.js');
 
 // parseVolumeはtitle-parser.jsに依存するため、テスト用にモック
@@ -151,4 +152,35 @@ test('shortenQuery: 全長の場合は全て結合', () => {
 test('shortenQuery: 長さ0の場合は空文字', () => {
     const tokens = ['A', 'B'];
     assert.strictEqual(shortenQuery(tokens, 0), '');
+});
+
+// ============================================================
+// formatSynopsisResponses
+// ============================================================
+
+test('formatSynopsisResponses: 空配列は空文字', () => {
+    assert.strictEqual(formatSynopsisResponses([]), '');
+});
+
+test('formatSynopsisResponses: 非配列は空文字', () => {
+    assert.strictEqual(formatSynopsisResponses(null), '');
+    assert.strictEqual(formatSynopsisResponses(undefined), '');
+});
+
+test('formatSynopsisResponses: 1件はインデント付きJSON', () => {
+    const text = formatSynopsisResponses([
+        { query: 'タイトル', body: { count: 0 } }
+    ]);
+    assert.ok(text.includes('"query": "タイトル"'));
+    assert.ok(text.includes('"count": 0'));
+    // 2スペースインデントを含む
+    assert.ok(text.includes('\n  "query"'));
+});
+
+test('formatSynopsisResponses: 複数件は空行区切りで結合', () => {
+    const text = formatSynopsisResponses([{ query: 'A' }, { query: 'B' }]);
+    const blocks = text.split('\n\n');
+    assert.strictEqual(blocks.length, 2);
+    assert.ok(blocks[0].includes('"query": "A"'));
+    assert.ok(blocks[1].includes('"query": "B"'));
 });

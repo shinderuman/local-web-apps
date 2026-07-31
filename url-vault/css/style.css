@@ -605,6 +605,30 @@ button:hover {
     color: #888;
     cursor: default;
 }
+.synopsis-json-container {
+    margin-top: 10px;
+}
+.synopsis-json-title {
+    font-size: 11px;
+    color: #c62828;
+    margin: 0 0 4px 0;
+    font-weight: bold;
+}
+.synopsis-json {
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 8px;
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.5;
+    color: #ccc;
+    white-space: pre-wrap;
+    word-break: break-all;
+    overflow-x: auto;
+    max-height: 300px;
+    overflow-y: auto;
+}
 
 /* 共通トースト（右上・アニメーション付き） */
 .synopsis-toast {

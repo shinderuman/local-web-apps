@@ -45,12 +45,19 @@
         return tokens.slice(0, len).join(' ');
     };
 
+    // 複数リクエストのレスポンス配列をインデント付きJSON文字列に結合
+    const formatSynopsisResponses = (responses) => {
+        if (!Array.isArray(responses) || responses.length === 0) return '';
+        return responses.map((r) => JSON.stringify(r, null, 2)).join('\n\n');
+    };
+
     const SYNOPSIS_LOGIC = {
         buildRakutenUrl,
         buildVolumeMap,
         selectTargetVolumes,
         tokenizeQuery,
         shortenQuery,
+        formatSynopsisResponses,
         RAKUTEN_API_URL,
         RAKUTEN_GENRE_COMIC,
         RAKUTEN_HITS
