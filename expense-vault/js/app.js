@@ -848,20 +848,13 @@ const getAllocationLabel = (allocation) => {
     return `${category?.name || '削除済みカテゴリ'} / ${subcategory.name}`;
 };
 
-// 分類状態と確定状態のセルを作る
+// 分類状態のセルを作る
 const createStatusCell = (transaction) => {
     const cell = document.createElement('td');
     const status = getClassificationStatus(transaction);
 
     cell.appendChild(
         createElement('span', `status-badge ${status.className}`, status.label)
-    );
-    cell.appendChild(
-        createElement(
-            'span',
-            'source-label',
-            transaction.sourceType === 'confirmed' ? '確定' : '未確定'
-        )
     );
     return cell;
 };

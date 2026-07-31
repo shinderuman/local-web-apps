@@ -454,12 +454,6 @@ button:focus-visible {
     color: #116329;
 }
 
-.source-label {
-    display: block;
-    color: var(--muted);
-    font-size: 12px;
-}
-
 .edit-button {
     border: 1px solid var(--border);
     border-radius: 5px;
