@@ -2,3 +2,5 @@ node_modules
 **/js/lib/**/*.min.js
 eslint.config.mjs
 package-lock.json
+# ビルド生成物（scripts/build-apps.js が出力）
+apps.js

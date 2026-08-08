@@ -1,0 +1,98 @@
+:root {
+    --bg: #f7f8fa;
+    --card-bg: #ffffff;
+    --text: #1f2329;
+    --muted: #8a9099;
+    --accent: #2b6cb0;
+    --border: #e3e6eb;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family:
+        system-ui,
+        -apple-system,
+        'Segoe UI',
+        Roboto,
+        sans-serif;
+    background: var(--bg);
+    color: var(--text);
+}
+
+.launcher-header {
+    padding: 48px 24px 24px;
+    text-align: center;
+}
+
+.launcher-header h1 {
+    margin: 0 0 8px;
+    font-size: 28px;
+}
+
+.launcher-subtitle {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.launcher-main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 64px;
+}
+
+.app-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+}
+
+.app-card {
+    margin: 0;
+    padding: 0;
+}
+
+.app-link {
+    display: block;
+    padding: 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--text);
+    transition:
+        border-color 0.15s,
+        box-shadow 0.15s;
+}
+
+.app-link:hover {
+    border-color: var(--accent);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.app-title {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.app-id {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 12px;
+    font-family: monospace;
+}
+
+.launcher-message {
+    text-align: center;
+    color: var(--muted);
+    font-size: 14px;
+}
