@@ -393,6 +393,11 @@ tr.unknown-type-row.row-updated {
     background-color: #f7fafc;
     border-color: #cbd5e0;
 }
+/* 用途列: ホバー枠を無効化（タグ配色で編集可能を示す） */
+.clickable-cell.no-hover:hover {
+    background-color: transparent;
+    border-color: transparent;
+}
 .select-inline-input {
     width: 100%;
     padding: 4px 6px;

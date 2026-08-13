@@ -66,10 +66,8 @@ const USAGE_LABELS = {
     'near-dead': 'ほぼ故障品'
 };
 const USAGE_DEFAULT = 'unused';
-const USAGE_OPTIONS = Object.keys(USAGE_LABELS).map((key) => ({
-    label: USAGE_LABELS[key],
-    value: key
-}));
+// クリックトグルの循環順: 未使用 → 使用中 → ほぼ故障品 → 未使用
+const USAGE_CYCLE = ['unused', 'in-use', 'near-dead'];
 
 // ソート列とテーブルヘッダ位置の対応（用途・メモ列はソート不可）
 // 列順: メーカー(0) 容量(1) モデル名(2) S/N(3) 分類(4) 状態(5=Score) 残り寿命(6) 総書込量(7) 通電時間(8) 用途(9) メモ(10)
@@ -1081,17 +1079,26 @@ const createLevelBadge = (item) => {
     return badge;
 };
 
-// 運用状態セルを生成: 使用状況のタグ（クリックでプルダウン切替）
+// 運用状態の次の値を返す（循環トグル）
+const nextUsage = (current) => {
+    const idx = USAGE_CYCLE.indexOf(current);
+    return USAGE_CYCLE[(idx + 1) % USAGE_CYCLE.length];
+};
+
+// 運用状態セルを生成: 使用状況の小タグ（クリックで循環切替）
 // stopPropagation で親trへの伝播を止め、詳細行展開との衝突を防ぐ
 const createUsageCell = (item) => {
-    const cell = createEditableCell('', (e) => {
-        e.stopPropagation();
-        enableSelectEdit(item.id, e.currentTarget, 'usage', USAGE_OPTIONS);
-    });
+    const cell = document.createElement('div');
+    cell.className = 'clickable-cell no-hover';
     const tag = document.createElement('span');
     tag.className = `usage-tag usage-${item.usage}`;
     tag.innerText = USAGE_LABELS[item.usage];
     cell.appendChild(tag);
+    cell.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const found = findRecord(item.id);
+        if (found) commitEdit(found.idx, { usage: nextUsage(item.usage) });
+    });
     return cell;
 };
 
