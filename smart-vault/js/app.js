@@ -58,8 +58,21 @@ const TYPE_OPTIONS = Object.keys(TYPE_LABELS).map((key) => ({
     value: key
 }));
 
-// ソート列とテーブルヘッダ位置の対応（メモ列はソート不可）
-// 列順: メーカー(0) 容量(1) モデル名(2) S/N(3) 分類(4) 状態(5=Score) 残り寿命(6) 総書込量(7) 通電時間(8)
+// 運用状態（使用状況）の表示名・既定値・編集選択肢
+// S.M.A.R.T. からは判定不能なため、ユーザー手動設定の第3の軸
+const USAGE_LABELS = {
+    'in-use': '使用中',
+    unused: '未使用',
+    'near-dead': 'ほぼ故障品'
+};
+const USAGE_DEFAULT = 'unused';
+const USAGE_OPTIONS = Object.keys(USAGE_LABELS).map((key) => ({
+    label: USAGE_LABELS[key],
+    value: key
+}));
+
+// ソート列とテーブルヘッダ位置の対応（用途・メモ列はソート不可）
+// 列順: メーカー(0) 容量(1) モデル名(2) S/N(3) 分類(4) 状態(5=Score) 残り寿命(6) 総書込量(7) 通電時間(8) 用途(9) メモ(10)
 const SORT_INDEX_MAP = {
     vendor: 0,
     size_bytes: 1,
@@ -288,6 +301,7 @@ const parseSmartJson = (rawText, existingRecord = null) => {
         calcSectorCounts(data);
 
     const memo = existingRecord ? existingRecord.memo : '';
+    const usage = existingRecord ? existingRecord.usage : USAGE_DEFAULT;
     const existingType = existingRecord ? existingRecord.customType : '';
     let vendor = existingRecord ? existingRecord.vendor : '';
     const id = existingRecord ? existingRecord.id : Number(Date.now());
@@ -349,6 +363,7 @@ const parseSmartJson = (rawText, existingRecord = null) => {
         healthReasons,
         updatedAt: new Date().toLocaleString(),
         memo,
+        usage,
         customType,
         raw: compactRaw(rawText),
         ...(benchSeq !== undefined ? { benchSeq } : {}),
@@ -390,6 +405,7 @@ const createManualRecord = (customType = 'unknown') => ({
     healthReasons: [],
     updatedAt: new Date().toLocaleString(),
     memo: '',
+    usage: USAGE_DEFAULT,
     customType,
     raw: ''
 });
@@ -1065,6 +1081,20 @@ const createLevelBadge = (item) => {
     return badge;
 };
 
+// 運用状態セルを生成: 使用状況のタグ（クリックでプルダウン切替）
+// stopPropagation で親trへの伝播を止め、詳細行展開との衝突を防ぐ
+const createUsageCell = (item) => {
+    const cell = createEditableCell('', (e) => {
+        e.stopPropagation();
+        enableSelectEdit(item.id, e.currentTarget, 'usage', USAGE_OPTIONS);
+    });
+    const tag = document.createElement('span');
+    tag.className = `usage-tag usage-${item.usage}`;
+    tag.innerText = USAGE_LABELS[item.usage];
+    cell.appendChild(tag);
+    return cell;
+};
+
 // メモセルを生成
 const createMemoCell = (item) => {
     const td = document.createElement('td');
@@ -1248,6 +1278,11 @@ const createRow = (item) => {
         tdHours.appendChild(hoursCell);
         tr.appendChild(tdHours);
     }
+
+    // 用途（運用状態：使用中/未使用/ほぼ故障品・クリックでプルダウン切替）
+    const tdUsage = document.createElement('td');
+    tdUsage.appendChild(createUsageCell(item));
+    tr.appendChild(tdUsage);
 
     // メモ（編集可能）
     tr.appendChild(createMemoCell(item));
