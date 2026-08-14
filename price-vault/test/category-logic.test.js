@@ -5,9 +5,6 @@ const {
     countProductsByCategory
 } = require('../js/category-logic.js');
 
-// ============================================================
-// extractCategories
-// ============================================================
 test('extractCategories: 重複を排除', () => {
     const products = [
         { category: '野菜' },
@@ -30,9 +27,6 @@ test('extractCategories: 空配列は空配列', () => {
     assert.deepStrictEqual(extractCategories([]), []);
 });
 
-// ============================================================
-// countProductsByCategory
-// ============================================================
 test('countProductsByCategory: 正しい件数を返す', () => {
     const products = [
         { category: '野菜' },

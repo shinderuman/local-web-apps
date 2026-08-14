@@ -1,19 +1,16 @@
 #!/bin/bash
 
 # timemachine-clone.sh — Time Machine 用ストレージの APFS 構造ごと別ディスクへ ddrescue でクローン
-# 詳細は README.md を参照。
 # 導入: brew install ddrescue jq
 # 終了コード: 0=成功・メニューから終了 / 1=異常・確認後の中止
 
 set -o pipefail
 
-# スクリプトディレクトリを絶対パス化
 SCRIPT_DIR=$(
     cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 &&
         pwd -P
 ) || exit 1
 
-# 必須コマンドを絶対パスで解決
 JQ_BIN=$(type -P jq 2>/dev/null)
 DDRESCUE_BIN=$(type -P ddrescue 2>/dev/null)
 if [ -z "$JQ_BIN" ]; then
@@ -31,25 +28,20 @@ for cmd in diskutil tmutil plutil caffeinate; do
     fi
 done
 
-# ddrescue 再試行パスのリトライ回数
 DDRESCUE_RETRY_COUNT=3
 
-# 一時ディレクトリ（中断時クリーンアップ用）
 TEMP_DIR=""
 
-# 共通UI・ディスク情報ヘルパーを読み込み
 if [ ! -r "$SCRIPT_DIR/common.sh" ]; then
     echo "エラー: common.sh を読み込めません。"
     exit 1
 fi
 source "$SCRIPT_DIR/common.sh"
 
-# 一時ディレクトリ削除（EXIT で実行）
 cleanup_files() {
     [ -n "$TEMP_DIR" ] && rm -rf "$TEMP_DIR"
 }
 
-# シグナル受信時は確実に終了コードを返して終了
 handle_signal() {
     local exit_code="$1"
     trap - INT TERM
@@ -60,19 +52,11 @@ trap cleanup_files EXIT
 trap 'handle_signal 130' INT
 trap 'handle_signal 143' TERM
 
-# ========================================
-# 共通処理
-# ========================================
-
-# log / warn / die は common.sh を使用
-
-# キー入力を1行読み取る（read のラッパ）
 read_line() {
     local var="$1"
     IFS= read -r "$var"
 }
 
-# 指定デバイスの容量（bytes）を返す
 device_size() {
     local size
     size=$(diskutil info -plist "/dev/$1" 2>/dev/null | plutil -extract TotalSize raw -o - -- - 2>/dev/null)
@@ -82,10 +66,7 @@ device_size() {
     printf '%s' "$size"
 }
 
-# APFS Container の縮小可能な最小サイズ（bytes）を返す。
-# resizeContainer limits はリサイズを実行せず、有効なリサイズ範囲を取得するだけ。
-# MinimumSizeNoGuard はファイル・スナップショット・quota・メタデータで制約された最小値
-# （推奨値の MinimumSizePreferred ではなく、実データ制約の hard floor）。
+# MinimumSizeNoGuard は実データ制約の hard floor（推奨値 MinimumSizePreferred ではない）
 get_apfs_minimum_resize_size() {
     local container="$1"
     local min_size
@@ -97,35 +78,24 @@ get_apfs_minimum_resize_size() {
     printf '%s' "$min_size"
 }
 
-# デバイスの要約情報を表示
 show_device() {
     printf '\n--- /dev/%s ---\n' "$1"
     diskutil info "/dev/$1" 2>/dev/null |
         grep -E 'Device Identifier|Device Node|Whole|Part of Whole|Disk Size|Container Total Space|Volume Name|Mount Point|APFS.*Role' || true
 }
 
-# ========================================
-# APFS 構造の自動判定
-# ========================================
-
-# 選択デバイス（Physical Store または Container）が属する APFS Container（diskN）を逆引きする。
-# diskutil apfs list 出力は "+-- Container diskN" のように行頭に記号が付くため、行頭限定せず
-# "Container disk" を含む行の $3 から diskN を取り、そのブロック内で dev を探す。
-# 引数: デバイス（diskN または diskNsM）
+# diskutil apfs list は行頭に "+--" 等が付くため行頭限定せず "Container disk" を含む行の $3 から diskN を取る
 find_apfs_container_ref() {
     local device="$1"
     diskutil apfs list 2>/dev/null |
         awk -v dev="$device" '
             /Container disk/ { container = $3 }
-            # Container 参照そのもの、または Physical Store として dev を含む行
             $0 ~ "Container Reference:[[:space:]]+" dev "$" { print container; exit }
             $0 ~ "Physical Store " dev " " { print container; exit }
             $0 ~ "Physical Store Disk:[[:space:]]+" dev "$" { print container; exit }
         '
 }
 
-# 指定 Container 内の Backup ロール Volume（diskNsM）を返す。複数・なしは空文字。
-# 実際の行は "APFS Volume Disk (Role):   diskNsM (Backup)" 形式。
 find_backup_volume() {
     local container="$1"
     diskutil apfs list "$container" 2>/dev/null |
@@ -141,10 +111,7 @@ find_backup_volume() {
         '
 }
 
-# SOURCE 側の APFS 構造を決定する。
-# ddrescue 入力（SOURCE_STORE）は Container（synthesized）にし、パーティション内の小さいコンテナだけコピーする。
-# 自動判定できなければプロンプトで入力させる。
-# 引数: 選択ディスク（diskN）
+# ddrescue 入力(SOURCE_STORE)は Container(synthesized)にしパーティション内の小さいコンテナだけコピーする
 resolve_source() {
     local selected="$1"
     local container tm_volume
@@ -157,7 +124,6 @@ resolve_source() {
     printf 'Container:    %s\n' "${container:-(未検出)}"
     printf 'Backup Volume:%s\n' "${tm_volume:-(未検出)}"
 
-    # SOURCE は Container と Backup Volume が必須
     if [ -z "$container" ] || [ -z "$tm_volume" ]; then
         warn "コピー元のAPFS構造を自動判定できませんでした。diskutil apfs list を参考に入力してください。"
         diskutil apfs list 2>/dev/null | sed -n '1,40p'
@@ -173,9 +139,6 @@ resolve_source() {
     SOURCE_EJECT_DISK="$selected"
 }
 
-# TARGET 側のコピー前情報を決定する（コピー前は空ディスクのため Container/TM Volume は無い）。
-# ddrescue 出力（TARGET_STORE）は選択デバイスを実体のまま（全面上書き）。
-# 引数: 選択ディスク（diskN）
 resolve_target_pre() {
     local selected="$1"
     TARGET_STORE="$selected"
@@ -185,8 +148,6 @@ resolve_target_pre() {
     printf ' ddrescue 出力デバイス: %s\n' "$TARGET_STORE"
 }
 
-# コピー後（再接続後）の TARGET 側 APFS 構造を決定する。
-# 引数: 選択ディスク（diskN）
 resolve_target_post() {
     local selected="$1"
     local container tm_volume
@@ -208,18 +169,11 @@ resolve_target_post() {
         read_line tm_volume
     fi
 
-    # 再接続で disk番号が変わるため、本体が使う変数を新しい番号で更新する
     TARGET_STORE="$selected"
     TARGET_CONTAINER="$container"
     TARGET_TM_VOLUME="$tm_volume"
 }
 
-# ========================================
-# ディスク選択メニュー
-# ========================================
-
-# 外付けディスク一覧を取得し、表示用配列へ詰める。
-# 戻り値: 成功0/失敗1。選択候補は標準出力へ "diskN<US>モデル<US>容量<US>プロトコル" を1行1つ。
 list_external_disks() {
     local d summary
     while IFS= read -r d; do
@@ -232,11 +186,7 @@ list_external_disks() {
     done < <(collect_disks)
 }
 
-# ディスク選択メニューを表示し、選択された diskN をグローバル SELECTED_DISK へ設定する。
-# 再読込・終了付き。終了時は return 1。
-# ※ select_menu はメニュー表示を stdout へ出すため、コマンド置換で呼ばず直接呼んで
-#    index を $? で受け取り配列から diskN を引く（hdd-repair.sh と同じパターン）。
-# 引数: $1 ラベル（コピー元/コピー先）, $2 除外diskN（同じディスクを選ばせない）
+# select_menu は stdout へ出すためコマンド置換せず $? で受けて配列から引く
 select_disk_menu() {
     local label="$1"
     local exclude="$2"
@@ -274,16 +224,11 @@ select_disk_menu() {
     done
 }
 
-# ========================================
-# Time Machine 操作
-# ========================================
-
 stop_time_machine() {
     sudo tmutil stopbackup >/dev/null 2>&1 || true
     sudo tmutil disable >/dev/null 2>&1 || true
 }
 
-# /Volumes/.timemachine 以下に個別マウントされたスナップショットを解除する
 unmount_tm_snapshot_mounts() {
     local tm_volume="$1"
     local mount_point
@@ -298,11 +243,6 @@ mounts_remain_for_tm_volume() {
     mount | grep -q "@/dev/${1} on "
 }
 
-# ========================================
-# 履歴列挙・削除
-# ========================================
-
-# Time Machine ボリュームをマウントし TM_MOUNT_PATH を設定する
 ensure_target_mounted() {
     sudo diskutil mount "/dev/$1" >/dev/null 2>&1 || true
     TM_MOUNT_PATH=$(diskutil info -plist "/dev/$1" 2>/dev/null | plutil -extract MountPoint raw -o - -- - 2>/dev/null)
@@ -311,7 +251,6 @@ ensure_target_mounted() {
     return 0
 }
 
-# 履歴一覧（YYYY-MM-DD-HHMMSS）を output_file へ出力
 list_backups() {
     local output_file="$1"
     local tm_volume="$2"
@@ -335,7 +274,6 @@ timestamp_to_epoch() {
     /bin/date -j -f '%Y-%m-%d-%H%M%S' "$1" '+%s' 2>/dev/null
 }
 
-# input_file の履歴を一括削除
 delete_backups_from_file() {
     local input_file="$1"
     local tm_volume="$2"
@@ -362,7 +300,6 @@ delete_backups_from_file() {
     return 0
 }
 
-# 直近24時間の履歴を最新1件だけ残し、残りを削除リストへ出力
 build_recent_24h_delete_list() {
     local input_file="$1"
     local output_file="$2"
@@ -386,7 +323,6 @@ build_recent_24h_delete_list() {
     done < "$input_file"
 }
 
-# 最古を起点に7日区間ごとに1件残し、残りを削除リストへ出力
 build_weekly_delete_list() {
     local input_file="$1"
     local output_file="$2"
@@ -412,7 +348,6 @@ build_weekly_delete_list() {
     done < "$input_file"
 }
 
-# 月ごとに1件残し、残りを削除リストへ出力
 build_monthly_delete_list() {
     local input_file="$1"
     local output_file="$2"
@@ -430,11 +365,6 @@ build_monthly_delete_list() {
     done < "$input_file"
 }
 
-# ========================================
-# APFS 修復・リサイズ・新規作成
-# ========================================
-
-# コピー先コンテナをオフライン状態へ（スナップショット・マウント解除）
 prepare_target_offline() {
     local container="$1"
     local tm_volume="$2"
@@ -453,17 +383,12 @@ prepare_target_offline() {
     return 0
 }
 
-# fsck_apfs でAPFSコンテナを自動修復する
-# -y: 修復確認YES / -o: overlapped/overallocated extents 修復 / -T: B-treeノード修復
-# -D: B-tree修復時に空き領域から候補探索 / -s: 容量割当集計表示
-# macOS版で未対応オプションがあれば -T/-D を外して調整する
 run_apfs_repair() {
     local container="$1"
     log "fsck_apfs でAPFSコンテナを自動修復"
     sudo /sbin/fsck_apfs -y -o -T -D -s "/dev/r$container" || true
 }
 
-# 修復せずリサイズのみ試す
 try_resize_without_repair() {
     local container="$1"
     local tm_volume="$2"
@@ -478,7 +403,6 @@ try_resize_without_repair() {
     return 1
 }
 
-# 修復してからリサイズを試す
 repair_and_try_resize() {
     local stage_name="$1"
     local container="$2"
@@ -502,7 +426,7 @@ repair_and_try_resize() {
     return 1
 }
 
-# コピー先APFSを新規作成する（履歴全喪失の最終フォールバック）
+# 履歴全喪失の最終フォールバック
 recreate_target_apfs() {
     local store="$1"
     local container="$2"
@@ -519,14 +443,11 @@ recreate_target_apfs() {
 
     whole=$(diskutil info -plist "/dev/$store" 2>/dev/null | plutil -extract Whole raw -o - -- - 2>/dev/null)
     if [ "$whole" = "true" ] || [ "$whole" = "Yes" ]; then
-        # AppleRAID Device Node や単体ディスク全体
         sudo diskutil eraseDisk APFS "$recreate_name" GPT "/dev/$store" || return 1
     else
-        # 単体ディスク内のパーティション
         sudo diskutil eraseVolume APFS "$recreate_name" "/dev/$store" || return 1
     fi
 
-    # 新規作成後のデバイス番号を再取得
     printf '\ndiskutil apfs list で新規作成後の Container / Volume を確認してください\n'
     diskutil apfs list 2>/dev/null | sed -n '1,40p'
     printf '\n新規作成後の synthesized APFS Container を入力（例: disk15）: '
@@ -534,7 +455,6 @@ recreate_target_apfs() {
     printf '新規作成後の Time Machine Volume を入力（例: disk15s1）: '
     read_line tm_volume
 
-    # 新規作成後は古い番号が消えるため、本体が使う変数を直接更新する
     TARGET_CONTAINER="$container"
     TARGET_TM_VOLUME="$tm_volume"
 
@@ -543,15 +463,10 @@ recreate_target_apfs() {
 
     ensure_target_mounted "$tm_volume" || return 1
 
-    # Time Machine 用 Backup ロール（-role T）を付与
     sudo diskutil apfs changeVolumeRole "/dev/$tm_volume" T ||
         warn "Backupロールを設定できませんでした。tmutil setdestination時に再確認してください"
     return 0
 }
-
-# ========================================
-# メイン
-# ========================================
 
 main() {
     TEMP_DIR=$(mktemp -d) || {
@@ -560,25 +475,20 @@ main() {
     }
     WORK_LISTBACKUPS_RAW="$TEMP_DIR/listbackups.raw"
 
-    # --- From（コピー元）選択 ---
     log "コピー元ディスクを選択"
     select_disk_menu "コピー元" "" || exit 0
     local source_disk="$SELECTED_DISK"
     resolve_source "$source_disk"
 
-    # --- To（コピー先）選択 ---
     log "コピー先ディスクを選択"
     select_disk_menu "コピー先" "$source_disk" || exit 0
     local target_disk="$SELECTED_DISK"
     resolve_target_pre "$target_disk"
 
-    # --- サイズ比較・最終確認 ---
     local source_size target_size
     local source_was_shrunk=0
     local source_shrink_size=""
-    # APFSが報告する最小縮小サイズへ追加する空き容量
     local shrink_free_margin_bytes=5000000000
-    # コピー先末尾に残す余裕
     local target_end_margin_bytes=1000000000
     source_size=$(device_size "$SOURCE_STORE")
     target_size=$(device_size "$TARGET_STORE")
@@ -667,10 +577,8 @@ EOF_CONFIRM
     read_line confirm
     [[ "$confirm" =~ ^[Yy]$ ]] || die "中止しました"
 
-    # sudo 認証を事前に取得
     sudo -v || die "sudo認証に失敗しました"
 
-    # --- コピー前の停止・アンマウント ---
     log "Time Machineを停止"
     stop_time_machine
 
@@ -712,9 +620,7 @@ EOF_CONFIRM
     sudo diskutil unmountDisk force "/dev/$TARGET_UNMOUNT_DISK" ||
         die "コピー先をアンマウントできませんでした"
 
-    # --- ddrescue によるブロックコピー ---
-    # mapfile は中断・再開に備え一時ディレクトリ外の永続パスへ置く。
-    # 別のコピー元・コピー先での誤再利用を防ぐため、既存時は再利用確認を取る。
+    # mapfile は中断・再開に備え永続パスへ。誤再利用を防ぐため再利用確認を取る
     local mapfile="$SCRIPT_DIR/timemachine-clone.map"
     if [ -f "$mapfile" ]; then
         cat <<EOF
@@ -734,7 +640,7 @@ EOF
     log "ddrescue開始: /dev/r$SOURCE_STORE → /dev/r$TARGET_STORE"
     printf 'mapfile: %s\n' "$mapfile"
 
-    # 第1パス: 読める領域を優先し、難しい領域は後回しにする（-n）
+    # 第1パス: 読める領域を優先し難しい領域は後回しにする（-n）
     sudo caffeinate -im "$DDRESCUE_BIN" \
         -f -n \
         "/dev/r$SOURCE_STORE" \
@@ -753,10 +659,10 @@ EOF
     sync
     log "ブロックコピー完了"
 
-    # ddrescue の終了コード0は正常終了を意味するだけで全ブロック回収完了とは限らない。
-    # bad-sector が残っていても正常終了するため、ddrescuelog --delete-if-done で
-    # 全領域回収済みか確認する。未回収領域があるまま後続（APFS修復等）へ進むと、
-    # 後から mapfile で再開した際に修復後データを元ディスクブロックで上書きする危険があるため停止する。
+    # ddrescue 終了コード0は正常終了を意味するだけで全ブロック回収完了とは限らない。
+    # bad-sector 残りでも正常終了するため ddrescuelog --delete-if-done で全領域回収済みか確認する。
+    # 未回収領域があるまま後続へ進むと、後から mapfile で再開した際に修復後データを
+    # 元ディスクブロックで上書きする危険があるため停止する。
     local ddrescuelog_bin
     ddrescuelog_bin=$(type -P ddrescuelog 2>/dev/null)
     if [ -z "$ddrescuelog_bin" ]; then
@@ -768,9 +674,9 @@ EOF
         die "未回収領域が残っています。同じコピー元・コピー先とmapfileで再実行してください: $mapfile"
     fi
 
-    # --- UUID重複解消のため、From を外して To だけ再接続 ---
+    # UUID重複解消のため From を外して To だけ再接続
     log "コピー元とコピー先を取り出す"
-    # eject 失敗時は物理切断前の安全確保のため中止する（安全でない状態で抜かせない）
+    # eject 失敗時は物理切断前の安全確保のため中止する
     if [ -n "$TARGET_EJECT_DISK" ]; then
         sudo diskutil eject "/dev/$TARGET_EJECT_DISK" ||
             die "コピー先をejectできませんでした。物理切断前に安全な状態へできません"
@@ -814,13 +720,11 @@ EOF_RECONNECT
     diskutil list
     diskutil apfs list
 
-    # 再接続後のコピー先を選択（disk番号が変わるため）
     log "再接続後のコピー先ディスクを選択"
     select_disk_menu "コピー先(再接続後)" "" || die "コピー先の再選択に失敗しました"
     local target_disk_after="$SELECTED_DISK"
     resolve_target_post "$target_disk_after"
 
-    # --- 履歴確認と最初のバックアップ ---
     log "コピー先のTime Machineボリュームをマウント"
     ensure_target_mounted "$TARGET_TM_VOLUME" || die "コピー先のTime Machineボリュームをマウントできませんでした"
 
@@ -834,9 +738,9 @@ EOF_RECONNECT
         warn "コピー直後のTime Machine履歴を列挙できませんでした"
     fi
 
-    # 保存先登録に失敗した場合は startbackup をスキップする。
-    # 登録できていない状態でバックアップを走らせると、別の保存先へ書き込む危険があるため。
-    # 縮小コピー時は空き容量が少ないため、保存先登録前にコピー先全体へ拡張する。
+    # 登録できていない状態でバックアップを走らせると別の保存先へ書き込む危険があるため
+    # setdestination 失敗時は startbackup をスキップする。
+    # 縮小コピー時は空きが少ないため保存先登録前にコピー先全体へ拡張する。
     local resize_succeeded=0
     local allow_initial_backup=1
 
@@ -856,7 +760,6 @@ EOF_RECONNECT
         if [ "$allow_initial_backup" -eq 1 ]; then
             log "Time Machineを1回実行して自動整理を試す"
             sudo tmutil enable || true
-            # --auto で通常の自動バックアップに近いモード。Time Machine自身の標準履歴整理が動く可能性を高める
             sudo tmutil startbackup --auto --block ||
                 warn "最初のバックアップは失敗しました。履歴修復処理は継続します"
         else
@@ -872,11 +775,9 @@ EOF_RECONNECT
         printf 'Time Machine実行後の履歴数: %s\n' "$(backup_count "$backups_file")"
     fi
 
-    # --- 自動修復・履歴間引き・リサイズ ---
     local delete_file
 
     # 第0段階: 削除せず修復・リサイズのみ
-    # 縮小コピー時にすでに拡張成功済み（resize_succeeded=1）なら再度リサイズしない
     if [ "$resize_succeeded" -eq 0 ]; then
         if try_resize_without_repair "$TARGET_CONTAINER" "$TARGET_TM_VOLUME"; then
             resize_succeeded=1
@@ -953,7 +854,7 @@ EOF_RECONNECT
     if [ "$resize_succeeded" -eq 0 ]; then
         log "第4段階: 残った履歴を最古から1件ずつ削除"
         local remaining oldest one_delete_file
-        # 履歴一覧すら取得できない状態（マウント失敗等）で APFS新規作成へ進まないよう停止する
+        # 履歴一覧すら取得できない状態で APFS新規作成へ進まないよう停止する
         while true; do
             list_backups "$backups_file" "$TARGET_TM_VOLUME" ||
                 die "Time Machine履歴を列挙できないため、APFS新規作成には進みません"
@@ -964,7 +865,7 @@ EOF_RECONNECT
             printf '%s\n' "$oldest" > "$one_delete_file"
 
             log "残り${remaining}件。最古を削除: $oldest"
-            # 履歴削除に失敗した場合は全履歴消去（APFS新規作成）へ進まないよう停止する
+            # 履歴削除に失敗した場合は全履歴消去へ進まないよう停止する
             delete_backups_from_file "$one_delete_file" "$TARGET_TM_VOLUME" ||
                 die "履歴を1件削除できなかったため、APFS新規作成には進みません: $oldest"
             if repair_and_try_resize "履歴1件削除後に修復・リサイズ" \
@@ -975,10 +876,6 @@ EOF_RECONNECT
         done
     fi
 
-    # 第4段階で各履歴の削除直後に修復・リサイズを試しているため、
-    # ここで重複して最終修復する必要はない。
-
-    # それでも直らなければコピー先APFSを新規作成
     if [ "$resize_succeeded" -eq 0 ]; then
         if recreate_target_apfs "$TARGET_STORE" "$TARGET_CONTAINER" "$TARGET_TM_VOLUME"; then
             resize_succeeded=1
@@ -989,7 +886,6 @@ EOF_RECONNECT
 
     [ "$resize_succeeded" -eq 1 ] || die "APFSを修復・リサイズできませんでした"
 
-    # --- 改名・再登録・終了 ---
     ensure_target_mounted "$TARGET_TM_VOLUME" ||
         die "最終処理前にTime Machineボリュームをマウントできませんでした"
 
@@ -1003,7 +899,6 @@ EOF_RECONNECT
         warn "最終状態で既存履歴を列挙できませんでした"
     fi
 
-    # ボリューム改名（空欄なら現在名を維持）
     local current_name new_name
     current_name=$(diskutil info -plist "/dev/$TARGET_TM_VOLUME" 2>/dev/null | plutil -extract VolumeName raw -o - -- - 2>/dev/null)
     printf '\n現在のボリューム名: %s\n' "$current_name"
@@ -1020,7 +915,6 @@ EOF_RECONNECT
     sudo tmutil setdestination "$TM_MOUNT_PATH" ||
         die "Time Machine保存先として登録できませんでした"
 
-    # 修復中にdisableした自動バックアップを有効へ戻す（バックアップ自体は開始しない）
     sudo tmutil enable || warn "Time Machineの自動バックアップを有効に戻せませんでした"
     sudo tmutil destinationinfo || true
 

@@ -11,7 +11,6 @@ body {
     overflow: hidden;
 }
 
-/* 左パネル：設定・登録（トグル対象） */
 .left-panel {
     width: 320px;
     min-width: 320px;
@@ -25,7 +24,6 @@ body {
     display: none !important;
 }
 
-/* 右パネル：メイン表示領域 */
 .right-panel {
     flex: 1;
     display: flex;
@@ -35,7 +33,6 @@ body {
     overflow: hidden;
 }
 
-/* 共通ボックススタイル */
 .section-box {
     background-color: #1e1e1e;
     padding: 12px;
@@ -76,7 +73,6 @@ select {
     font-size: 12px;
 }
 
-/* サムネ貼り付けエリア */
 .paste-area {
     border: 2px dashed #444;
     padding: 10px;
@@ -124,7 +120,6 @@ button:hover {
     background-color: #b71c1c;
 }
 
-/* 入出力エリア用のスタイル */
 .io-textarea {
     width: 100%;
     height: 80px;
@@ -148,7 +143,6 @@ button:hover {
     white-space: nowrap;
 }
 
-/* コントロールバー（各種トグルボタン配置） */
 .control-bar {
     display: flex;
     gap: 10px;
@@ -174,7 +168,6 @@ button:hover {
     background-color: #5a4a00;
 }
 
-/* 上部ナビゲーションエリア（トグル非表示対応） */
 .nav-container {
     background-color: #1e1e1e;
     padding: 10px;
@@ -223,7 +216,6 @@ button:hover {
     color: #fff;
     border-color: #007acc;
 }
-/* ゴミ箱ウィンドウボタン */
 .filter-btn.trash-btn {
     background-color: #3d2828;
     color: #d4a373;
@@ -334,7 +326,6 @@ button:hover {
     filter: blur(20px);
 }
 
-/* 限界高密度カードグリッド */
 .list-section-wrapper {
     flex: 1;
     overflow-y: auto;
@@ -346,7 +337,6 @@ button:hover {
     gap: 8px;
 }
 
-/* 超小型カード */
 .card {
     background-color: #1e1e1e;
     border-radius: 4px;
@@ -434,7 +424,6 @@ button:hover {
 .card:focus {
     outline: none;
 }
-/* あらすじ表示中のフォーカスカード */
 .card.synopsis-active {
     border-color: #d4a373;
     box-shadow: 0 0 8px rgba(212, 163, 115, 0.4);
@@ -444,7 +433,6 @@ button:hover {
     border-color: #e53935;
     box-shadow: 0 0 10px rgba(229, 57, 53, 0.6);
 }
-/* あらすじ未取得インジケータ */
 .card.has-synopsis::after {
     content: '📖';
     position: absolute;
@@ -454,7 +442,6 @@ button:hover {
     z-index: 5;
     opacity: 0.8;
 }
-/* 編集モード時: あらすじ未取得カード */
 .card.no-synopsis {
     border: 2px dashed #c62828;
 }
@@ -469,8 +456,6 @@ button:hover {
     font-weight: bold;
 }
 
-/* あらすじ表示モーダル */
-/* 右ペインあらすじ表示 */
 .main-content {
     flex: 1;
     display: flex;
@@ -491,7 +476,6 @@ button:hover {
     overflow: hidden;
 }
 .synopsis-panel[style*='display: flex'] {
-    /* 表示時 */
 }
 .synopsis-panel-header {
     display: flex;
@@ -630,7 +614,6 @@ button:hover {
     overflow-y: auto;
 }
 
-/* 共通トースト（右上・アニメーション付き） */
 .synopsis-toast {
     position: fixed;
     top: 12px;
@@ -675,7 +658,6 @@ button:hover {
     }
 }
 
-/* 右ペイン表示アニメーション */
 .synopsis-panel-open {
     animation: synopsis-slide-in 0.18s ease-out;
 }
@@ -689,7 +671,6 @@ button:hover {
         opacity: 1;
     }
 }
-/* 右ペイン非表示アニメーション */
 .synopsis-panel-close {
     animation: synopsis-slide-out 0.18s ease-in forwards;
 }

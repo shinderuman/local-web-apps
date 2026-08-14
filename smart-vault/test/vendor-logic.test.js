@@ -2,9 +2,6 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { detectVendor } = require('../js/vendor-logic.js');
 
-// ============================================================
-// detectVendor: モデル名・PCI Vendor ID からベンダー名を判定
-// ============================================================
 test('detectVendor: モデル名 APPLE を Apple に', () => {
     assert.strictEqual(detectVendor({}, 'APPLE SSD AP0256Z'), 'Apple');
 });

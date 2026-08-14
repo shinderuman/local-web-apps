@@ -9,10 +9,6 @@ const {
     isValidSmartRecordList
 } = require('../js/record-logic.js');
 
-// ============================================================
-// レコード集計・表示
-// ============================================================
-
 test('countRecordsByType: フィルタ種別ごとの件数と全件数を返す', () => {
     const records = [{ customType: 'nvme' }, { customType: 'hdd-35' }, {}];
     const result = countRecordsByType(records, [

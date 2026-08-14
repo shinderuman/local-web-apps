@@ -10,7 +10,6 @@ const {
     rateLatency
 } = require('../js/bench-logic.js');
 
-// テスト用の最小fio結果（seq/rand それぞれ jobs[0].read を持つ統合JSON）
 const makeFio = (seqRead, randRead, latencyRead) =>
     JSON.stringify({
         seq: {
@@ -37,9 +36,6 @@ const sampleRead = {
     clat_ns: { percentile: { '99.000000': 2907020 } }
 };
 
-// ============================================================
-// isFioJson
-// ============================================================
 test('isFioJson: seq/rand 両方持ちなら true', () => {
     assert.strictEqual(isFioJson(makeFio(sampleRead, sampleRead)), true);
 });
@@ -66,9 +62,6 @@ test('isFioJson: 空文字・null は false', () => {
     assert.strictEqual(isFioJson(null), false);
 });
 
-// ============================================================
-// splitBench
-// ============================================================
 test('splitBench: 統合JSON を用途別の compact 文字列に分割', () => {
     const { seq, rand, latency } = splitBench(
         makeFio(sampleRead, sampleRead, sampleRead)
@@ -108,9 +101,6 @@ test('splitBench: 不正JSON は両方 null', () => {
     assert.strictEqual(rand, null);
 });
 
-// ============================================================
-// parseBench
-// ============================================================
 test('parseBench: seq/rand の帯域・IOPS・p99レイテンシを抽出', () => {
     const { seq, rand, latency } = splitBench(
         makeFio(
@@ -160,9 +150,6 @@ test('parseBench: 不正JSON は null', () => {
     assert.strictEqual(parseBench('{broken', '{broken'), null);
 });
 
-// ============================================================
-// getBenchGroup
-// ============================================================
 test('getBenchGroup: nvme', () => {
     assert.strictEqual(getBenchGroup('nvme'), 'nvme');
 });
@@ -183,9 +170,6 @@ test('getBenchGroup: unknown は null', () => {
     assert.strictEqual(getBenchGroup(''), null);
 });
 
-// ============================================================
-// rateSeqBw: Seq帯域（MiB/s）の4段階評価
-// ============================================================
 test('rateSeqBw: NVMe 4000MiB/s は ideal', () => {
     assert.strictEqual(rateSeqBw(4000 * 1024 * 1024, 'nvme'), 'ideal');
 });
@@ -206,9 +190,6 @@ test('rateSeqBw: unknown は null', () => {
     assert.strictEqual(rateSeqBw(1000 * 1024 * 1024, 'unknown'), null);
 });
 
-// ============================================================
-// rateRandIops: Rand IOPSの4段階評価
-// ============================================================
 test('rateRandIops: NVMe 150000 は normal', () => {
     assert.strictEqual(rateRandIops(150000, 'nvme'), 'normal');
 });
@@ -221,9 +202,6 @@ test('rateRandIops: HDD 150 は ideal', () => {
     assert.strictEqual(rateRandIops(150, 'hdd-25'), 'ideal');
 });
 
-// ============================================================
-// rateLatency: レイテンシ（ms・低いほど良し）
-// ============================================================
 test('rateLatency: NVMe 0.05ms は ideal', () => {
     assert.strictEqual(rateLatency(0.05e6, 'nvme'), 'ideal');
 });

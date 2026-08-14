@@ -1,24 +1,18 @@
-// 表示文字列フォーマットの純粋関数（ブラウザ/Node両方で利用）
+// 表示文字列フォーマットの純粋関数
 // ブラウザ: window.FORMAT_LOGIC にエクスポート
 // Node: module.exports にエクスポート
 
 ((root, factory) => {
-    // 通電時間の表示（0=不明）
     const formatHours = (val) => (val === 0 ? '不明' : val + ' H');
 
-    // 温度の表示（0=不明）
     const formatTemp = (val) => (val === 0 ? '不明' : val + ' °C');
 
-    // 総書込量の表示（0=未計測）
     const formatTbw = (val) => (val === 0 ? '--' : val.toFixed(1) + ' TBW');
 
-    // 個数表示（-1=未取得）
     const formatCount = (val) => (val >= 0 ? String(val) : '-');
 
-    // 通電時間 / 電源回数 の結合表示
     const formatPowerOnHours = (hours, cycles) => `${hours} / ${cycles}回`;
 
-    // 帯域（byte/s）を人間可読に（KiB/MiB/GiB、小数1桁）。0=未計測
     const formatBw = (bytesPerSec) => {
         if (!bytesPerSec) return '--';
         const kib = bytesPerSec / 1024;
@@ -28,13 +22,11 @@
         return (mib / 1024).toFixed(1) + ' GiB/s';
     };
 
-    // IOPS を3桁カンマ表示。0=未計測
     const formatIops = (iops) => {
         if (!iops) return '--';
         return Math.round(iops).toLocaleString('en-US') + ' IOPS';
     };
 
-    // レイテンシ（ns）を人間可読に（us/ms）。0=未計測
     const formatLatency = (ns) => {
         if (!ns) return '--';
         const us = ns / 1000;

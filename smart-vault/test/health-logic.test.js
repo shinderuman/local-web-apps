@@ -8,13 +8,11 @@ const {
     parseErrorDescriptions
 } = require('../js/health-logic.js');
 
-// 実データ相当のサンプルを読み込み（S/N等の個人情報はダミー化済み）
 const backup = JSON.parse(
     fs.readFileSync(__dirname + '/fixtures/smart-storage-samples.json', 'utf8')
 );
 const findByModel = (kw) => backup.find((r) => r.model.includes(kw));
 
-// 各ディスクのレコードから判定用 context 相当を組み立てて computeHealthLevel に渡す
 const runLevel = (rec) => {
     const data = JSON.parse(rec.raw);
     return computeHealthLevel(data, {
@@ -29,9 +27,6 @@ const runLevel = (rec) => {
     });
 };
 
-// ============================================================
-// levelFromScore: 7段階変換の境界
-// ============================================================
 test('levelFromScore: 0はL0', () => {
     assert.strictEqual(levelFromScore(0), 0);
 });
@@ -60,9 +55,6 @@ test('levelFromScore: 100000+はL6', () => {
     assert.strictEqual(levelFromScore(9999999), 6);
 });
 
-// ============================================================
-// computeSeverityScore: 加算ロジック（HDD）
-// ============================================================
 test('HDD: 保留セクタは×150', () => {
     const data = {
         ata_smart_attributes: { table: [] },
@@ -102,7 +94,6 @@ test('HDD: 代替セクタは×100、回復不能は×200、CRCは×1', () => {
         pendingSectors: 0,
         crcErrors: 10
     });
-    // 352*100 + 24*200 + 10*1 = 35200 + 4800 + 10 = 40010
     assert.strictEqual(r.score, 40010);
 });
 
@@ -126,7 +117,6 @@ test('HDD: エラーログ UNC は件数×5、IDNF は+3000', () => {
         pendingSectors: 0,
         crcErrors: 0
     });
-    // 13*5 = 65
     assert.strictEqual(r.score, 65);
 });
 
@@ -168,9 +158,6 @@ test('HDD: Command_Timeout>0 は+500固定（生値不使用）', () => {
     assert.strictEqual(r.score, 500);
 });
 
-// ============================================================
-// computeSeverityScore: 加算ロジック（SATA-SSD）
-// ============================================================
 test('SSD: 残り寿命は(100-life)×50、<=10%は+5000', () => {
     const data = { ata_smart_attributes: { table: [] } };
     const r = computeSeverityScore(data, {
@@ -183,7 +170,6 @@ test('SSD: 残り寿命は(100-life)×50、<=10%は+5000', () => {
         pendingSectors: -1,
         crcErrors: 0
     });
-    // (100-5)*50 + 5000 = 4750 + 5000 = 9750
     assert.strictEqual(r.score, 9750);
 });
 
@@ -203,9 +189,6 @@ test('SSD: 残り寿命・書込量ともに取得不能は+2000', () => {
     assert.ok(r.reasons.some((s) => s.includes('取得不能')));
 });
 
-// ============================================================
-// computeSeverityScore: 加算ロジック（NVMe）
-// ============================================================
 test('NVMe: percentage_used<90 は加点なし', () => {
     const data = {
         nvme_smart_health_information_log: {
@@ -272,9 +255,6 @@ test('NVMe: media_errors は×200', () => {
     assert.strictEqual(r.score, 600);
 });
 
-// ============================================================
-// FAILED は無条件 +100000（L6）
-// ============================================================
 test('health=FAILED は無条件 +100000/L6', () => {
     const r = computeHealthLevel(
         {},
@@ -294,9 +274,6 @@ test('health=FAILED は無条件 +100000/L6', () => {
     assert.ok(r.reasons.some((s) => s.includes('FAILED')));
 });
 
-// ============================================================
-// parseErrorDescriptions
-// ============================================================
 test('parseErrorDescriptions: UNCを検出', () => {
     const summary = {
         count: 1,
@@ -325,9 +302,6 @@ test('parseErrorDescriptions: summary無しは全てfalse/0', () => {
     assert.strictEqual(r.hasUNC, false);
 });
 
-// ============================================================
-// 実データでのスコア検証（サンプルfixture）
-// ============================================================
 test('computeHealthLevel は level/reasons/score を返す', () => {
     const r = runLevel(findByModel('HTS725050'));
     assert.ok(typeof r.level === 'number');

@@ -1,8 +1,3 @@
-// ルートランチャーページのアプリ一覧描画・取得ロジック。
-// - file:// 運用: apps.js（ビルド生成マニフェスト, window.APPS）で即時描画する。
-// - http(s) サーバー運用（autoindex 有効）: 起動後にルートディレクトリ一覧を fetch し、
-//   実行時にアプリ一覧を組み立てて最新化する（アプリ追加時の手作業ゼロ）。
-
 const APP_LIST_EL = document.getElementById('app-list');
 const MESSAGE_EL = document.getElementById('launcher-message');
 
@@ -16,7 +11,6 @@ const NON_APP_DIRS = [
     'scripts'
 ];
 
-// エントリポイント: マニフェストで即時描画し、http(s) の場合は非同期で最新化する
 const initLauncher = () => {
     const apps = window.APPS || [];
     if (apps.length === 0) {
@@ -31,13 +25,11 @@ const initLauncher = () => {
     }
 };
 
-// メッセージ領域にテキストを表示する
 const showMessage = (text) => {
     MESSAGE_EL.textContent = text;
     MESSAGE_EL.hidden = false;
 };
 
-// アプリ一覧をカードとして描画する
 const renderApps = (apps) => {
     APP_LIST_EL.innerHTML = '';
     for (const app of apps) {
@@ -59,7 +51,6 @@ const renderApps = (apps) => {
     }
 };
 
-// http(s) の場合にアプリ一覧を実行時取得で最新化する（失敗時はベース描画を維持）
 const refreshLive = async () => {
     try {
         const live = await fetchAppsLive();
@@ -71,7 +62,6 @@ const refreshLive = async () => {
     }
 };
 
-// http(s) 時: ルートの autoindex を取得し、実行時にアプリ一覧を組み立てる
 const fetchAppsLive = async () => {
     const res = await fetch('./');
     if (!res.ok) {
@@ -83,7 +73,7 @@ const fetchAppsLive = async () => {
     return metas.filter(Boolean).sort((a, b) => a.id.localeCompare(b.id));
 };
 
-// autoindex HTML からディレクトリ候補（末尾 / 付きリンク）を抽出する
+// ディレクトリリンクは末尾 / を持つ（Apache/nginx 共通）。ファイルリンク・通常HTMLは除外
 const parseCandidateDirs = (html) => {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const dirs = [];
@@ -92,7 +82,6 @@ const parseCandidateDirs = (html) => {
         if (!raw || raw.startsWith('?')) {
             continue;
         }
-        // ディレクトリリンクは末尾 / を持つ（Apache/nginx 共通）。ファイルリンク・通常HTMLは除外する
         if (!raw.endsWith('/')) {
             continue;
         }
@@ -104,7 +93,6 @@ const parseCandidateDirs = (html) => {
     return dirs;
 };
 
-// 抽出したディレクトリ名がアプリ候補か（非アプリ・自己・親を除外）判定する
 const isCandidateApp = (dir) => {
     if (dir === '' || dir === '.' || dir === '..') {
         return false;
@@ -112,7 +100,6 @@ const isCandidateApp = (dir) => {
     return !NON_APP_DIRS.includes(dir);
 };
 
-// 1ディレクトリの index.html を fetch してアプリメタを返す（失敗時は null）
 const fetchAppMeta = async (dir) => {
     try {
         const res = await fetch(dir + '/index.html');

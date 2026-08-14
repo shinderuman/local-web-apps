@@ -1,10 +1,8 @@
-// タイトル解析ユーティリティ（ブラウザ/Node両方で利用）
+// タイトル解析ユーティリティ
 // ブラウザ: window.TITLE_PARSER にエクスポート
 // Node: module.exports にエクスポート
-// グローバル汚染を防ぐためIIFEで囲む（他のUserScriptとの名前衝突回避）
 
 ((root, factory) => {
-    // 全角数字を半角に正規化
     const normalizeDigits = (s) =>
         s.replace(/[０-９]/g, (d) =>
             String.fromCharCode(d.charCodeAt(0) - 0xfee0)

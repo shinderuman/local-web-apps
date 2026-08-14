@@ -1,25 +1,17 @@
-// ============================================================
-// 定数
-// ============================================================
-
-// IndexedDB設定
 const DB = {
     NAME: 'PriceVaultDB',
     VERSION: 1,
     STORE: 'products'
 };
 
-// タイムアウト（ミリ秒）
 const TIMING = {
     TOAST_DURATION: 2500
 };
 
-// バックアップファイル名・カテゴリ新規追加のセンチネル値
 const BACKUP_FILENAME = 'price-vault.json';
 const NEW_CATEGORY_VALUE = '__new_category__';
 const UNCATEGORIZED = '未分類';
 
-// トーストメッセージ
 const TOAST = {
     SAVED: '商品を登録しました',
     UPDATED: '履歴を追加しました',
@@ -32,33 +24,22 @@ const TOAST = {
     SAVE_FAIL: 'エラー: 保存に失敗しました'
 };
 
-// ============================================================
-// 状態変数（ミュータブル）
-// ============================================================
-
 let db = null;
 
-// 表示状態（選択カテゴリ・ソート・開閉中ID）
 const viewState = {
     selectedCategory: 'all',
     sortKey: 'name',
     openDetailId: null
 };
 
-// 編集状態（モーダル編集中の商品ID・履歴インデックス）
 const editState = {
     editingProductId: null,
     editingHistoryIndex: null
 };
 
-// UI状態
 const uiState = {
     toastTimer: null
 };
-
-// ============================================================
-// モジュール（純粋関数）のインポート
-// ============================================================
 
 const {
     calcPriceSummary,
@@ -78,11 +59,6 @@ const {
 const { extractCategories, countProductsByCategory } = window.CATEGORY_LOGIC;
 const { validateImportData } = window.EXPORT_LOGIC;
 
-// ============================================================
-// IndexedDB ヘルパ
-// ============================================================
-
-// 全商品取得（降順で返す）
 const getAllProducts = () => {
     return new Promise((resolve, reject) => {
         const tx = db.transaction([DB.STORE], 'readonly');
@@ -92,7 +68,6 @@ const getAllProducts = () => {
     });
 };
 
-// 1商品取得
 const getProduct = (id) => {
     return new Promise((resolve, reject) => {
         const tx = db.transaction([DB.STORE], 'readonly');
@@ -102,7 +77,6 @@ const getProduct = (id) => {
     });
 };
 
-// 商品を保存（新規・更新）
 const putProduct = (product) => {
     return new Promise((resolve, reject) => {
         const tx = db.transaction([DB.STORE], 'readwrite');
@@ -112,7 +86,6 @@ const putProduct = (product) => {
     });
 };
 
-// 商品を削除
 const deleteProductDb = (id) => {
     return new Promise((resolve, reject) => {
         const tx = db.transaction([DB.STORE], 'readwrite');
@@ -122,7 +95,6 @@ const deleteProductDb = (id) => {
     });
 };
 
-// ストアを全削除
 const clearProducts = () => {
     return new Promise((resolve, reject) => {
         const tx = db.transaction([DB.STORE], 'readwrite');
@@ -131,10 +103,6 @@ const clearProducts = () => {
         tx.onerror = () => reject(tx.error);
     });
 };
-
-// ============================================================
-// UIヘルパ
-// ============================================================
 
 const showToast = (message) => {
     const toast = document.getElementById('toastNotification');
@@ -147,7 +115,6 @@ const showToast = (message) => {
     }, TIMING.TOAST_DURATION);
 };
 
-// 今日の日付を YYYY-MM-DD で返す
 const todayStr = () => {
     const d = new Date();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -155,30 +122,24 @@ const todayStr = () => {
     return `${d.getFullYear()}-${mm}-${dd}`;
 };
 
-// 選択中タブからカテゴリのデフォルト値を決定（「すべて」時は未分類）
+// 「すべて」選択時は未分類をデフォルトに
 const defaultCategoryFromTab = () => {
     return viewState.selectedCategory === 'all'
         ? UNCATEGORIZED
         : viewState.selectedCategory;
 };
 
-// 詳細の開閉を viewState で管理（再描画後も維持）
 const toggleDetails = (id) => {
     viewState.openDetailId = viewState.openDetailId === id ? null : id;
     const el = document.getElementById(`details-${id}`);
     if (el) el.classList.toggle('hidden');
 };
 
-// ============================================================
-// カテゴリタブ描画
-// ============================================================
-
 const renderCategoryTabs = async () => {
     const products = await getAllProducts();
     const container = document.getElementById('filterContainer');
     container.innerHTML = '';
 
-    // 「すべて」固定
     const allBtn = document.createElement('button');
     allBtn.className =
         'filter-btn' + (viewState.selectedCategory === 'all' ? ' active' : '');
@@ -187,7 +148,6 @@ const renderCategoryTabs = async () => {
     allBtn.addEventListener('click', () => selectCategory('all'));
     container.appendChild(allBtn);
 
-    // ユーザーカテゴリ（商品から動的抽出）
     extractCategories(products).forEach((cat) => {
         const btn = document.createElement('button');
         btn.className =
@@ -202,17 +162,11 @@ const renderCategoryTabs = async () => {
     updateCategorySelect();
 };
 
-// カテゴリタブ選択（選択状態を更新して一覧とプルダウンを再描画）
 const selectCategory = (category) => {
     viewState.selectedCategory = category;
     refreshDataView();
 };
 
-// ============================================================
-// 登録フォーム
-// ============================================================
-
-// カテゴリプルダウンを再構築（既存カテゴリ＋「新規追加」。選択中タブをデフォルト）
 const updateCategorySelect = async () => {
     const products = await getAllProducts();
     const select = document.getElementById('inputCategory');
@@ -222,7 +176,6 @@ const updateCategorySelect = async () => {
     extractCategories(products).forEach((cat) => {
         select.add(new Option(cat, cat, false, cat === current));
     });
-    // 未分類と新規追加
     if (!extractCategories(products).includes(current)) {
         select.add(new Option(current, current, true, true));
     }
@@ -232,7 +185,6 @@ const updateCategorySelect = async () => {
     document.getElementById('inputCategoryNew').value = '';
 };
 
-// カテゴリプルダウン変更時（新規追加なら入力欄を表示）
 const onCategorySelectChange = () => {
     const select = document.getElementById('inputCategory');
     const isNew = select.value === NEW_CATEGORY_VALUE;
@@ -246,7 +198,6 @@ const onCategorySelectChange = () => {
     }
 };
 
-// フォーム入力から履歴データを組み立て
 const readFormHistory = () => {
     const price = document.getElementById('inputPrice').value.trim();
     const date = document.getElementById('inputDate').value || todayStr();
@@ -259,7 +210,6 @@ const readFormHistory = () => {
     });
 };
 
-// フォームから決定したカテゴリ値（新規追加時は入力欄の値）
 const readFormCategory = () => {
     const select = document.getElementById('inputCategory');
     if (select.value === NEW_CATEGORY_VALUE) {
@@ -269,7 +219,7 @@ const readFormCategory = () => {
     return select.value;
 };
 
-// 登録フォームをリセット（買った店は連続登録のため残す。日付・カテゴリはデフォルトに戻す）
+// 買った店は連続登録のため残す
 const resetForm = () => {
     document.getElementById('inputName').value = '';
     document.getElementById('inputPrice').value = '';
@@ -280,7 +230,6 @@ const resetForm = () => {
     document.getElementById('inputName').focus();
 };
 
-// 商品を登録（既存同名商品があれば履歴追加、なければ新規）
 const saveProduct = async () => {
     const name = document.getElementById('inputName').value.trim();
     const priceRaw = document.getElementById('inputPrice').value.trim();
@@ -312,11 +261,6 @@ const saveProduct = async () => {
     refreshDataView();
 };
 
-// ============================================================
-// レンダリング（商品一覧）
-// ============================================================
-
-// 強調クラス付きの金額spanを生成。valueがnullなら「—」の空クラスspan
 const createPriceSpan = (value, cls) => {
     const span = document.createElement('span');
     if (value === null) {
@@ -329,7 +273,6 @@ const createPriceSpan = (value, cls) => {
     return span;
 };
 
-// 最安値の店名span群を生成（空なら null）
 const createMinStoreSpans = (stores) => {
     if (stores.length === 0) return null;
     return stores.map((s) => {
@@ -345,34 +288,28 @@ const createProductRow = (product) => {
     tr.className = 'item-row';
     tr.setAttribute('data-id', product.id);
 
-    // 最安値/最高値サマリ（1走査）。店名・購入日もここから導出
     const summary = calcPriceSummary(product.children);
     const minStoreSpans = createMinStoreSpans(
         getAllStores(summary.minHistories)
     );
 
-    // 商品名
     const tdName = document.createElement('td');
     tdName.className = 'name-cell';
     tdName.innerText = product.name;
     tr.appendChild(tdName);
 
-    // 最安値（緑強調）
     const tdMin = document.createElement('td');
     tdMin.appendChild(createPriceSpan(summary.min, 'price-min'));
     tr.appendChild(tdMin);
 
-    // 最高値（赤強調）
     const tdMax = document.createElement('td');
     tdMax.appendChild(createPriceSpan(summary.max, 'price-max'));
     tr.appendChild(tdMax);
 
-    // カテゴリ
     const tdCat = document.createElement('td');
     tdCat.innerText = product.category || UNCATEGORIZED;
     tr.appendChild(tdCat);
 
-    // 最安値の店（同額の店が複数あれば全て、強調）。なければ「—」
     const tdStores = document.createElement('td');
     tdStores.className = 'stores-cell';
     if (minStoreSpans) {
@@ -385,13 +322,11 @@ const createProductRow = (product) => {
     }
     tr.appendChild(tdStores);
 
-    // 購入日（最安値の購入日のうち最新。参考情報）
     const tdDate = document.createElement('td');
     tdDate.className = 'date-cell';
     tdDate.innerText = summary.latestMinDate || '—';
     tr.appendChild(tdDate);
 
-    // 削除ボタン（親レコード削除＝子履歴も一括）
     const tdDel = document.createElement('td');
     tdDel.className = 'delete-cell';
     const delBtn = document.createElement('button');
@@ -413,7 +348,6 @@ const createProductRow = (product) => {
     return tr;
 };
 
-// テキストセルを生成
 const makeTextCell = (text, cls = '') => {
     const td = document.createElement('td');
     td.textContent = text;
@@ -421,7 +355,6 @@ const makeTextCell = (text, cls = '') => {
     return td;
 };
 
-// 履歴の値段セルを生成（最安=緑/最高=赤を強調）
 const makePriceCell = (price, isMin, isMax) => {
     const td = document.createElement('td');
     if (isMin) td.className = 'price-min';
@@ -430,7 +363,6 @@ const makePriceCell = (price, isMin, isMax) => {
     return td;
 };
 
-// 履歴の店セルを生成（最安値の店なら強調span）
 const makeStoreCell = (store, isMin) => {
     const td = document.createElement('td');
     const txt = store || '—';
@@ -445,7 +377,6 @@ const makeStoreCell = (store, isMin) => {
     return td;
 };
 
-// 履歴削除アイコンセルを生成（行クリックのモーダルを開かず直接削除確認）
 const makeHistoryDeleteCell = (productId, idx) => {
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-delete-row';
@@ -461,7 +392,6 @@ const makeHistoryDeleteCell = (productId, idx) => {
     return td;
 };
 
-// 履歴1行を生成（値段/店は最安・最高に応じて強調）
 const createHistoryRow = (h, idx, productId, isMin, isMax) => {
     const row = document.createElement('tr');
     row.addEventListener('click', () => openHistoryModal(productId, idx));
@@ -478,7 +408,6 @@ const createHistoryRow = (h, idx, productId, isMin, isMax) => {
     return row;
 };
 
-// 履歴テーブルを生成（ヘッダ + ソート済み履歴行）
 const createHistoryTable = (product) => {
     const summary = calcPriceSummary(product.children);
     const minIds = new Set(summary.minHistories);
@@ -571,15 +500,10 @@ const renderList = async () => {
     });
 };
 
-// 一覧とカテゴリタブとプルダウンをまとめて再描画
 const refreshDataView = async () => {
     await renderCategoryTabs();
     await renderList();
 };
-
-// ============================================================
-// 削除
-// ============================================================
 
 const deleteProduct = async (id) => {
     const ok = confirm(
@@ -591,7 +515,7 @@ const deleteProduct = async (id) => {
     refreshDataView();
 };
 
-// 指定商品の子履歴を1件削除（children0件なら商品自体を削除）
+// children0件なら商品自体を削除
 const deleteHistory = async (productId, index) => {
     const product = await getProduct(productId);
     if (!product) return;
@@ -607,10 +531,6 @@ const deleteHistory = async (productId, index) => {
     closeHistoryModal();
     refreshDataView();
 };
-
-// ============================================================
-// 履歴編集モーダル
-// ============================================================
 
 const openHistoryModal = async (productId, index) => {
     const product = await getProduct(productId);
@@ -639,7 +559,6 @@ const closeHistoryModal = () => {
     editState.editingHistoryIndex = null;
 };
 
-// モーダルの保存（商品名変更は商品レコード、それ以外は履歴更新）
 const saveHistoryEdit = async () => {
     const { editingProductId, editingHistoryIndex } = editState;
     if (editingProductId === null) return;
@@ -676,10 +595,6 @@ const saveHistoryEdit = async () => {
     refreshDataView();
 };
 
-// ============================================================
-// D&D（商品並び替え）
-// ============================================================
-
 const initDragAndDrop = () => {
     const tbody = document.getElementById('storageTbody');
     Sortable.create(tbody, {
@@ -691,7 +606,6 @@ const initDragAndDrop = () => {
     });
 };
 
-// 表示中アイテムの並び順を sortOrder に反映して保存
 const saveNewOrder = async (evt) => {
     if (evt.oldDraggableIndex === evt.newDraggableIndex) return;
     const products = await getAllProducts();
@@ -706,10 +620,6 @@ const saveNewOrder = async (evt) => {
     }
     refreshDataView();
 };
-
-// ============================================================
-// バックアップ（エクスポート / インポート）
-// ============================================================
 
 const exportBackup = async () => {
     try {
@@ -773,10 +683,6 @@ const importBackup = (event) => {
     reader.readAsText(file);
 };
 
-// ============================================================
-// 初期化・イベントバインド
-// ============================================================
-
 const bindEvents = () => {
     document.getElementById('saveBtn').addEventListener('click', saveProduct);
 
@@ -791,7 +697,6 @@ const bindEvents = () => {
         .getElementById('fileInput')
         .addEventListener('change', importBackup);
 
-    // モーダル
     document
         .getElementById('modalSaveBtn')
         .addEventListener('click', saveHistoryEdit);
@@ -815,7 +720,6 @@ const bindEvents = () => {
         if (e.key === 'Escape') closeHistoryModal();
     });
 
-    // ソートヘッダ（商品名のみ）
     document
         .querySelector('th[data-sort="name"]')
         .addEventListener('click', () => {
@@ -832,10 +736,7 @@ const initApp = () => {
     initDragAndDrop();
 };
 
-// ============================================================
-// IndexedDB 初期化（実行順序依存のため末尾に配置）
-// ============================================================
-
+// 実行順序依存のため末尾に配置
 const request = indexedDB.open(DB.NAME, DB.VERSION);
 request.onupgradeneeded = (e) => {
     const database = e.target.result;

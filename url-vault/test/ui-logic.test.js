@@ -2,10 +2,6 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { serializeUIState, deserializeUIState } = require('../js/ui-logic.js');
 
-// ============================================================
-// serializeUIState
-// ============================================================
-
 test('serializeUIState: 状態オブジェクトをJSON文字列化', () => {
     const state = {
         windowId: 1,
@@ -39,10 +35,6 @@ test('serializeUIState: null値も保持', () => {
     assert.strictEqual(parsed.windowId, null);
     assert.strictEqual(parsed.groupId, null);
 });
-
-// ============================================================
-// deserializeUIState
-// ============================================================
 
 test('deserializeUIState: 全フィールド存在ならそのまま復元', () => {
     const json = JSON.stringify({

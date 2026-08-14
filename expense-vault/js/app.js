@@ -1,7 +1,3 @@
-// ============================================================
-// 定数・状態・モジュール
-// ============================================================
-
 const APP_CONFIG = {
     backupFilename: 'expense-vault.json',
     toastDuration: 2800,
@@ -62,7 +58,6 @@ const {
     replaceAllData
 } = window.EXPENSE_DB;
 
-// アプリを初期化する
 const initApp = async () => {
     try {
         setInitialPeriodValues();
@@ -76,11 +71,6 @@ const initApp = async () => {
     }
 };
 
-// ============================================================
-// 初期化・イベント
-// ============================================================
-
-// 現在の期間指定をsessionStorageへ保存する
 const savePeriodToStorage = () => {
     sessionStorage.setItem(
         APP_CONFIG.periodStorageKey,
@@ -93,7 +83,6 @@ const savePeriodToStorage = () => {
     );
 };
 
-// sessionStorageから期間指定を復元する（無ければ現在月で初期化）
 const restorePeriodFromStorage = () => {
     const fallbackMonth = formatMonthInputValue(new Date());
     const state = deserializePeriod(
@@ -113,12 +102,10 @@ const restorePeriodFromStorage = () => {
     applyPeriodModeUI(mode);
 };
 
-// 現在月を初期表示期間へ設定する
 const setInitialPeriodValues = () => {
     restorePeriodFromStorage();
 };
 
-// 画面イベントをまとめて登録する
 const bindEvents = () => {
     bindImportEvents();
     bindPeriodEvents();
@@ -133,12 +120,10 @@ const bindEvents = () => {
     );
 };
 
-// CSV取込関連のイベントを登録する
 const bindImportEvents = () => {
     getElement('csvFileInput').addEventListener('change', handleCsvImport);
 };
 
-// 期間切替関連のイベントを登録する
 const bindPeriodEvents = () => {
     getElement('monthlyModeButton').addEventListener('click', () => {
         setPeriodMode('monthly');
@@ -160,7 +145,6 @@ const bindPeriodEvents = () => {
     });
 };
 
-// 一覧絞り込み・一括分類イベントを登録する
 const bindFilterEvents = () => {
     getElement('merchantSearchInput').addEventListener(
         'input',
@@ -186,7 +170,6 @@ const bindFilterEvents = () => {
     );
 };
 
-// 明細編集モーダルのイベントを登録する
 const bindTransactionModalEvents = () => {
     getElement('transactionModalCloseButton').addEventListener(
         'click',
@@ -213,7 +196,6 @@ const bindTransactionModalEvents = () => {
     );
 };
 
-// 設定モーダルのイベントを登録する
 const bindSettingsEvents = () => {
     getElement('settingsButton').addEventListener('click', openSettingsModal);
     getElement('settingsModalCloseButton').addEventListener(
@@ -226,13 +208,11 @@ const bindSettingsEvents = () => {
     getElement('clearAllDataButton').addEventListener('click', deleteAllData);
 };
 
-// バックアップ・復元イベントを登録する
 const bindBackupEvents = () => {
     getElement('backupButton').addEventListener('click', exportBackup);
     getElement('restoreButton').addEventListener('click', importBackup);
 };
 
-// CSV取込結果モーダルのイベントを登録する
 const bindImportResultEvents = () => {
     getElement('importResultCloseButton').addEventListener(
         'click',
@@ -244,11 +224,6 @@ const bindImportResultEvents = () => {
     );
 };
 
-// ============================================================
-// データ読込・共通ヘルパ
-// ============================================================
-
-// IndexedDBの全データを画面状態へ再読込する
 const reloadAllData = async () => {
     const [transactions, categories, subcategories, manualRules] =
         await Promise.all([
@@ -266,17 +241,14 @@ const reloadAllData = async () => {
     );
 };
 
-// sortOrder昇順で比較する
 const sortBySortOrder = (left, right) => {
     return Number(left.sortOrder || 0) - Number(right.sortOrder || 0);
 };
 
-// 指定IDの要素を返す
 const getElement = (id) => {
     return document.getElementById(id);
 };
 
-// UUID相当の内部IDを作成する
 const createEntityId = (prefix) => {
     if (typeof crypto.randomUUID === 'function') {
         return `${prefix}-${crypto.randomUUID()}`;
@@ -285,7 +257,6 @@ const createEntityId = (prefix) => {
     return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-// DateをYYYY-MMへ変換する
 const formatMonthInputValue = (date) => {
     return [
         date.getFullYear(),
@@ -293,7 +264,6 @@ const formatMonthInputValue = (date) => {
     ].join('-');
 };
 
-// 金額を日本円表示へ変換する（モザイク時は伏せ字にする）
 const formatCurrency = (amount) => {
     const formatted = `${Number(amount || 0).toLocaleString('ja-JP')}円`;
 
@@ -304,7 +274,6 @@ const formatCurrency = (amount) => {
     return formatted;
 };
 
-// HTML要素を生成する
 const createElement = (tagName, className, textContent) => {
     const element = document.createElement(tagName);
 
@@ -319,7 +288,6 @@ const createElement = (tagName, className, textContent) => {
     return element;
 };
 
-// トースト通知を表示する
 const showToast = (message) => {
     const toast = getElement('toastNotification');
 
@@ -331,11 +299,6 @@ const showToast = (message) => {
     }, APP_CONFIG.toastDuration);
 };
 
-// ============================================================
-// 期間・フィルタ
-// ============================================================
-
-// 月次・指定期間モード切替ボタンとコントロールの表示を反映する
 const applyPeriodModeUI = (mode) => {
     getElement('monthlyModeButton').classList.toggle(
         'active',
@@ -352,7 +315,6 @@ const applyPeriodModeUI = (mode) => {
     );
 };
 
-// 月次・指定期間モードを切り替える
 const setPeriodMode = (mode) => {
     appState.periodMode = mode;
     applyPeriodModeUI(mode);
@@ -361,7 +323,6 @@ const setPeriodMode = (mode) => {
     refreshDataView();
 };
 
-// 月移動ボタンで表示月を前後させる
 const moveSelectedMonth = (offset) => {
     const input = getElement('selectedMonthInput');
     const [year, month] = input.value.split('-').map(Number);
@@ -371,20 +332,17 @@ const moveSelectedMonth = (offset) => {
     onPeriodChanged();
 };
 
-// 期間変更時に一覧選択を解除して再描画する
 const onPeriodChanged = () => {
     clearSelection();
     savePeriodToStorage();
     refreshDataView();
 };
 
-// フィルタ変更時に一覧選択を解除して再描画する
 const onFilterChanged = () => {
     clearSelection();
     renderTransactionTable();
 };
 
-// 現在の期間指定を返す
 const getCurrentPeriod = () => {
     if (appState.periodMode === 'monthly') {
         return {
@@ -396,7 +354,6 @@ const getCurrentPeriod = () => {
     return getRangePeriod();
 };
 
-// 開始月と終了月を補正して指定期間を返す
 const getRangePeriod = () => {
     const startMonth = getElement('rangeStartInput').value;
     const endMonth = getElement('rangeEndInput').value;
@@ -416,7 +373,6 @@ const getRangePeriod = () => {
     };
 };
 
-// 現在期間に含まれる全明細を返す
 const getPeriodTransactions = () => {
     return filterTransactionsByPeriod(
         appState.transactions,
@@ -424,7 +380,6 @@ const getPeriodTransactions = () => {
     );
 };
 
-// 一覧フィルタを適用した明細を返す
 const getVisibleTransactions = () => {
     const filtered = filterTransactionsForView(getPeriodTransactions(), {
         searchText: getElement('merchantSearchInput').value,
@@ -435,11 +390,6 @@ const getVisibleTransactions = () => {
     return sortTransactionsByDate(filtered);
 };
 
-// ============================================================
-// CSV取込
-// ============================================================
-
-// CSVファイルを解析しIndexedDBへ取り込む
 const handleCsvImport = async (event) => {
     const file = event.target.files[0];
 
@@ -470,7 +420,6 @@ const handleCsvImport = async (event) => {
     }
 };
 
-// 解析済みCSVから差分更新計画を構築する
 const createCsvImportPlan = (parsed, statementKey) => {
     return buildImportPlan({
         incomingRecords: parsed.records,
@@ -483,7 +432,6 @@ const createCsvImportPlan = (parsed, statementKey) => {
     });
 };
 
-// 取込CSVの最新月を月次表示へ切り替える
 const showImportedPeriod = (records) => {
     const latestMonth = records
         .map((record) => record.monthKey)
@@ -494,7 +442,6 @@ const showImportedPeriod = (records) => {
     setPeriodMode('monthly');
 };
 
-// CSV取込結果モーダルを表示する
 const openImportResultModal = (parsed, statistics) => {
     getElement('importResultSummary').textContent =
         parsed.sourceType === 'confirmed' ? '確定明細' : '未確定明細';
@@ -504,7 +451,6 @@ const openImportResultModal = (parsed, statistics) => {
     getElement('importResultModal').classList.remove('hidden');
 };
 
-// CSV取込結果の内容を構築する
 const createImportResultContent = (parsed, statistics) => {
     const container = createElement('div');
     const cards = createElement('div', 'import-result-grid');
@@ -537,7 +483,6 @@ const createImportResultContent = (parsed, statistics) => {
     return container;
 };
 
-// CSV取込結果の数値カードを作る
 const createImportResultCard = (label, value) => {
     const card = createElement('div', 'import-result-card');
 
@@ -546,7 +491,6 @@ const createImportResultCard = (label, value) => {
     return card;
 };
 
-// CSV行エラー一覧を作る
 const createImportErrorList = (errors) => {
     const list = createElement('div', 'import-error-list');
 
@@ -556,16 +500,10 @@ const createImportErrorList = (errors) => {
     return list;
 };
 
-// CSV取込結果モーダルを閉じる
 const closeImportResultModal = () => {
     getElement('importResultModal').classList.add('hidden');
 };
 
-// ============================================================
-// 全体描画
-// ============================================================
-
-// 設定選択肢を含む全画面を描画する
 const refreshAllViews = () => {
     renderCategoryFilterOptions();
     renderBulkCategoryOptions();
@@ -573,7 +511,6 @@ const refreshAllViews = () => {
     refreshDataView();
 };
 
-// 金額のモザイク表示を切り替える
 const toggleAmountMask = () => {
     appState.amountMasked = !appState.amountMasked;
     const button = getElement('toggleAmountMaskButton');
@@ -585,7 +522,6 @@ const toggleAmountMask = () => {
     refreshDataView();
 };
 
-// 集計と明細一覧を再描画する
 const refreshDataView = () => {
     const periodTransactions = getPeriodTransactions();
     const summary = buildSummary(
@@ -599,18 +535,12 @@ const refreshDataView = () => {
     renderTransactionTable();
 };
 
-// ============================================================
-// 集計表示
-// ============================================================
-
-// 合計・カテゴリ別・不明集計を描画する
 const renderSummary = (summary) => {
     getElement('grandTotal').textContent = formatCurrency(summary.totalAmount);
     renderCategorySummary(summary.categories);
     renderUnknownSummary(summary);
 };
 
-// カテゴリ別集計を描画する
 const renderCategorySummary = (categorySummaries) => {
     const container = getElement('categorySummary');
 
@@ -620,7 +550,6 @@ const renderCategorySummary = (categorySummaries) => {
     });
 };
 
-// カテゴリ集計1件を作る
 const createCategorySummaryItem = (summary) => {
     const item = createElement('div', 'category-summary-item');
     const main = createElement('div', 'category-summary-main');
@@ -639,7 +568,6 @@ const createCategorySummaryItem = (summary) => {
     return item;
 };
 
-// サブカテゴリ内訳を作る
 const createSubcategorySummary = (subcategories) => {
     const container = createElement('div', 'subcategory-summary');
 
@@ -655,7 +583,6 @@ const createSubcategorySummary = (subcategories) => {
     return container;
 };
 
-// 不明件数・金額を表示する
 const renderUnknownSummary = (summary) => {
     const container = getElement('unknownSummary');
 
@@ -665,7 +592,6 @@ const renderUnknownSummary = (summary) => {
     )}`;
 };
 
-// 円グラフと凡例を描画する
 const renderChart = (summary) => {
     const items = createChartItems(summary, APP_CONFIG.unknownColor);
     const pieItems = items.filter((item) => item.chartAmount > 0);
@@ -675,7 +601,6 @@ const renderChart = (summary) => {
     renderChartLegend(items);
 };
 
-// Canvasへカテゴリ別円グラフを描く
 const drawPieChart = (items, emptyMessage) => {
     const canvas = getElement('categoryChart');
     const context = canvas.getContext('2d');
@@ -706,7 +631,6 @@ const drawPieChart = (items, emptyMessage) => {
     });
 };
 
-// 円グラフを描けない状態のメッセージを表示する
 const drawEmptyChart = (context, canvas, message) => {
     context.fillStyle = '#68717c';
     context.font = '16px sans-serif';
@@ -715,7 +639,6 @@ const drawEmptyChart = (context, canvas, message) => {
     context.fillText(message, canvas.width / 2, canvas.height / 2);
 };
 
-// 円グラフ凡例を描画する
 const renderChartLegend = (items) => {
     const container = getElement('chartLegend');
     const total = items.reduce((sum, item) => sum + item.chartAmount, 0);
@@ -726,7 +649,6 @@ const renderChartLegend = (items) => {
     });
 };
 
-// 円グラフ凡例1件を作る
 const createChartLegendItem = (item, total) => {
     const row = createElement('div', 'chart-legend-item');
     const color = createElement('span', 'chart-legend-color');
@@ -747,11 +669,6 @@ const createChartLegendItem = (item, total) => {
     return row;
 };
 
-// ============================================================
-// 明細一覧
-// ============================================================
-
-// 明細一覧を描画する
 const renderTransactionTable = () => {
     const transactions = getVisibleTransactions();
     const tableBody = getElement('transactionTableBody');
@@ -768,7 +685,6 @@ const renderTransactionTable = () => {
     updateSelectedCountLabel();
 };
 
-// 明細行を作成する
 const createTransactionRow = (transaction) => {
     const row = document.createElement('tr');
 
@@ -777,7 +693,6 @@ const createTransactionRow = (transaction) => {
         'transaction-unknown',
         isTransactionUnknown(transaction)
     );
-    // 明細行のどこを押してもチェックボックスをトグルする
     row.addEventListener('click', () => {
         toggleTransactionSelection(
             transaction.id,
@@ -803,18 +718,15 @@ const createTransactionRow = (transaction) => {
     return row;
 };
 
-// 明細選択チェックボックスを作る
 const createSelectionCell = (transaction) => {
     const cell = createElement('td', 'checkbox-column');
     const checkbox = document.createElement('input');
 
     checkbox.type = 'checkbox';
     checkbox.checked = appState.selectedIds.has(transaction.id);
-    // チェックボックス自身のクリックは行クリックに伝播させない（二重トグル防止）
     checkbox.addEventListener('click', (event) => {
         event.stopPropagation();
     });
-    // チェックボックス直接操作でも選択状態を更新する
     checkbox.addEventListener('change', () => {
         toggleTransactionSelection(transaction.id, checkbox.checked);
     });
@@ -822,7 +734,6 @@ const createSelectionCell = (transaction) => {
     return cell;
 };
 
-// 分類内容セルを作る
 const createClassificationCell = (transaction) => {
     const cell = createElement('td', 'classification-cell');
 
@@ -857,7 +768,6 @@ const createClassificationCell = (transaction) => {
     return cell;
 };
 
-// 単一分類の表示をセルへ追加する
 const appendSingleClassification = (cell, allocation) => {
     cell.appendChild(
         createElement(
@@ -868,7 +778,6 @@ const appendSingleClassification = (cell, allocation) => {
     );
 };
 
-// 按分からカテゴリ・サブカテゴリ名を作る
 const getAllocationLabel = (allocation) => {
     const category = appState.categories.find((item) => {
         return item.id === allocation.categoryId;
@@ -884,7 +793,6 @@ const getAllocationLabel = (allocation) => {
     return `${category?.name || '削除済みカテゴリ'} / ${subcategory.name}`;
 };
 
-// 分類状態のセルを作る
 const createStatusCell = (transaction) => {
     const cell = document.createElement('td');
     const status = getClassificationStatus(transaction);
@@ -895,7 +803,6 @@ const createStatusCell = (transaction) => {
     return cell;
 };
 
-// 明細の分類状態表示を返す
 const getClassificationStatus = (transaction) => {
     if (
         transaction.classificationSource ===
@@ -927,13 +834,11 @@ const getClassificationStatus = (transaction) => {
     };
 };
 
-// 明細編集ボタンのセルを作る
 const createEditCell = (transaction) => {
     const cell = createElement('td', 'action-column');
     const button = createElement('button', 'edit-button', '編集');
 
     button.addEventListener('click', (event) => {
-        // 編集ボタンのクリックは行クリックに伝播させない（チェックトグル防止）
         event.stopPropagation();
         openTransactionModal(transaction.id);
     });
@@ -941,7 +846,6 @@ const createEditCell = (transaction) => {
     return cell;
 };
 
-// 明細選択状態を更新する
 const toggleTransactionSelection = (transactionId, selected) => {
     if (selected) {
         appState.selectedIds.add(transactionId);
@@ -953,7 +857,6 @@ const toggleTransactionSelection = (transactionId, selected) => {
     updateSelectedCountLabel();
 };
 
-// 表示中明細をすべて選択または解除する
 const toggleSelectAll = (event) => {
     getVisibleTransactions().forEach((transaction) => {
         if (event.target.checked) {
@@ -965,7 +868,6 @@ const toggleSelectAll = (event) => {
     renderTransactionTable();
 };
 
-// 全選択チェックボックスの状態を更新する
 const updateSelectAllCheckbox = (transactions) => {
     const checkbox = getElement('selectAllCheckbox');
     const selectedCount = transactions.filter((transaction) => {
@@ -978,13 +880,11 @@ const updateSelectAllCheckbox = (transactions) => {
         selectedCount > 0 && selectedCount < transactions.length;
 };
 
-// 選択件数表示を更新する
 const updateSelectedCountLabel = () => {
     getElement('selectedCountLabel').textContent =
         `${appState.selectedIds.size}件選択`;
 };
 
-// 一覧の選択を解除する
 const clearSelection = () => {
     appState.selectedIds.clear();
     getElement('selectAllCheckbox').checked = false;
@@ -996,11 +896,6 @@ const clearSelection = () => {
     }
 };
 
-// ============================================================
-// カテゴリ選択肢・一括分類
-// ============================================================
-
-// 一覧のカテゴリフィルタ選択肢を描画する
 const renderCategoryFilterOptions = () => {
     const select = getElement('categoryFilterSelect');
     const currentValue = select.value || 'all';
@@ -1013,7 +908,6 @@ const renderCategoryFilterOptions = () => {
     select.value = hasOption(select, currentValue) ? currentValue : 'all';
 };
 
-// 一括分類カテゴリ選択肢を描画する
 const renderBulkCategoryOptions = () => {
     const select = getElement('bulkCategorySelect');
     const currentValue = select.value;
@@ -1026,7 +920,6 @@ const renderBulkCategoryOptions = () => {
     renderBulkSubcategoryOptions();
 };
 
-// 一括分類サブカテゴリ選択肢を描画する
 const renderBulkSubcategoryOptions = () => {
     const categoryId = getElement('bulkCategorySelect').value;
     const select = getElement('bulkSubcategorySelect');
@@ -1038,12 +931,10 @@ const renderBulkSubcategoryOptions = () => {
     select.disabled = !categoryId;
 };
 
-// selectに指定値のoptionがあるか判定する
 const hasOption = (select, value) => {
     return [...select.options].some((option) => option.value === value);
 };
 
-// 選択明細へ単一カテゴリを一括設定する
 const applyBulkCategory = async () => {
     const categoryId = getElement('bulkCategorySelect').value;
 
@@ -1071,7 +962,6 @@ const applyBulkCategory = async () => {
     }
 };
 
-// 一括分類後の明細配列を作る
 const createBulkUpdatedTransactions = (categoryId) => {
     const subcategoryId = getElement('bulkSubcategorySelect').value || null;
 
@@ -1090,11 +980,6 @@ const createBulkUpdatedTransactions = (categoryId) => {
         }));
 };
 
-// ============================================================
-// 明細編集・按分
-// ============================================================
-
-// 指定明細を分類編集モーダルへ読み込む
 const openTransactionModal = (transactionId) => {
     const transaction = getTransactionById(transactionId);
 
@@ -1113,14 +998,12 @@ const openTransactionModal = (transactionId) => {
     getElement('transactionModal').classList.remove('hidden');
 };
 
-// 明細IDから画面状態の明細を返す
 const getTransactionById = (transactionId) => {
     return appState.transactions.find((transaction) => {
         return transaction.id === transactionId;
     });
 };
 
-// 明細の既存按分を編集行へ描画する
 const renderAllocationRows = (transaction) => {
     const rows = getElement('allocationRows');
     const allocations = transaction.allocations?.length
@@ -1140,7 +1023,6 @@ const renderAllocationRows = (transaction) => {
     updateAllocationTotal();
 };
 
-// 按分編集行を1件追加する
 const appendAllocationRow = (allocation) => {
     const row = createElement('div', 'allocation-row');
     const categorySelect = createAllocationCategorySelect(
@@ -1170,7 +1052,6 @@ const appendAllocationRow = (allocation) => {
     getElement('allocationRows').appendChild(row);
 };
 
-// 按分行のカテゴリ選択を作る
 const createAllocationCategorySelect = (selectedCategoryId) => {
     const select = document.createElement('select');
 
@@ -1189,7 +1070,6 @@ const createAllocationCategorySelect = (selectedCategoryId) => {
     return select;
 };
 
-// 按分行のサブカテゴリ選択を作る
 const createAllocationSubcategorySelect = (
     categoryId,
     selectedSubcategoryId
@@ -1212,7 +1092,6 @@ const createAllocationSubcategorySelect = (
     return select;
 };
 
-// 按分金額入力を作る
 const createAllocationAmountInput = (amount) => {
     const input = document.createElement('input');
     const transactionAmount = getEditingTransaction()?.amount || amount;
@@ -1232,7 +1111,6 @@ const createAllocationAmountInput = (amount) => {
     return input;
 };
 
-// カテゴリ変更時にサブカテゴリ選択を差し替える
 const replaceAllocationSubcategorySelect = (row, categoryId) => {
     const currentSelect = row.querySelector('.allocation-subcategory-select');
 
@@ -1241,7 +1119,6 @@ const replaceAllocationSubcategorySelect = (row, categoryId) => {
     );
 };
 
-// 編集中明細の按分額を均等化する
 const equalizeAllocationAmounts = () => {
     const transaction = getEditingTransaction();
     const inputs = [...document.querySelectorAll('.allocation-amount-input')];
@@ -1258,12 +1135,10 @@ const equalizeAllocationAmounts = () => {
     updateAllocationTotal();
 };
 
-// 編集中の明細を返す
 const getEditingTransaction = () => {
     return getTransactionById(appState.editingTransactionId);
 };
 
-// 按分合計と差額を更新する
 const updateAllocationTotal = () => {
     const transaction = getEditingTransaction();
     const total = [
@@ -1278,7 +1153,6 @@ const updateAllocationTotal = () => {
     differenceElement.classList.toggle('invalid', difference !== 0);
 };
 
-// 編集行から按分配列を読み取る
 const readAllocationRows = () => {
     return [
         ...getElement('allocationRows').querySelectorAll('.allocation-row')
@@ -1293,7 +1167,6 @@ const readAllocationRows = () => {
     }));
 };
 
-// 編集中明細の分類を保存する
 const saveTransactionClassification = async () => {
     const transaction = getEditingTransaction();
     const allocations = readAllocationRows();
@@ -1323,7 +1196,6 @@ const saveTransactionClassification = async () => {
     }
 };
 
-// 編集中明細を不明へ戻す
 const markTransactionUnknown = async () => {
     const transaction = getEditingTransaction();
 
@@ -1352,28 +1224,20 @@ const markTransactionUnknown = async () => {
     }
 };
 
-// 明細編集モーダルを閉じる
 const closeTransactionModal = () => {
     appState.editingTransactionId = null;
     getElement('transactionModal').classList.add('hidden');
 };
 
-// ============================================================
-// 設定画面
-// ============================================================
-
-// 設定モーダルを開く
 const openSettingsModal = () => {
     renderSettingsLists();
     getElement('settingsModal').classList.remove('hidden');
 };
 
-// 設定モーダルを閉じる
 const closeSettingsModal = () => {
     getElement('settingsModal').classList.add('hidden');
 };
 
-// 設定一覧をすべて描画する
 const renderSettingsLists = () => {
     renderCategorySettings();
     renderSubcategoryParentOptions();
@@ -1381,7 +1245,6 @@ const renderSettingsLists = () => {
     renderManualRuleSettings();
 };
 
-// カテゴリ設定一覧を描画する
 const renderCategorySettings = () => {
     const container = getElement('categorySettingsList');
 
@@ -1391,7 +1254,6 @@ const renderCategorySettings = () => {
     });
 };
 
-// カテゴリ設定1件を作る
 const createCategorySettingItem = (category) => {
     const item = createElement('div', 'settings-item');
     const main = createElement('div', 'settings-item-main');
@@ -1413,7 +1275,6 @@ const createCategorySettingItem = (category) => {
     return item;
 };
 
-// 設定用ボタンを作る
 const createSettingButton = (label, onClick, className = '') => {
     const button = createElement('button', className, label);
 
@@ -1422,7 +1283,6 @@ const createSettingButton = (label, onClick, className = '') => {
     return button;
 };
 
-// カテゴリを追加する
 const addCategory = async (event) => {
     event.preventDefault();
     const input = getElement('categoryNameInput');
@@ -1445,7 +1305,6 @@ const addCategory = async (event) => {
     }
 };
 
-// 新規カテゴリレコードを作る
 const createCategoryRecord = (name) => {
     const nextSortOrder =
         appState.categories.length === 0
@@ -1464,14 +1323,12 @@ const createCategoryRecord = (name) => {
     };
 };
 
-// 同名カテゴリの有無を判定する
 const categoryNameExists = (name, excludedId = null) => {
     return appState.categories.some((category) => {
         return category.id !== excludedId && category.name === name;
     });
 };
 
-// カテゴリ名を変更する
 const renameCategory = async (category) => {
     const name = window.prompt('新しいカテゴリ名', category.name)?.trim();
 
@@ -1495,7 +1352,6 @@ const renameCategory = async (category) => {
     }
 };
 
-// 未使用カテゴリを削除する
 const deleteCategory = async (category) => {
     if (isCategoryInUse(category.id)) {
         showToast('使用中のカテゴリは削除できません');
@@ -1517,7 +1373,6 @@ const deleteCategory = async (category) => {
     }
 };
 
-// カテゴリが明細で使われているか判定する
 const isCategoryInUse = (categoryId) => {
     return appState.transactions.some((transaction) => {
         return transaction.allocations?.some((allocation) => {
@@ -1526,7 +1381,6 @@ const isCategoryInUse = (categoryId) => {
     });
 };
 
-// カテゴリと配下の未使用サブカテゴリを削除する
 const deleteCategoryAndSubcategories = async (categoryId) => {
     const subcategories = getSubcategoriesByCategory(categoryId);
 
@@ -1538,7 +1392,6 @@ const deleteCategoryAndSubcategories = async (categoryId) => {
     await remove(STORE.categories, categoryId);
 };
 
-// サブカテゴリ追加先の選択肢を描画する
 const renderSubcategoryParentOptions = () => {
     const select = getElement('subcategoryParentSelect');
     const currentValue = select.value;
@@ -1552,7 +1405,6 @@ const renderSubcategoryParentOptions = () => {
         : appState.categories[0]?.id || '';
 };
 
-// サブカテゴリ設定一覧を描画する
 const renderSubcategorySettings = () => {
     const container = getElement('subcategorySettingsList');
 
@@ -1562,7 +1414,6 @@ const renderSubcategorySettings = () => {
     });
 };
 
-// サブカテゴリ設定1件を作る
 const createSubcategorySettingItem = (subcategory) => {
     const item = createElement('div', 'settings-item');
     const category = appState.categories.find((candidate) => {
@@ -1589,7 +1440,6 @@ const createSubcategorySettingItem = (subcategory) => {
     return item;
 };
 
-// サブカテゴリを追加する
 const addSubcategory = async (event) => {
     event.preventDefault();
     const nameInput = getElement('subcategoryNameInput');
@@ -1616,7 +1466,6 @@ const addSubcategory = async (event) => {
     }
 };
 
-// 新規サブカテゴリレコードを作る
 const createSubcategoryRecord = (categoryId, name) => {
     const siblings = getSubcategoriesByCategory(categoryId);
     const sortOrder =
@@ -1634,14 +1483,12 @@ const createSubcategoryRecord = (categoryId, name) => {
     };
 };
 
-// 配下のサブカテゴリを返す
 const getSubcategoriesByCategory = (categoryId) => {
     return appState.subcategories.filter((subcategory) => {
         return subcategory.categoryId === categoryId;
     });
 };
 
-// 同一カテゴリ内の同名サブカテゴリを判定する
 const subcategoryNameExists = (categoryId, name, excludedId = null) => {
     return appState.subcategories.some((subcategory) => {
         return (
@@ -1652,7 +1499,6 @@ const subcategoryNameExists = (categoryId, name, excludedId = null) => {
     });
 };
 
-// サブカテゴリ名を変更する
 const renameSubcategory = async (subcategory) => {
     const name = window
         .prompt('新しいサブカテゴリ名', subcategory.name)
@@ -1678,7 +1524,6 @@ const renameSubcategory = async (subcategory) => {
     }
 };
 
-// 未使用サブカテゴリを削除する
 const deleteSubcategory = async (subcategory) => {
     if (isSubcategoryInUse(subcategory.id)) {
         showToast('使用中のサブカテゴリは削除できません');
@@ -1702,7 +1547,6 @@ const deleteSubcategory = async (subcategory) => {
     }
 };
 
-// サブカテゴリが明細で使われているか判定する
 const isSubcategoryInUse = (subcategoryId) => {
     return appState.transactions.some((transaction) => {
         return transaction.allocations?.some((allocation) => {
@@ -1711,7 +1555,6 @@ const isSubcategoryInUse = (subcategoryId) => {
     });
 };
 
-// 常に手動分類する店舗一覧を描画する
 const renderManualRuleSettings = () => {
     const container = getElement('manualRuleList');
 
@@ -1721,7 +1564,6 @@ const renderManualRuleSettings = () => {
     });
 };
 
-// 常に手動分類する店舗設定1件を作る
 const createManualRuleSettingItem = (rule) => {
     const item = createElement('div', 'settings-item');
     const main = createElement('div', 'settings-item-main');
@@ -1752,7 +1594,6 @@ const createManualRuleSettingItem = (rule) => {
     return item;
 };
 
-// 常に手動分類する店舗ルールを追加する
 const addManualRule = async (event) => {
     event.preventDefault();
     const patternInput = getElement('manualRulePatternInput');
@@ -1779,7 +1620,6 @@ const addManualRule = async (event) => {
     }
 };
 
-// 手動分類ルールの有効状態を変更する
 const updateManualRuleEnabled = async (rule, enabled) => {
     try {
         await put(STORE.manualRules, { ...rule, enabled });
@@ -1791,7 +1631,6 @@ const updateManualRuleEnabled = async (rule, enabled) => {
     }
 };
 
-// 手動分類ルールを削除する
 const deleteManualRule = async (rule) => {
     try {
         await remove(STORE.manualRules, rule.id);
@@ -1804,7 +1643,6 @@ const deleteManualRule = async (rule) => {
     }
 };
 
-// 全データを削除して初期状態へ戻す
 const deleteAllData = async () => {
     if (!window.confirm('全明細と設定を削除しますか？')) {
         return;
@@ -1823,11 +1661,6 @@ const deleteAllData = async () => {
     }
 };
 
-// ============================================================
-// バックアップ・復元
-// ============================================================
-
-// 全データをJSONファイルとして保存する
 const exportBackup = async () => {
     try {
         const backup = buildBackupData({
@@ -1860,7 +1693,6 @@ const exportBackup = async () => {
     }
 };
 
-// JSONバックアップを読み込み全データを置き換える
 const importBackup = async () => {
     try {
         const [handle] = await window.showOpenFilePicker({

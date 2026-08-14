@@ -1,4 +1,4 @@
-// 深刻度スコア算出の純粋関数（ブラウザ/Node両方で利用）
+// 深刻度スコア算出の純粋関数
 // ブラウザ: window.HEALTH_LOGIC にエクスポート
 // Node: module.exports にエクスポート
 // ※ getAttrRaw は PARSE_LOGIC に依存
@@ -9,21 +9,14 @@
         (typeof require === 'function' ? require('./parse-logic.js') : null);
     const getAttrRaw = PARSE_LOGIC.getAttrRaw;
 
-    // ============================================================
-    // 定数（スコア重み・公称寿命基準・レベル閾値）
-    // ============================================================
-
-    // S.M.A.R.T. 総合判定 FAILED の固定加算（最優先・L6を保証）
     const FAILED_PENALTY = 100000;
 
-    // セクタ系指標の重み（HDD/SSD共通・物理的不良の深刻度順）
     const SECTOR_WEIGHT = {
         realloc: 100, // 代替処理済セクタ(5)
         pending: 150, // 保留中セクタ(197)
         uncorrectable: 200 // 回復不能セクタ(198)
     };
 
-    // HDD/SSHD 固有の重み・ペナルティ
     const HDD_PENALTY = {
         idnf: 3000, // エラーログ IDNF 検出
         commandTimeout: 500, // Command_Timeout(188)>0（生値不使用の固定）
@@ -31,7 +24,6 @@
         hourBenchmark: 30000 // 公称寿命基準（時間）。超過分を加算
     };
 
-    // SATA-SSD/eMMC 固有の重み・ペナルティ
     const SSD_PENALTY = {
         lifePerPoint: 50, // 残り寿命1%低下あたり
         lifeCritical: 5000, // 残り寿命<=10% の臨界ペナルティ
@@ -40,7 +32,6 @@
         hourBenchmark: 40000 // 公称寿命基準（時間）
     };
 
-    // NVMe 固有の重み・ペナルティ
     const NVME_PENALTY = {
         criticalWarning: 20000, // critical_warning ≠ 0
         mediaErrorPerCount: 200, // media_errors 件あたり
@@ -53,7 +44,6 @@
         availSpareWarnPerPoint: 50 // 11-50%帯の1%あたり
     };
 
-    // 7段階レベルのスコア上限（添字=レベル、そのレベルの最大スコア）
     const LEVEL_SCORE_MAX = [
         0,
         9,
@@ -64,11 +54,6 @@
         Number.MAX_SAFE_INTEGER
     ];
 
-    // ============================================================
-    // スコア加算ヘルパ
-    // ============================================================
-
-    // スコア加算結果と理由を蓄積するヘルパを生成
     const makeScorer = () => {
         let score = 0;
         const reasons = [];
@@ -84,7 +69,6 @@
         };
     };
 
-    // エラーログの概要から件数とエラー種別フラグを抽出
     const parseErrorDescriptions = (errSummary) => {
         const errCount = Number(errSummary?.count) || 0;
         const descs = (errSummary?.table || [])
@@ -99,7 +83,6 @@
         };
     };
 
-    // HDD判定（物理駆動・セクタ不良重視）
     const judgeHdd = (ctx, add) => {
         const {
             table,
@@ -152,7 +135,6 @@
         }
     };
 
-    // SATA-SSD判定（書込寿命・予備ブロック重視）
     const judgeSataSsd = (ctx, add) => {
         const {
             table,
@@ -175,7 +157,6 @@
                     `残り寿命=${lifePercent}% (<=10)`
                 );
         } else if (!tbw_val) {
-            // 残り寿命も書込量も取得不能は評価不能＝異常扱い
             add(SSD_PENALTY.unknownLife, '残り寿命・書込容量ともに取得不能');
         }
 
@@ -207,7 +188,6 @@
         }
     };
 
-    // NVMe判定（percentage_used / available_spare / critical_warning 重視）
     const judgeNvme = (nvmeLog, add) => {
         const pctUsed = Number(nvmeLog?.percentage_used);
         const availSpare = Number(nvmeLog?.available_spare);
@@ -254,7 +234,6 @@
         }
     };
 
-    // スコアから7段階レベルへ変換（LEVEL_SCORE_MAX の上限で二分探索相当の線形判定）
     const levelFromScore = (score) => {
         for (let lv = 0; lv < LEVEL_SCORE_MAX.length; lv++) {
             if (score <= LEVEL_SCORE_MAX[lv]) return lv;
@@ -262,7 +241,6 @@
         return LEVEL_SCORE_MAX.length - 1;
     };
 
-    // 種別ごとにjudgeへディスパッチ
     const dispatchByType = (data, record, add) => {
         const {
             customType,
@@ -298,7 +276,6 @@
         judgeHdd(ctx, add);
     };
 
-    // 公開API: record から深刻度スコアと理由を算出
     const computeSeverityScore = (data, record) => {
         const { add, getScore, getReasons } = makeScorer();
         if (record.health === 'FAILED') {
@@ -309,7 +286,6 @@
         return { score: getScore(), reasons: getReasons() };
     };
 
-    // 公開API: レベルと理由とスコアを返す（levelはscoreから導出）
     const computeHealthLevel = (data, record) => {
         const { score, reasons } = computeSeverityScore(data, record);
         return { level: levelFromScore(score), reasons, score };

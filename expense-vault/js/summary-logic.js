@@ -1,4 +1,4 @@
-// 期間絞り込み・カテゴリ集計の純粋関数（ブラウザ/Node両方で利用）
+// 期間絞り込み・カテゴリ集計の純粋関数
 // ブラウザ: window.SUMMARY_LOGIC にエクスポート
 // Node: module.exports にエクスポート
 ((root, factory) => {
@@ -12,12 +12,10 @@
         root.SUMMARY_LOGIC = SUMMARY_LOGIC;
     }
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
-    // YYYY-MMが指定範囲内か判定する
     const isMonthInRange = (monthKey, startMonth, endMonth) => {
         return monthKey >= startMonth && monthKey <= endMonth;
     };
 
-    // 月次または指定期間で明細を絞り込む
     const filterTransactionsByPeriod = (transactions, period) => {
         return (transactions || []).filter((transaction) => {
             if (period.mode === 'monthly') {
@@ -32,7 +30,6 @@
         });
     };
 
-    // 画面の検索・カテゴリ・状態条件で明細を絞り込む
     const filterTransactionsForView = (transactions, filters) => {
         const searchText = String(filters.searchText || '').trim();
 
@@ -49,7 +46,6 @@
         });
     };
 
-    // カテゴリフィルタに一致するか判定する
     const matchesCategoryFilter = (transaction, categoryId) => {
         if (!categoryId || categoryId === 'all') {
             return true;
@@ -64,7 +60,6 @@
         });
     };
 
-    // 分類状態フィルタに一致するか判定する
     const matchesStatusFilter = (transaction, status) => {
         if (!status || status === 'all') {
             return true;
@@ -77,7 +72,6 @@
         return transaction.classificationSource === status;
     };
 
-    // カテゴリ集計用の初期マップを構築する
     const createCategorySummaryMap = (categories) => {
         return new Map(
             [...(categories || [])]
@@ -96,7 +90,6 @@
         );
     };
 
-    // サブカテゴリ名をIDから引くマップを作る
     const createSubcategoryMap = (subcategories) => {
         return new Map(
             (subcategories || []).map((subcategory) => [
@@ -106,7 +99,6 @@
         );
     };
 
-    // 按分1件をカテゴリ集計へ加算する
     const addAllocationToSummary = (
         categorySummaryMap,
         subcategoryMap,
@@ -133,7 +125,6 @@
         );
     };
 
-    // 明細配列から合計・カテゴリ・サブカテゴリ・不明を集計する
     const buildSummary = (transactions, categories, subcategories) => {
         const categorySummaryMap = createCategorySummaryMap(categories);
         const subcategoryMap = createSubcategoryMap(subcategories);
@@ -172,7 +163,6 @@
         };
     };
 
-    // 円グラフと凡例に使う項目を構築する
     const createChartItems = (summary, unknownColor) => {
         const items = (summary.categories || [])
             .filter((category) => category.amount !== 0)
@@ -195,7 +185,6 @@
         return items;
     };
 
-    // 円グラフを描けない場合の表示文言を返す
     const createChartEmptyMessage = (items) => {
         if (items.length === 0) {
             return 'データなし';
@@ -204,7 +193,6 @@
         return '返金のみ';
     };
 
-    // 円グラフ凡例へ表示する比率または返金状態を返す
     const createChartLegendRatio = (item, total) => {
         if (item.amount < 0) {
             return '返金超過';
@@ -217,7 +205,6 @@
         return `${Math.round((item.chartAmount / total) * 100)}%`;
     };
 
-    // 明細を利用日降順、同日ではID降順に並べる
     const sortTransactionsByDate = (transactions) => {
         return [...(transactions || [])].sort((left, right) => {
             const dateComparison = right.usedAt.localeCompare(left.usedAt);

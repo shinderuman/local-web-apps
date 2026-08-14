@@ -2,9 +2,6 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { validateImportData } = require('../js/export-logic.js');
 
-// ============================================================
-// validateImportData
-// ============================================================
 test('validateImportData: 配列形式の正常データを返す', () => {
     const data = [{ name: 'ピーマン', children: [] }];
     const result = validateImportData(data);

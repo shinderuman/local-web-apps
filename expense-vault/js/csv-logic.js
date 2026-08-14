@@ -1,4 +1,4 @@
-// CSVデコード・解析の純粋関数（ブラウザ/Node両方で利用）
+// CSVデコード・解析の純粋関数
 // ブラウザ: window.CSV_LOGIC にエクスポート
 // Node: module.exports にエクスポート
 ((root, factory) => {
@@ -25,7 +25,7 @@
         }
     };
 
-    // CSV文字列を引用符・改行・末尾空欄を維持した二次元配列へ変換する
+    // 引用符・改行・末尾空欄を維持した二次元配列へ
     const parseCsvRows = (text) => {
         const rows = [];
         let row = [];
@@ -77,7 +77,6 @@
         return rows;
     };
 
-    // 日付文字列をYYYY-MM-DDへ正規化し、実在しない日付ならnullを返す
     const normalizeDate = (value) => {
         const match = String(value ?? '')
             .trim()
@@ -107,7 +106,6 @@
         ].join('-');
     };
 
-    // 金額文字列を整数へ変換し、0または整数でなければnullを返す
     const parseAmount = (value) => {
         const normalizedValue = String(value ?? '')
             .replace(/[￥¥,\s]/g, '')
@@ -127,19 +125,16 @@
         return amount;
     };
 
-    // 最初の明細行を探す
     const findFirstDetailRowIndex = (rows) => {
         return rows.findIndex((row) => normalizeDate(row[0]) !== null);
     };
 
-    // 最初の明細行のカラム数からCSV形式を判定する
     const detectCsvFormat = (row) => {
         return Object.values(CSV_FORMATS).find(
             (format) => format.columnCount === row.length
         );
     };
 
-    // CSV行を支出レコードへ変換する
     const parseDetailRow = (row, format, rowNumber) => {
         const usedAt = normalizeDate(row[0]);
         const merchant = String(row[1] ?? '').trim();
@@ -177,9 +172,8 @@
         };
     };
 
-    // CSV文字列から明細と行単位エラーを抽出する
     const parseExpenseCsv = (text) => {
-        const rows = parseCsvRows(text.replace(/^\uFEFF/, ''));
+        const rows = parseCsvRows(text.replace(/^﻿/, ''));
         const detailStartIndex = findFirstDetailRowIndex(rows);
 
         if (detailStartIndex < 0) {
@@ -228,7 +222,6 @@
         };
     };
 
-    // ArrayBufferをUTF-8またはShift_JISとしてデコードする
     const decodeCsvBuffer = (arrayBuffer) => {
         const bytes = new Uint8Array(arrayBuffer);
 

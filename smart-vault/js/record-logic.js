@@ -1,9 +1,8 @@
-// レコード集計・表示・並び替えの純粋関数（ブラウザ/Node両方で利用）
+// レコード集計・表示・並び替えの純粋関数
 // ブラウザ: window.RECORD_LOGIC にエクスポート
 // Node: module.exports にエクスポート
 
 ((root, factory) => {
-    // 指定したフィルタ種別ごとの件数と全件数を返す
     const countRecordsByType = (records, filterTypes) => {
         const counts = Object.fromEntries(filterTypes.map((type) => [type, 0]));
         records.forEach((record) => {
@@ -14,7 +13,6 @@
         return counts;
     };
 
-    // 列クリック後のソート状態を返す
     const getNextSortState = (sortState, field) => {
         if (sortState.sortField !== field)
             return { sortField: field, sortOrder: 'asc' };
@@ -23,7 +21,6 @@
         return { sortField: '', sortOrder: 'asc' };
     };
 
-    // 指定列と方向でレコードを非破壊に並べ替える
     const sortRecords = (records, sortField, sortOrder) => {
         const sorted = [...records];
         if (!sortField) return sorted;
@@ -41,7 +38,6 @@
         return sorted;
     };
 
-    // 指定分類に一致するレコードを非破壊に返す
     const filterRecordsByType = (records, filter) => {
         if (filter === 'all') return [...records];
         return records.filter(
@@ -49,7 +45,6 @@
         );
     };
 
-    // 表示中レコードの移動を全体レコード配列の順序へ反映する
     const reorderRecordsByVisiblePosition = (
         records,
         visibleRecords,
@@ -77,7 +72,6 @@
         ];
     };
 
-    // healthLevelを持つレコードだけで構成された配列かを判定する
     const isValidSmartRecordList = (records) => {
         return (
             Array.isArray(records) &&

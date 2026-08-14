@@ -40,7 +40,6 @@
     ];
     let database = null;
 
-    // データベースを開き、初回作成時にストアと初期カテゴリを用意する
     const openDatabase = () => {
         return new Promise((resolve, reject) => {
             const request = indexedDB.open(DB_CONFIG.name, DB_CONFIG.version);
@@ -58,7 +57,6 @@
         });
     };
 
-    // 必要なオブジェクトストアを作成する
     const createStores = (openedDatabase, upgradeTransaction) => {
         createTransactionStore(openedDatabase);
         createSimpleStore(openedDatabase, DB_CONFIG.stores.categories, 'id');
@@ -67,7 +65,6 @@
         seedInitialCategories(upgradeTransaction);
     };
 
-    // 明細ストアと検索インデックスを作成する
     const createTransactionStore = (openedDatabase) => {
         if (
             openedDatabase.objectStoreNames.contains(
@@ -89,7 +86,6 @@
         store.createIndex('merchant', 'merchant', { unique: false });
     };
 
-    // IDを主キーとする単純ストアを作成する
     const createSimpleStore = (openedDatabase, storeName, keyPath) => {
         if (openedDatabase.objectStoreNames.contains(storeName)) {
             return;
@@ -98,7 +94,6 @@
         openedDatabase.createObjectStore(storeName, { keyPath });
     };
 
-    // 自動採番の手動分類ルールストアを作成する
     const createManualRuleStore = (openedDatabase) => {
         if (
             openedDatabase.objectStoreNames.contains(
@@ -114,7 +109,6 @@
         });
     };
 
-    // 初回作成時に標準カテゴリを登録する
     const seedInitialCategories = (upgradeTransaction) => {
         const store = upgradeTransaction.objectStore(
             DB_CONFIG.stores.categories
@@ -125,7 +119,6 @@
         });
     };
 
-    // 指定ストアの全レコードを取得する
     const getAll = (storeName) => {
         return new Promise((resolve, reject) => {
             const request = database
@@ -142,7 +135,6 @@
         });
     };
 
-    // 指定ストアへ1レコードを保存する
     const put = (storeName, record) => {
         return new Promise((resolve, reject) => {
             const transaction = database.transaction(storeName, 'readwrite');
@@ -157,7 +149,6 @@
         });
     };
 
-    // 指定ストアから1レコードを削除する
     const remove = (storeName, id) => {
         return new Promise((resolve, reject) => {
             const transaction = database.transaction(storeName, 'readwrite');
@@ -172,7 +163,6 @@
         });
     };
 
-    // CSV取込結果を単一トランザクションで置換保存する
     const applyImportPlan = (deleteIds, recordsToSave) => {
         return new Promise((resolve, reject) => {
             const transaction = database.transaction(
@@ -199,7 +189,6 @@
         });
     };
 
-    // 複数明細を単一トランザクションで更新する
     const putTransactions = (transactions) => {
         return new Promise((resolve, reject) => {
             const transaction = database.transaction(
@@ -222,7 +211,6 @@
         });
     };
 
-    // 全ストアをバックアップ内容で置き換える
     const replaceAllData = (backupData) => {
         const storeNames = Object.values(DB_CONFIG.stores);
 
@@ -262,7 +250,6 @@
         });
     };
 
-    // 全ストアを削除し、標準カテゴリを再登録する
     const clearAllData = () => {
         const storeNames = Object.values(DB_CONFIG.stores);
 

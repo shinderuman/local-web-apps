@@ -1,8 +1,7 @@
 #!/bin/bash
-# 共通UI関数（smart-vault.sh / fio-bench.sh / hdd-repair.sh から source で読み込まれる）
+# 共通UI・ディスク情報ヘルパー（各 *.sh から source される）
 # read_key / select_menu / select_menu_lock を提供する
 
-# 1文字のキー入力を読み取る（矢印キーはエスケープシーケンス込みで返す）
 read_key() {
     local key
     local old_stty_cfg
@@ -20,7 +19,7 @@ read_key() {
     echo -n "$key"
 }
 
-# 矢印キーで選択肢を移動する汎用メニュー（title と options 配列を受け取り、選択された index を返す）
+# 矢印キーで選択肢を移動し、選択された index を return
 select_menu() {
     local title="$1"
     shift
@@ -70,23 +69,17 @@ select_menu() {
     return "$cursor"
 }
 
-# 矢印キー選択 ＋ Tab キーによるロックトグル付きメニュー（select_menu のロック対応版）
-# 引数:
-#   $1: タイトル
-#   $2: 各項目のロック状態配列の「変数名」（呼び出し元スコープの配列。0=非ロック/1=ロック）
-#   $3以降: options 配列
-# 戻り値: 選択された index を return
-# Tab キーでカーソル位置のロックをトグルし、呼び出し元の配列へ反映した上でメニューを継続する。
+# select_menu ＋ Tab キーによるロックトグル。$2 は呼び出し元スコープの
+# ロック状態配列(0=非ロック/1=ロック)の変数名。Tab でカーソル位置をトグルして継続。
 select_menu_lock() {
     local title="$1"
     local locked_var="$2"
     shift 2
     local options=("$@")
 
-    # ロック配列を間接参照
+    # ロック配列を間接参照し、options 長に合わせて不足分を 0 埋め
     local locked=()
     eval "locked=(\"\${$locked_var[@]}\")"
-    # options の長さに合わせて不足分を 0 埋め
     while [ "${#locked[@]}" -lt "${#options[@]}" ]; do
         locked+=(0)
     done
@@ -128,7 +121,6 @@ select_menu_lock() {
             $'\x1b\x5b\x42')
                 if [ "$cursor" -lt $((${#options[@]} - 1)) ]; then cursor=$((cursor + 1)); fi
                 ;;
-            # Tab キー: カーソル位置のロックをトグル（メニューは継続）
             $'\x09')
                 if [ "${locked[$cursor]}" = "1" ]; then
                     locked[$cursor]=0
@@ -150,27 +142,23 @@ select_menu_lock() {
 
 # ========================================
 # ディスク情報ヘルパー（hdd-repair.sh / timemachine-clone.sh で共有）
-# 呼び出し元は JQ_BIN を定義しておくこと。
+# 呼び出し元は JQ_BIN を定義しておくこと
 # ========================================
 
-# 外付けディスク（物理＋AppleRAID仮想）の識別子を標準出力へ1行1つ出力。
-# 内蔵・APFS synthesized・パーティション（diskNsM）は除外。
-# AppleRAID メンバー個別ディスクは除外し、RAID Device Node のみ出す
-# （メンバーを直接選ぶとRAID構成を破壊するため）。
+# 外付けディスク（物理＋AppleRAID仮想）を1行1つ出力。内蔵・APFS synthesized・
+# パーティション(diskNsM)は除外。RAIDメンバー個別ディスクは除外し RAID Device Node
+# のみ出す（メンバーを直接選ぶとRAID構成を破壊するため）
 collect_disks() {
     local seen physical raid_disks d internal
 
-    # 外付け物理ディスク
     physical=$(diskutil list -plist external physical 2>/dev/null \
         | plutil -convert json -o - -- - 2>/dev/null \
         | "$JQ_BIN" -r '.WholeDisks[]?')
 
-    # AppleRAID 仮想ディスク（Device Node: diskN）。内蔵は除外。
     raid_disks=$(diskutil appleRAID list 2>/dev/null \
         | awk '/Device Node:/ { print $3 }')
 
-    # 単体の外付け物理ディスクを出力。
-    # Apple_RAID（Offline含む）パーティションを持つディスクはRAIDメンバーのため除外する。
+    # Apple_RAID パーティションを持つ物理ディスクはRAIDメンバーのため除外
     while IFS= read -r d; do
         [ -n "$d" ] || continue
         if diskutil list "/dev/$d" 2>/dev/null | grep -qE 'Apple_RAID(_Offline)?'; then
@@ -180,7 +168,6 @@ collect_disks() {
         printf '%s\n' "$d"
     done <<< "$physical"
 
-    # AppleRAID 仮想ディスクを追記（重複・内蔵除外）
     while IFS= read -r d; do
         [ -n "$d" ] || continue
         case "$seen" in *" $d "*) continue ;; esac
@@ -191,7 +178,6 @@ collect_disks() {
     done <<< "$raid_disks"
 }
 
-# 人間が読みやすいサイズ表記（バイト数 → GB/TB）に変換
 human_size() {
     local bytes="$1"
     awk -v b="$bytes" 'BEGIN {
@@ -204,7 +190,6 @@ human_size() {
     }'
 }
 
-# バイト数を3桁ごとにカンマ区切りへ整形（数値変換せず文字列として処理）
 format_bytes_with_commas() {
     awk 'BEGIN {
         s = ARGV[1]
@@ -218,18 +203,15 @@ format_bytes_with_commas() {
     }' "$1"
 }
 
-# 指定 plist ファイルからキーの値を抽出（plutil -extract の raw 出力を使用）
-# 引数: キー名, plist ファイルパス
 plist_value() {
     local key="$1"
     local plist="$2"
     plutil -extract "$key" raw -o - "$plist" 2>/dev/null
 }
 
-# diskutil info の plist を1回取得し、主要情報を Unit Separator 区切りで出力。
+# diskutil info の plist を1回取得し主要情報を Unit Separator 区切りで出力。
 # 抜き差し中の情報混在を防ぐため1回の取得から全項目を読み取る。
-# 項目のいずれかが取得不能・不正、または内蔵ディスクなら失敗（return 1）。
-# 引数: デバイス（diskN）, 出力先 plist ファイルパス
+# いずれかが不正または内蔵ディスクなら return 1。
 # 標準出力: "モデル<US>容量<US>プロトコル<US>論理ブロックサイズ"
 fetch_disk_summary() {
     local device="$1"
@@ -244,7 +226,6 @@ fetch_disk_summary() {
     protocol=$(plist_value "BusProtocol" "$plist")
     block_size=$(plist_value "DeviceBlockSize" "$plist")
 
-    # いずれかが不正、または内蔵ディスクなら判定不能として除外
     if [ -z "$model" ] ||
        [[ ! "$size" =~ ^[0-9]+$ ]] ||
        [ "$size" -le 0 ] ||
@@ -258,22 +239,18 @@ fetch_disk_summary() {
     printf '%s\x1f%s\x1f%s\x1f%s\n' "$model" "$size" "$protocol" "$block_size"
 }
 
-# 通知音を鳴らす（失敗しても結果へ影響させない）
 play_result_sound() {
     afplay /System/Library/Sounds/Glass.aiff >/dev/null 2>&1 || true
 }
 
-# タイムスタンプ付きログ出力
 log() {
     printf '\n[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
 }
 
-# 警告出力（標準エラー）
 warn() {
     printf '\n警告: %s\n' "$*" >&2
 }
 
-# エラー出力後、通知音を鳴らして終了コード1で終了
 die() {
     printf '\nエラー: %s\n' "$*" >&2
     play_result_sound

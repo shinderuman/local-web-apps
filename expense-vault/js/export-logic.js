@@ -1,4 +1,4 @@
-// バックアップ構築・検証の純粋関数（ブラウザ/Node両方で利用）
+// バックアップ構築・検証の純粋関数
 // ブラウザ: window.EXPORT_LOGIC にエクスポート
 // Node: module.exports にエクスポート
 ((root, factory) => {
@@ -15,7 +15,6 @@
     const BACKUP_APP_NAME = 'expense-vault';
     const BACKUP_VERSION = 1;
 
-    // バックアップJSONのルートオブジェクトを構築する
     const buildBackupData = ({
         transactions,
         categories,
@@ -34,7 +33,6 @@
         };
     };
 
-    // 配列の各要素がオブジェクトか検証する
     const isObjectArray = (value) => {
         return (
             Array.isArray(value) &&
@@ -44,7 +42,6 @@
         );
     };
 
-    // 明細レコードの最低限の構造を検証する
     const isValidTransaction = (transaction) => {
         return (
             typeof transaction.usedAt === 'string' &&
@@ -54,7 +51,6 @@
         );
     };
 
-    // バックアップJSONを検証し、復元用データを返す
     const validateBackupData = (data) => {
         if (!data || data.app !== BACKUP_APP_NAME) {
             return null;

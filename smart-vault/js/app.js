@@ -1,21 +1,14 @@
-// ============================================================
-// 定数
-// ============================================================
-
-// ストレージ・セッションキー
 const STORAGE_KEY = 'storage_smart_assets';
 const SESSION_KEYS = {
     filter: 'smart_vault_filter',
     viewMode: 'smart_vault_view_mode'
 };
 
-// タイムアウト（ミリ秒）
 const TIMING = {
     TOAST_DURATION: 2500,
     HIGHLIGHT_DURATION: 3000
 };
 
-// デバイスタイプの表示名（キー順 = フィルタ・編集の表示順）
 const TYPE_LABELS = {
     nvme: 'NVMe',
     'sata-ssd': 'SATA SSD',
@@ -26,7 +19,6 @@ const TYPE_LABELS = {
     unknown: '不明'
 };
 
-// メーカー選択肢（プルダウン）
 const CORE_VENDORS = [
     'ADATA',
     'Apple',
@@ -45,10 +37,8 @@ const CORE_VENDORS = [
     'Western Digital'
 ];
 
-// フィルタ種別（個数カウント対象）= all + 全デバイスタイプ
 const FILTER_TYPES = ['all', ...Object.keys(TYPE_LABELS)];
 
-// メーカー・分類の編集プルダウン選択肢（CORE_VENDORS / TYPE_LABELS から派生）
 const VENDOR_OPTIONS = [
     { label: '不明', value: '不明' },
     ...CORE_VENDORS.map((v) => ({ label: v, value: v }))
@@ -58,18 +48,16 @@ const TYPE_OPTIONS = Object.keys(TYPE_LABELS).map((key) => ({
     value: key
 }));
 
-// 運用状態（使用状況）の表示名・既定値・編集選択肢
-// S.M.A.R.T. からは判定不能なため、ユーザー手動設定の第3の軸
+// S.M.A.R.T. からは判定不能なためユーザー手動設定
 const USAGE_LABELS = {
     'in-use': '使用中',
     unused: '未使用',
     'near-dead': 'ほぼ故障品'
 };
 const USAGE_DEFAULT = 'unused';
-// クリックトグルの循環順: 未使用 → 使用中 → ほぼ故障品 → 未使用
+// クリックトグルの循環順
 const USAGE_CYCLE = ['unused', 'in-use', 'near-dead'];
 
-// ソート列とテーブルヘッダ位置の対応（用途・メモ列はソート不可）
 // 列順: メーカー(0) 容量(1) モデル名(2) S/N(3) 分類(4) 状態(5=Score) 残り寿命(6) 総書込量(7) 通電時間(8) 用途(9) メモ(10)
 const SORT_INDEX_MAP = {
     vendor: 0,
@@ -86,10 +74,9 @@ const SORT_INDEX_MAP = {
     randClat: 8
 };
 
-// バックアップファイル名
 const BACKUP_FILENAME = 'smart-storage.json';
 
-// 判定理由キーワードの平易な解説（初心者向け）。理由文字列中のキーが出現したらツールチップ化
+// 理由文字列中のキーが出現したらツールチップ化
 const REASON_GLOSSARY = [
     {
         key: '保留中セクタ(197)',
@@ -161,7 +148,6 @@ const REASON_GLOSSARY = [
     }
 ];
 
-// トーストメッセージ
 const TOAST = {
     PARSE_OK: 'データを解析して登録・更新しました',
     PARSE_UPDATED: '登録済みのデータを更新しました',
@@ -182,17 +168,12 @@ const TOAST = {
     SUMMARY_EMPTY: 'レコードがありません'
 };
 
-// ============================================================
-// 状態変数（ミュータブル）
-// ============================================================
-
 let sortableInstance = null;
 let db = (() => {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
     return Array.isArray(raw) ? raw : Object.values(raw);
 })();
 
-// 表示状態（フィルタ・ソート）
 const viewState = {
     filter: sessionStorage.getItem(SESSION_KEYS.filter) || 'all',
     viewMode: sessionStorage.getItem(SESSION_KEYS.viewMode) || 'smart',
@@ -200,17 +181,12 @@ const viewState = {
     sortOrder: 'asc'
 };
 
-// UI状態
 const uiState = {
     toastTimer: null,
     highlightTimer: null,
     selectedIds: new Set(),
     openDetailId: null
 };
-
-// ============================================================
-// モジュール（純粋関数）のインポート
-// ============================================================
 
 const { detectVendor } = window.VENDOR_LOGIC;
 const {
@@ -251,10 +227,6 @@ const {
     isValidSmartRecordList
 } = window.RECORD_LOGIC;
 const { buildStorageSummaryMarkdown } = window.SUMMARY_LOGIC;
-
-// ============================================================
-// S.M.A.R.T. パース（モジュールを束ねてレコード生成）
-// ============================================================
 
 const parseSmartJson = (rawText, existingRecord = null) => {
     const data = JSON.parse(rawText);
@@ -374,7 +346,6 @@ const saveDb = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
 };
 
-// S.M.A.R.T.未取得の手動登録レコードを生成（customType は選択中フィルタから決定）
 const createManualRecord = (customType = 'unknown') => ({
     id: Number(Date.now()),
     serial: '',
@@ -408,7 +379,6 @@ const createManualRecord = (customType = 'unknown') => ({
     raw: ''
 });
 
-// ペーストされたJSONを新規追加または既存更新
 const upsertRecord = (rawText) => {
     const parsedTmp = JSON.parse(rawText);
     const serial =
@@ -437,7 +407,6 @@ const upsertRecord = (rawText) => {
     showToast(isUpdate ? TOAST.PARSE_UPDATED : TOAST.PARSE_OK);
 };
 
-// 選択中レコード（1件）に fio ベンチ結果を登録（用途別に保存）
 const registerBench = (rawText) => {
     if (!isFioJson(rawText)) {
         showToast(TOAST.BENCH_INVALID);
@@ -462,13 +431,11 @@ const registerBench = (rawText) => {
     showToast(TOAST.BENCH_REGISTERED);
 };
 
-// 選択中フィルタから手動レコードの分類を決定（「すべて」なら不明）
 const manualTypeFromFilter = () => {
     const f = viewState.filter;
     return f && f !== 'all' ? f : 'unknown';
 };
 
-// 指定IDの直後に手動レコードを挿入（分類は選択中フィルタから決定）
 const addManualRecordAfter = (id) => {
     const idx = db.findIndex((item) => item.id === id);
     const newRecord = createManualRecord(manualTypeFromFilter());
@@ -482,7 +449,6 @@ const addManualRecordAfter = (id) => {
     focusSizeCell(newRecord.id);
 };
 
-// 一覧末尾に手動レコードを追加（0件時の「新規追加」ボタン用、分類は選択中フィルタから決定）
 const addManualRecordToEnd = () => {
     const newRecord = createManualRecord(manualTypeFromFilter());
     db.push(newRecord);
@@ -499,10 +465,9 @@ const rebuildDatabaseFromRaw = () => {
     if (!ok) return;
 
     db = db.map((oldRecord) => {
-        // 手動レコード・raw未保持レコードは再構築対象外（そのまま維持）
         if (!oldRecord.raw) return oldRecord;
         try {
-            // 再構築は内容の再パースが目的なので最終更新日時は維持する
+            // 再構築は再パースが目的なので最終更新日時は維持
             const rebuilt = parseSmartJson(oldRecord.raw, oldRecord);
             return { ...rebuilt, updatedAt: oldRecord.updatedAt };
         } catch {
@@ -524,7 +489,6 @@ const deleteItem = (id) => {
     showToast(TOAST.DELETED);
 };
 
-// 指定レコードのベンチ結果のみ削除（SMART情報は維持）
 const deleteBench = (id) => {
     const ok = confirm(
         'このストレージのベンチマーク結果を削除しますか？（S.M.A.R.T. 情報は維持されます）'
@@ -601,10 +565,6 @@ const exportBackup = async () => {
     }
 };
 
-// ============================================================
-// UIヘルパ
-// ============================================================
-
 const showToast = (message) => {
     const toast = document.getElementById('toastNotification');
     toast.innerText = message;
@@ -635,8 +595,7 @@ const applyFilter = (type, btn) => {
     renderTable();
 };
 
-// 一覧の3列（残り寿命/総書込量/通電時間）を SMART/ベンチ で切替
-// th は位置で特定: 6=残り寿命, 7=総書込量, 8=通電時間
+// th位置: 6=残り寿命, 7=総書込量, 8=通電時間
 const SMART_HEADERS = [
     { text: '残り寿命', sort: 'lifePercent' },
     { text: '総書込量', sort: 'tbw_val' },
@@ -679,14 +638,12 @@ const sortTable = (field) => {
     renderTable();
 };
 
-// 詳細の開閉を uiState で管理（renderTable 後も開閉状態を維持するため）
 const toggleDetails = (id) => {
     uiState.openDetailId = uiState.openDetailId === id ? null : id;
     const el = document.getElementById(`details-${id}`);
     if (el) el.classList.toggle('hidden');
 };
 
-// 文字列を .json ファイルとしてブラウザダウンロード（保存ダイアログなし、ダウンロード一覧へ落下）
 const downloadJsonFile = (content, filename) => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(
@@ -697,7 +654,6 @@ const downloadJsonFile = (content, filename) => {
     URL.revokeObjectURL(a.href);
 };
 
-// 選択中レコードの生JSONを1つの .json に結合してダウンロード
 const exportSelectedToJson = () => {
     const selected = db.filter((item) => uiState.selectedIds.has(item.id));
     const content = buildSmartJsonArray(selected);
@@ -709,7 +665,6 @@ const exportSelectedToJson = () => {
     showToast(TOAST.EXPORTED_FILE);
 };
 
-// 全レコードを種別ごとにサマったMarkdownをクリップボードへコピー
 const copySummaryToClipboard = () => {
     if (db.length === 0) {
         showToast(TOAST.SUMMARY_EMPTY);
@@ -725,24 +680,17 @@ const copySummaryToClipboard = () => {
         });
 };
 
-// ============================================================
-// インライン編集（共通ヘルパ）
-// ============================================================
-
-// レコードを検索（存在しなければnull）
 const findRecord = (id) => {
     const idx = db.findIndex((item) => item.id === id);
     return idx === -1 ? null : { idx, record: db[idx] };
 };
 
-// 編集確定の共通処理: 検証→保存→再描画
 const commitEdit = (idx, patch) => {
     Object.assign(db[idx], patch);
     saveDb();
     renderTable();
 };
 
-// プルダウン編集（field に選択値を保存）。allowFreeInput で自由入力プロンプトを許可
 const enableSelectEdit = (
     id,
     container,
@@ -791,7 +739,6 @@ const enableSelectEdit = (
     select.addEventListener('blur', () => commit(select.value));
 };
 
-// テキスト編集（field に文字列を保存）。onCommit で追加の派生更新を行える
 const enableTextEdit = (
     id,
     container,
@@ -829,11 +776,9 @@ const enableTextEdit = (
     });
 };
 
-// 追加レコードの容量セルを編集モードにしてフォーカス（行追加後の自動入力誘導）
 const focusSizeCell = (id) => {
     const row = document.querySelector(`tr.item-row[data-id="${id}"]`);
     if (!row) return;
-    // 容量セルは2列目（.size-cell 配下の .clickable-cell）
     const sizeCell = row.querySelector('.size-cell .clickable-cell');
     if (!sizeCell) return;
     const found = findRecord(id);
@@ -848,7 +793,6 @@ const focusSizeCell = (id) => {
     );
 };
 
-// 既存レコード更新時に該当行を強調表示（スクロール＋一時ハイライト）
 const highlightRow = (id) => {
     const row = document.querySelector(`tr.item-row[data-id="${id}"]`);
     if (!row) return;
@@ -860,7 +804,6 @@ const highlightRow = (id) => {
     }, TIMING.HIGHLIGHT_DURATION);
 };
 
-// 通電時間と電源回数を1セル内で並べて編集（両方の数値を更新）
 const enableHoursCycleEdit = (id, container) => {
     const found = findRecord(id);
     if (!found || container.querySelector('input')) return;
@@ -893,7 +836,7 @@ const enableHoursCycleEdit = (id, container) => {
     const commit = () => {
         if (committed) return;
         committed = true;
-        // 入力が空なら既存値を維持（0で上書きしない）、入力があれば数値化
+        // 入力が空なら既存値を維持（0で上書きしない）
         const parseOrKeep = (raw, keep) => {
             const trimmed = raw.trim();
             if (trimmed === '') return keep;
@@ -917,12 +860,6 @@ const enableHoursCycleEdit = (id, container) => {
     });
 };
 
-// ============================================================
-// レンダリング
-// ============================================================
-
-// ソート済み表示対象配列を返す
-// ベンチモードでベンチ列ソート時は bench サマリの値を展開してソートする
 const getDisplayItems = () => {
     if (viewState.viewMode === 'bench' && viewState.sortField) {
         const BENCH_SORT_KEYS = {
@@ -966,7 +903,6 @@ const updateSortIndicators = () => {
         viewState.sortOrder === 'asc' ? 'sort-asc' : 'sort-desc';
 };
 
-// 編集可能セル（clickable-cell）を生成
 const createEditableCell = (text, onEdit) => {
     const cell = document.createElement('div');
     cell.className = 'clickable-cell';
@@ -975,7 +911,6 @@ const createEditableCell = (text, onEdit) => {
     return cell;
 };
 
-// 通電時間 / 電源回数の表示文字列（未入力項目は省略、両方未入力なら空）
 const formatHoursCycle = (powerOnHours, powerCycleCount) => {
     const hasHours = powerOnHours && powerOnHours !== '不明';
     const cycleNum = typeof powerCycleCount === 'number' ? powerCycleCount : 0;
@@ -986,7 +921,6 @@ const formatHoursCycle = (powerOnHours, powerCycleCount) => {
     return '';
 };
 
-// ベンチ結果の帯域+IOPS を評価色の枠で囲って表示するセルを生成（編集不可）
 const createBenchMetricCell = (bwBytes, iops, rate) => {
     const td = document.createElement('td');
     const wrap = document.createElement('div');
@@ -1004,7 +938,6 @@ const createBenchMetricCell = (bwBytes, iops, rate) => {
     return td;
 };
 
-// Seq読込セル（Seq帯域の評価で値を囲う）
 const createBenchSeqCell = (item) => {
     const bench =
         item.benchSeq || item.benchRand || item.benchLatency
@@ -1022,7 +955,6 @@ const createBenchSeqCell = (item) => {
     );
 };
 
-// Rand読込セル（Rand IOPSの評価で値を囲う）
 const createBenchRandCell = (item) => {
     const bench =
         item.benchSeq || item.benchRand || item.benchLatency
@@ -1040,7 +972,6 @@ const createBenchRandCell = (item) => {
     );
 };
 
-// レイテンシセル（低キュー深度ランダム読込の p99 を評価して表示）
 const createBenchLatencyCell = (item) => {
     const td = document.createElement('td');
     const bench =
@@ -1064,7 +995,6 @@ const createBenchLatencyCell = (item) => {
     return td;
 };
 
-// 状態レベルバッジを生成: L番号 + Score 融合表示（手動登録は青バッジ「手動」）
 const createLevelBadge = (item) => {
     const badge = document.createElement('span');
     if (item.isManual) {
@@ -1079,13 +1009,11 @@ const createLevelBadge = (item) => {
     return badge;
 };
 
-// 運用状態の次の値を返す（循環トグル）
 const nextUsage = (current) => {
     const idx = USAGE_CYCLE.indexOf(current);
     return USAGE_CYCLE[(idx + 1) % USAGE_CYCLE.length];
 };
 
-// 運用状態セルを生成: 使用状況の小タグ（クリックで循環切替）
 // stopPropagation で親trへの伝播を止め、詳細行展開との衝突を防ぐ
 const createUsageCell = (item) => {
     const cell = document.createElement('div');
@@ -1102,7 +1030,6 @@ const createUsageCell = (item) => {
     return cell;
 };
 
-// メモセルを生成
 const createMemoCell = (item) => {
     const td = document.createElement('td');
     const memoCell = document.createElement('div');
@@ -1122,12 +1049,10 @@ const createMemoCell = (item) => {
     return td;
 };
 
-// 表示中アイテム一覧を返す（フィルタ適用済み）
 const getVisibleItems = () => {
     return filterRecordsByType(getDisplayItems(), viewState.filter);
 };
 
-// 指定IDの選択状態をトグル（Cmd/Ctrl+クリックで呼ばれる）
 const toggleRowSelection = (id) => {
     if (uiState.selectedIds.has(id)) {
         uiState.selectedIds.delete(id);
@@ -1137,14 +1062,12 @@ const toggleRowSelection = (id) => {
     renderTable();
 };
 
-// 選択をすべて解除（通常クリック時に呼ぶ。エクスプローラ/Excelと同じ挙動）
 const clearSelection = () => {
     if (uiState.selectedIds.size === 0) return;
     uiState.selectedIds.clear();
     renderTable();
 };
 
-// 選択中ダウンロードボタンの見た目を更新（選択0件＝グレーアウト、選択あり＝通常色）
 const updateExportButtonState = () => {
     const btn = document.getElementById('exportSelectedBtn');
     if (!btn) return;
@@ -1160,7 +1083,6 @@ const createRow = (item) => {
     tr.setAttribute('data-id', item.id);
     if (uiState.selectedIds.has(item.id)) tr.classList.add('row-selected');
 
-    // メーカー（編集可能・自由入力可）
     const tdVendor = document.createElement('td');
     tdVendor.appendChild(
         createEditableCell(item.vendor || '不明', (e) =>
@@ -1175,7 +1097,6 @@ const createRow = (item) => {
     );
     tr.appendChild(tdVendor);
 
-    // 容量（編集可能・size_bytesも再計算）
     const tdSize = document.createElement('td');
     tdSize.className = 'size-cell';
     tdSize.appendChild(
@@ -1192,7 +1113,6 @@ const createRow = (item) => {
     );
     tr.appendChild(tdSize);
 
-    // モデル名（編集可能）
     const tdModel = document.createElement('td');
     tdModel.className = 'model-cell';
     tdModel.appendChild(
@@ -1202,7 +1122,6 @@ const createRow = (item) => {
     );
     tr.appendChild(tdModel);
 
-    // シリアルナンバー（編集可能・省略表示・ブラウザ検索ヒット用）
     const tdSerial = document.createElement('td');
     tdSerial.className = 'serial-cell';
     tdSerial.appendChild(
@@ -1213,7 +1132,6 @@ const createRow = (item) => {
     if (item.serial) tdSerial.title = item.serial;
     tr.appendChild(tdSerial);
 
-    // 分類（編集可能）
     const tdType = document.createElement('td');
     tdType.appendChild(
         createEditableCell(TYPE_LABELS[currentType] || '不明', (e) =>
@@ -1227,12 +1145,10 @@ const createRow = (item) => {
     );
     tr.appendChild(tdType);
 
-    // 状態レベル（L番号 + Score 融合バッジ・編集不可）
     const tdLevel = document.createElement('td');
     tdLevel.appendChild(createLevelBadge(item));
     tr.appendChild(tdLevel);
 
-    // 残り寿命 / Seq読込（表示モードで切替）
     if (viewState.viewMode === 'bench') {
         tr.appendChild(createBenchSeqCell(item));
     } else {
@@ -1254,7 +1170,6 @@ const createRow = (item) => {
         tr.appendChild(tdLife);
     }
 
-    // 総書込量 / Rand読込（表示モードで切替）
     if (viewState.viewMode === 'bench') {
         tr.appendChild(createBenchRandCell(item));
     } else {
@@ -1267,7 +1182,6 @@ const createRow = (item) => {
         tr.appendChild(tdTbw);
     }
 
-    // 通電時間 / レイテンシ（表示モードで切替）
     if (viewState.viewMode === 'bench') {
         tr.appendChild(createBenchLatencyCell(item));
     } else {
@@ -1286,15 +1200,12 @@ const createRow = (item) => {
         tr.appendChild(tdHours);
     }
 
-    // 用途（運用状態：使用中/未使用/ほぼ故障品・クリックでプルダウン切替）
     const tdUsage = document.createElement('td');
     tdUsage.appendChild(createUsageCell(item));
     tr.appendChild(tdUsage);
 
-    // メモ（編集可能）
     tr.appendChild(createMemoCell(item));
 
-    // 行挿入ボタン（右端の「＋」、クリックでこの行の直後に手動レコード挿入）
     const tdInsert = document.createElement('td');
     tdInsert.className = 'insert-cell';
     const insertBtn = document.createElement('button');
@@ -1307,7 +1218,6 @@ const createRow = (item) => {
 
     // 行クリックで詳細トグル、Cmd/Ctrl+クリックで選択トグル
     // 通常クリック時の選択解除は document のクリックハンドラで一元処理
-    // 編集可能セル・ボタン・入力要素は除外
     tr.addEventListener('click', (e) => {
         if (e.target.closest('.clickable-cell, button, select, input, option'))
             return;
@@ -1321,7 +1231,6 @@ const createRow = (item) => {
     return tr;
 };
 
-// 詳細グリッドに「ラベル: 値」のフィールドを追加
 const appendDetailField = (grid, label, value) => {
     const div = document.createElement('div');
     const strong = document.createElement('strong');
@@ -1331,8 +1240,6 @@ const appendDetailField = (grid, label, value) => {
     grid.appendChild(div);
 };
 
-// 詳細グリッドに判定理由ブロックを追加（右端に消去ボタンを配置）
-// 判定理由1行をノード配列に変換: 既知キーワードはツールチップ付きspanに、それ以外はテキストに
 const createReasonNodes = (reason) => {
     const nodes = [];
     let rest = reason;
@@ -1365,7 +1272,6 @@ const createReasonNodes = (reason) => {
 const appendReasonsBlock = (grid, reasons, actionBtn) => {
     const div = document.createElement('div');
     div.className = 'reason-block';
-    // ラベル行（ラベル左詰め、ボタン右詰め）
     const header = document.createElement('div');
     header.className = 'reason-header';
     const strong = document.createElement('strong');
@@ -1373,7 +1279,6 @@ const appendReasonsBlock = (grid, reasons, actionBtn) => {
     header.appendChild(strong);
     if (actionBtn) header.appendChild(actionBtn);
     div.appendChild(header);
-    // 理由本文（各理由を1行に、キーワードはツールチップ付きspanに）
     const body = document.createElement('span');
     reasons.forEach((reason, i) => {
         if (i > 0) body.appendChild(document.createElement('br'));
@@ -1384,7 +1289,6 @@ const appendReasonsBlock = (grid, reasons, actionBtn) => {
     grid.appendChild(div);
 };
 
-// インデント付きJSONをクリップボードへコピーするボタンを生成
 const createCopyJsonButton = (rawText, label) => {
     const btn = document.createElement('button');
     btn.className = 'btn-copy-json';
@@ -1401,7 +1305,6 @@ const createCopyJsonButton = (rawText, label) => {
     return btn;
 };
 
-// 詳細画面にベンチ結果ブロック（サマリ + Seq/Rand コピー + ベンチ削除）を追加
 const appendBenchBlock = (container, item) => {
     if (!item.benchSeq && !item.benchRand && !item.benchLatency) return;
     const bench = parseBench(item.benchSeq, item.benchRand, item.benchLatency);
@@ -1429,7 +1332,6 @@ const appendBenchBlock = (container, item) => {
     fields.forEach(([label, value]) => appendDetailField(grid, label, value));
     block.appendChild(grid);
 
-    // Seq/Rand コピー + ベンチ削除ボタン
     const actions = document.createElement('div');
     actions.className = 'bench-actions';
     if (item.benchSeq)
@@ -1480,7 +1382,6 @@ const createDetailsRow = (item) => {
     ];
     fields.forEach(([label, value]) => appendDetailField(grid, label, value));
 
-    // ストレージ消去ボタン（判定理由ブロックの右端に配置）
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-danger btn-mini';
     delBtn.innerText = 'このストレージを消去';
@@ -1490,7 +1391,6 @@ const createDetailsRow = (item) => {
 
     appendBenchBlock(container, item);
 
-    // Smart raw コピー
     if (item.raw) {
         const smartActions = document.createElement('div');
         smartActions.className = 'bench-actions';
@@ -1505,7 +1405,6 @@ const createDetailsRow = (item) => {
     return tr;
 };
 
-// 0件時の行: メッセージ＋新規追加ボタン（分類は選択中フィルタで登録）
 const createEmptyRow = () => {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
@@ -1545,19 +1444,17 @@ const renderTable = () => {
     }
 };
 
-// ソート中はD&Dを無効化（フィルタ中は許可、全体順序の完全な保証は不要なため）
+// ソート中はD&D無効化（フィルタ中は許可: 全体順序の完全保証は不要なため）
 const isSortableDisabled = () => {
     return viewState.sortField !== '';
 };
 
-// D&Dの有効/無効をSortableインスタンスに反映
 const updateDragEnabled = () => {
     if (sortableInstance) {
         sortableInstance.option('disabled', isSortableDisabled());
     }
 };
 
-// tbodyをSortable化。.item-rowだけドラッグ可能、詳細行は対象外
 const initSortable = () => {
     const tbody = document.getElementById('storageTbody');
     sortableInstance = Sortable.create(tbody, {
@@ -1570,7 +1467,7 @@ const initSortable = () => {
     });
 };
 
-// 表示中アイテムの移動をdb本体の順序に反映して保存（非表示アイテムの相対順序は維持）
+// 非表示アイテムの相対順序は維持
 const handleSortEnd = (evt) => {
     if (evt.oldDraggableIndex === evt.newDraggableIndex) return;
     const visibleItems = getVisibleItems();
@@ -1586,12 +1483,7 @@ const handleSortEnd = (evt) => {
     renderTable();
 };
 
-// ============================================================
-// 初期化・イベントバインド
-// ============================================================
-
 const bindStaticEvents = () => {
-    // ペーストエリア
     const pasteZone = document.getElementById('pasteZone');
     pasteZone.addEventListener('click', () => pasteZone.focus());
     pasteZone.addEventListener('paste', (e) => {
@@ -1608,7 +1500,7 @@ const bindStaticEvents = () => {
         }
     });
 
-    // fio ベンチ結果のペースト: レコード1件選択時のみ有効（pasteZone 以外で発火）
+    // レコード1件選択時のみ有効（pasteZone 以外で発火）
     document.addEventListener('paste', (e) => {
         if (uiState.selectedIds.size !== 1) return;
         const rawText = (e.clipboardData || window.clipboardData)
@@ -1623,7 +1515,6 @@ const bindStaticEvents = () => {
         }
     });
 
-    // 操作ボタン
     document
         .getElementById('rebuildBtn')
         .addEventListener('click', rebuildDatabaseFromRaw);
@@ -1634,7 +1525,6 @@ const bindStaticEvents = () => {
         .getElementById('fileInput')
         .addEventListener('change', importBackup);
 
-    // 選択系: 選択中ダウンロード（行の選択はCmd/Ctrl+クリック）
     document
         .getElementById('exportSelectedBtn')
         .addEventListener('click', exportSelectedToJson);
@@ -1642,26 +1532,23 @@ const bindStaticEvents = () => {
         .getElementById('exportSummaryBtn')
         .addEventListener('click', copySummaryToClipboard);
 
-    // フィルタボタン
     document.querySelectorAll('.filter-btn').forEach((btn) => {
         btn.addEventListener('click', () =>
             applyFilter(btn.dataset.filter, btn)
         );
     });
 
-    // 表示モードトグル（SMART / ベンチ）
     document.querySelectorAll('.view-toggle').forEach((btn) => {
         btn.addEventListener('click', () =>
             applyViewMode(btn.dataset.view, btn)
         );
     });
 
-    // ソートヘッダ
     document.querySelectorAll('th[data-sort]').forEach((th) => {
         th.addEventListener('click', () => sortTable(th.dataset.sort));
     });
 
-    // 選択解除: JSON出力ボタンとCmd/Ctrl+クリック以外の全クリックで選択を解除
+    // JSON出力ボタンとCmd/Ctrl+クリック以外の全クリックで選択を解除
     document.addEventListener('click', (e) => {
         if (e.metaKey || e.ctrlKey) return;
         if (e.target.closest('#exportSelectedBtn')) return;

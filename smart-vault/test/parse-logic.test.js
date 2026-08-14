@@ -12,20 +12,15 @@ const {
     detectCustomType
 } = require('../js/parse-logic.js');
 
-// 実データ相当のサンプルを読み込み（S/N等の個人情報はダミー化済み）
 const backup = JSON.parse(
     fs.readFileSync(__dirname + '/fixtures/smart-storage-samples.json', 'utf8')
 );
 const findByModel = (kw) =>
     JSON.parse(backup.find((r) => r.model.includes(kw)).raw);
 
-// ============================================================
-// getAttrRaw: ATA属性テーブルからID指定でraw値を数値化
-// ============================================================
 test('getAttrRaw: 指定IDのraw値を返す', () => {
     const data = findByModel('CT250MX500');
     const table = data.ata_smart_attributes.table;
-    // ID 199 (UDMA_CRC_Error_Count) = 14
     assert.strictEqual(getAttrRaw(table, 199), 14);
 });
 
@@ -34,9 +29,6 @@ test('getAttrRaw: 存在しないIDは0', () => {
     assert.strictEqual(getAttrRaw([{ id: 1, raw: { value: 5 } }], 999), 0);
 });
 
-// ============================================================
-// pickNum: 第一候補 → NVMeフォールバック → デフォルト
-// ============================================================
 test('pickNum: 第一候補がある場合はそれを数値化', () => {
     assert.strictEqual(pickNum({ a: { hours: 321 } }, 'a.hours', null, 0), 321);
 });
@@ -53,9 +45,6 @@ test('pickNum: 両方undefined時はデフォルト', () => {
     assert.strictEqual(pickNum({}, 'a', 'b', 99), 99);
 });
 
-// ============================================================
-// calcSize: 容量表示（user_capacity優先、モデル名フォールバック）
-// ============================================================
 test('calcSize: user_capacityがある場合はGB/TB判定', () => {
     const r = calcSize('model', 250059350016);
     assert.strictEqual(r.sizeStr, '250 GB');
@@ -79,9 +68,6 @@ test('calcSize: capacity無しでモデル名にTを含む場合はTB推定', ()
     assert.strictEqual(r.sizeBytes, 1 * 1000 * 1000 * 1000 * 1000);
 });
 
-// ============================================================
-// parseSizeToBytes: 手動入力容量文字列 → バイト数
-// ============================================================
 test('parseSizeToBytes: GB単位（空白あり/なし両対応）', () => {
     assert.strictEqual(parseSizeToBytes('500GB'), 500 * 1024 ** 3);
     assert.strictEqual(parseSizeToBytes('500 GB'), 500 * 1024 ** 3);
@@ -105,18 +91,13 @@ test('parseSizeToBytes: 空・数値以外は0', () => {
     assert.strictEqual(parseSizeToBytes('abc'), 0);
 });
 
-// ============================================================
-// calcTbw: 総書込量（TB）
-// ============================================================
 test('calcTbw: NVMe data_units_written から算出', () => {
     const data = findByModel('APPLE SSD');
     const tbw = calcTbw(data);
-    // 68971519 * 512000 / 10^12 ≒ 35.31
     assert.ok(Math.abs(tbw - 35.31) < 0.1, 'expected ~35.31, got ' + tbw);
 });
 
 test('calcTbw: ID241 が GiB 単位（Total_Writes_GiB）', () => {
-    // 26315 GiB * 1.073741824 / 1000 ≒ 28.26 TB
     const data = {
         ata_smart_attributes: {
             table: [
@@ -128,7 +109,6 @@ test('calcTbw: ID241 が GiB 単位（Total_Writes_GiB）', () => {
 });
 
 test('calcTbw: ID241 が LBA 単位（Total_LBAs_Written, 512B/sector）', () => {
-    // 19484917029 * 512 / 1e12 ≒ 9.97 TB
     const data = {
         ata_smart_attributes: {
             table: [
@@ -144,7 +124,6 @@ test('calcTbw: ID241 が LBA 単位（Total_LBAs_Written, 512B/sector）', () =>
 });
 
 test('calcTbw: ID241 が 32MiB 単位（Host_Writes_32MiB）', () => {
-    // 12252475699 * 33554432 / 1e12 ≒ 411125 TB
     const data = {
         ata_smart_attributes: {
             table: [
@@ -171,7 +150,6 @@ test('calcTbw: ID241 が無ければ ID246 を使用', () => {
             ]
         }
     };
-    // 3130197676 * 512 / 1e12 ≒ 1.60 TB
     assert.ok(Math.abs(calcTbw(data) - 1.6) < 0.01, 'got ' + calcTbw(data));
 });
 
@@ -179,9 +157,6 @@ test('calcTbw: 情報無しは0', () => {
     assert.strictEqual(calcTbw({}), 0);
 });
 
-// ============================================================
-// calcLife: 残り寿命
-// ============================================================
 test('calcLife: endurance_used から算出', () => {
     const data = { endurance_used: { current_percent: 2 } };
     const r = calcLife(data);
@@ -200,9 +175,6 @@ test('calcLife: ATA寿命属性(232/233/202)のvalueを採用', () => {
     assert.strictEqual(r.lifePercent, 99);
 });
 
-// ============================================================
-// calcSectorCounts: ATA属性から代替/保留/CRCを抽出
-// ============================================================
 test('calcSectorCounts: HGST HTS725050 は保留中144', () => {
     const data = findByModel('HTS725050');
     const r = calcSectorCounts(data);
@@ -226,9 +198,6 @@ test('calcSectorCounts: 属性無しは全て-1', () => {
     assert.strictEqual(r.crcErrors, -1);
 });
 
-// ============================================================
-// detectCustomType: デバイスタイプ推定
-// ============================================================
 test('detectCustomType: NVMeプロトコル', () => {
     assert.strictEqual(detectCustomType('NVMe', 'X', '', ''), 'nvme');
 });

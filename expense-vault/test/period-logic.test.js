@@ -2,10 +2,6 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { serializePeriod, deserializePeriod } = require('../js/period-logic.js');
 
-// ============================================================
-// serializePeriod
-// ============================================================
-
 test('serializePeriod: 期間オブジェクトをJSON文字列化', () => {
     const period = {
         mode: 'range',
@@ -20,10 +16,6 @@ test('serializePeriod: 期間オブジェクトをJSON文字列化', () => {
     assert.strictEqual(parsed.rangeStart, '2026-01');
     assert.strictEqual(parsed.rangeEnd, '2026-08');
 });
-
-// ============================================================
-// deserializePeriod
-// ============================================================
 
 test('deserializePeriod: 全フィールド存在ならそのまま復元', () => {
     const json = JSON.stringify({

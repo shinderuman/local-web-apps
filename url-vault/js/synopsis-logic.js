@@ -1,7 +1,8 @@
-// あらすじ取得関連の純粋関数（ブラウザ/Node両方で利用）
+// あらすじ取得関連の純粋関数
+// ブラウザ: window.SYNOPSIS_LOGIC にエクスポート
+// Node: module.exports にエクスポート
 
 ((root, factory) => {
-    // 楽天ブックスAPIのリクエストURLを構築
     const RAKUTEN_API_URL =
         'https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404';
     const RAKUTEN_GENRE_COMIC = '001001';
@@ -11,7 +12,6 @@
         return `${RAKUTEN_API_URL}?applicationId=${applicationId}&accessKey=${accessKey}&booksGenreId=${RAKUTEN_GENRE_COMIC}&title=${encodeURIComponent(query)}&hits=${RAKUTEN_HITS}`;
     };
 
-    // レスポンスItemsから巻数→あらすじのMapを構築。parseVolume関数は外部注入
     const buildVolumeMap = (items, parseVolumeFn) => {
         const map = {};
         items.forEach((it) => {
@@ -27,7 +27,6 @@
         return map;
     };
 
-    // 起点巻で終わる3巻の窓を選択（起点-2〜起点）。存在しない巻はスキップ
     const selectTargetVolumes = (volumeMap, currentVolume) => {
         const startVolume = Math.max(1, currentVolume - 2);
         return [startVolume, startVolume + 1, startVolume + 2]
@@ -35,17 +34,14 @@
             .filter(Boolean);
     };
 
-    // クエリを記号・空白・読点で分割してトークン配列を返す
     const tokenizeQuery = (query) => {
         return query.split(/[\s　：:、，,]+/).filter((t) => t);
     };
 
-    // トークン配列の前方len個を空白区切りで結合
     const shortenQuery = (tokens, len) => {
         return tokens.slice(0, len).join(' ');
     };
 
-    // 複数リクエストのレスポンス配列をインデント付きJSON文字列に結合
     const formatSynopsisResponses = (responses) => {
         if (!Array.isArray(responses) || responses.length === 0) return '';
         return responses.map((r) => JSON.stringify(r, null, 2)).join('\n\n');

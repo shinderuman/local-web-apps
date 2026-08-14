@@ -1,4 +1,4 @@
-// 明細照合・自動分類・按分の純粋関数（ブラウザ/Node両方で利用）
+// 明細照合・自動分類・按分の純粋関数
 // ブラウザ: window.TRANSACTION_LOGIC にエクスポート
 // Node: module.exports にエクスポート
 ((root, factory) => {
@@ -18,7 +18,7 @@
         MANUAL_REQUIRED: 'manual-required',
         UNKNOWN: 'unknown'
     };
-    // CSVファイル名から明細所属月をYYYY-MM形式で取得する
+
     const parseStatementKey = (fileName) => {
         const match = String(fileName ?? '')
             .trim()
@@ -33,16 +33,14 @@
         return `${match[1]}-${match[2]}`;
     };
 
-    // 明細の完全一致キーを作成する
     const createMatchKey = (transaction) => {
         return [
             transaction.usedAt,
             transaction.merchant,
             transaction.amount
-        ].join('\u001f');
+        ].join('');
     };
 
-    // 按分情報を安全に複製する
     const cloneAllocations = (allocations) => {
         return (allocations || []).map((allocation) => ({
             categoryId: allocation.categoryId,
@@ -51,7 +49,6 @@
         }));
     };
 
-    // 明細が不明状態か判定する
     const isTransactionUnknown = (transaction) => {
         return (
             !Array.isArray(transaction.allocations) ||
@@ -59,7 +56,6 @@
         );
     };
 
-    // 単一カテゴリの按分だけを返す
     const getSingleAllocation = (transaction) => {
         if (!transaction || transaction.allocations?.length !== 1) {
             return null;
@@ -68,7 +64,6 @@
         return transaction.allocations[0];
     };
 
-    // 常に手動分類する店舗ルールに一致するか判定する
     const matchesManualRule = (merchant, rule) => {
         if (!rule?.enabled || !rule.pattern) {
             return false;
@@ -81,14 +76,13 @@
         return merchant === rule.pattern;
     };
 
-    // 店舗が常に手動分類する対象か判定する
     const requiresManualClassification = (merchant, manualRules) => {
         return (manualRules || []).some((rule) =>
             matchesManualRule(merchant, rule)
         );
     };
 
-    // 手動分類済み履歴から店舗ごとの最頻分類を構築する
+    // 手動分類済み履歴から店舗ごとの最頾分類を構築。同票の場合は決定しない
     const buildLearnedClassifications = (transactions) => {
         const merchantCounts = new Map();
 
@@ -110,7 +104,7 @@
             const allocationKey = [
                 allocation.categoryId,
                 allocation.subcategoryId || ''
-            ].join('\u001f');
+            ].join('');
             const counts = merchantCounts.get(transaction.merchant);
             const current = counts.get(allocationKey) || {
                 allocation,
@@ -145,7 +139,6 @@
         return learned;
     };
 
-    // 一致候補を照合キーごとのキューにまとめる
     const groupMatchCandidates = (transactions, sourceType) => {
         const groups = new Map();
 
@@ -169,7 +162,7 @@
         return groups;
     };
 
-    // 引継ぎ候補の優先度を返す
+    // 優先度: 同sourceType +4、手動分類済み +3、分類済み +1
     const getCandidatePriority = (transaction, sourceType) => {
         let priority = transaction.sourceType === sourceType ? 4 : 0;
 
@@ -184,7 +177,6 @@
         return priority;
     };
 
-    // 同じCSV所属月に置換される既存明細を抽出する
     const getReplacementCandidates = (
         transactions,
         sourceType,
@@ -203,7 +195,7 @@
         });
     };
 
-    // statementKey導入前の既存明細から安全に照合できる候補を抽出する
+    // statementKey導入前の旧レコード向け
     const getLegacyMatchCandidates = (transactions, sourceType) => {
         return (transactions || []).filter((transaction) => {
             if (transaction.statementKey) {
@@ -218,7 +210,6 @@
         });
     };
 
-    // 一致明細から分類設定を引き継いだ新明細を作る
     const inheritMatchedTransaction = (
         incomingRecord,
         matchedTransaction,
@@ -236,7 +227,6 @@
         };
     };
 
-    // 一致した既存明細を引き継ぐか、必要なら再分類する
     const resolveMatchedTransaction = (
         incomingRecord,
         matchedTransaction,
@@ -265,7 +255,6 @@
         };
     };
 
-    // 過去履歴または手動対象ルールから新明細の分類を決める
     const classifyNewTransaction = (
         incomingRecord,
         manualRules,
@@ -308,7 +297,6 @@
         };
     };
 
-    // CSV取込時の削除対象と保存対象を構築する
     const buildImportPlan = ({
         incomingRecords,
         existingTransactions,
@@ -432,12 +420,10 @@
         };
     };
 
-    // 按分額が明細金額と同じ符号か判定する
     const hasSameAmountSign = (transactionAmount, allocationAmount) => {
         return Math.sign(transactionAmount) === Math.sign(allocationAmount);
     };
 
-    // 按分合計と元金額が一致するか検証する
     const validateAllocations = (transactionAmount, allocations) => {
         if (
             !Number.isSafeInteger(transactionAmount) ||
@@ -467,7 +453,6 @@
         );
     };
 
-    // 指定カテゴリ数で均等按分する
     const createEqualAllocationAmounts = (transactionAmount, count) => {
         if (
             !Number.isSafeInteger(transactionAmount) ||

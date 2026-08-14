@@ -16,9 +16,6 @@ const {
     reorderProducts
 } = require('../js/price-logic.js');
 
-// ============================================================
-// calcPriceSummary: 最安値/最高値サマリの1走査算出
-// ============================================================
 test('calcPriceSummary: min/max/各履歴/最新日付を返す', () => {
     const children = [
         { price: 198, store: 'A', date: '2025-01-01' },
@@ -62,9 +59,6 @@ test('calcPriceSummary: 非数値priceを除外', () => {
     assert.strictEqual(s.max, 200);
 });
 
-// ============================================================
-// getAllStores
-// ============================================================
 test('getAllStores: 重複店名をマージ', () => {
     const children = [
         { store: 'イオン' },
@@ -83,9 +77,6 @@ test('getAllStores: 空配列は空配列', () => {
     assert.deepStrictEqual(getAllStores([]), []);
 });
 
-// ============================================================
-// sortHistories
-// ============================================================
 test('sortHistories: 日付降順（最新が先頭）', () => {
     const children = [
         { date: '2025-01-01' },
@@ -109,9 +100,6 @@ test('sortHistories: 非破壊（元配列を変更しない）', () => {
     );
 });
 
-// ============================================================
-// sortProducts
-// ============================================================
 test('sortProducts: name=商品名順', () => {
     const products = [
         { name: 'みかん' },
@@ -146,9 +134,6 @@ test('sortProducts: 非破壊', () => {
     assert.strictEqual(products[0].name, 'B');
 });
 
-// ============================================================
-// filterByCategory
-// ============================================================
 test('filterByCategory: category=null で全件', () => {
     const products = [{ category: '野菜' }, { category: '果物' }];
     assert.strictEqual(filterByCategory(products, null).length, 2);
@@ -164,9 +149,6 @@ test('filterByCategory: 該当なしは空配列', () => {
     assert.strictEqual(filterByCategory(products, '肉').length, 0);
 });
 
-// ============================================================
-// isValidProductInput / isValidHistoryInput
-// ============================================================
 test('isValidProductInput: 商品名あり=true', () => {
     assert.strictEqual(isValidProductInput('ピーマン'), true);
 });
@@ -188,9 +170,6 @@ test('isValidHistoryInput: 日付空=false', () => {
     assert.strictEqual(isValidHistoryInput(100, ''), false);
 });
 
-// ============================================================
-// buildNewProduct / buildNewHistory
-// ============================================================
 test('buildNewProduct: 全フィールドを格納しcreatedAtは引数値', () => {
     const data = {
         name: 'ピーマン',
@@ -226,10 +205,6 @@ test('buildNewHistory: memo省略時は空文字', () => {
     const result = buildNewHistory(data);
     assert.strictEqual(result.memo, '');
 });
-
-// ============================================================
-// 商品・履歴操作
-// ============================================================
 
 test('appendProductHistory: 履歴を追加し、元の商品を変更しない', () => {
     const product = { name: 'ピーマン', children: [{ price: 100 }] };

@@ -16,10 +16,6 @@ const { parseBaseTitle } = require('../js/title-parser.js');
 
 const TRASH_WINDOW_ID = 99999;
 
-// ============================================================
-// isKindleUrl
-// ============================================================
-
 test('isKindleUrl: Kindleドメインならtrue', () => {
     assert.strictEqual(
         isKindleUrl('https://read.amazon.co.jp/manga/B123'),
@@ -34,10 +30,6 @@ test('isKindleUrl: Kindle以外ならfalse', () => {
 test('isKindleUrl: 空文字ならfalse', () => {
     assert.strictEqual(isKindleUrl(''), false);
 });
-
-// ============================================================
-// hasSynopsis
-// ============================================================
 
 test('hasSynopsis: 配列で1件以上ならtrue', () => {
     assert.strictEqual(
@@ -62,10 +54,6 @@ test('hasSynopsis: synopsisがnullならfalse', () => {
     assert.strictEqual(hasSynopsis({ synopsis: null }), false);
 });
 
-// ============================================================
-// isTrashSelected
-// ============================================================
-
 test('isTrashSelected: ゴミ箱ウィンドウIDならtrue', () => {
     assert.strictEqual(isTrashSelected(99999, 99999), true);
 });
@@ -77,10 +65,6 @@ test('isTrashSelected: 通常ウィンドウIDならfalse', () => {
 test('isTrashSelected: null（すべて選択）ならfalse', () => {
     assert.strictEqual(isTrashSelected(null, 99999), false);
 });
-
-// ============================================================
-// filterVisibleItems
-// ============================================================
 
 const ALL_ITEMS = [
     { id: 1, windowId: 1, groupId: 10, title: 'アイテム1' },
@@ -153,10 +137,6 @@ test('filterVisibleItems: ゴミ箱選択時は検索クエリも適用', () => 
     assert.strictEqual(result.length, 1);
 });
 
-// ============================================================
-// updateGroupMemory / getRememberedGroup
-// ============================================================
-
 test('updateGroupMemory: 新しいエントリを追加', () => {
     const result = updateGroupMemory({}, 1, 10);
     assert.strictEqual(result[1], 10);
@@ -181,10 +161,6 @@ test('getRememberedGroup: 未記憶ならnull', () => {
     assert.strictEqual(getRememberedGroup({ 1: 10 }, 2), null);
 });
 
-// ============================================================
-// validateRememberedGroup
-// ============================================================
-
 test('validateRememberedGroup: 実在グループならそのID', () => {
     const groups = [
         { id: 10, name: 'A' },
@@ -202,10 +178,6 @@ test('validateRememberedGroup: groupIdがnullならnull', () => {
     const groups = [{ id: 10, name: 'A' }];
     assert.strictEqual(validateRememberedGroup(null, groups), null);
 });
-
-// ============================================================
-// duplicateKey / filterDuplicates
-// ============================================================
 
 test('duplicateKey: 作品名の先頭n文字を返す', () => {
     assert.strictEqual(
@@ -276,9 +248,7 @@ test('filterDuplicates: nを大きくすると別作品に分かれる', () => {
         { id: 2, title: '進撃の巨人 2' },
         { id: 3, title: '進撃の別物' }
     ];
-    // n=3 なら「進撃の」で3件とも同一 → 全件残る
     assert.strictEqual(filterDuplicates(items, 3, parseBaseTitle).length, 3);
-    // n=4 なら3件目が「進撃の別」で分岐 → 1,2のみ残る
     assert.deepStrictEqual(
         filterDuplicates(items, 4, parseBaseTitle).map((i) => i.id),
         [1, 2]
@@ -310,10 +280,6 @@ test('filterDuplicates: 元配列を変更しない（非破壊）', () => {
     filterDuplicates(items, 3, parseBaseTitle);
     assert.strictEqual(items.length, 2);
 });
-
-// ============================================================
-// isNoSynopsisItem
-// ============================================================
 
 const KINDLE_URL = 'https://read.amazon.co.jp/sample';
 const OTHER_URL = 'https://example.com/sample';

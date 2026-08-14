@@ -1,11 +1,9 @@
 #!/bin/bash
 
 # fio-bench.sh — マウント中ボリュームの Seq/Rand/Latency を測定し JSON をクリップボードへコピー
-# 詳細は README.md を参照。
 # 導入: brew install fio jq
 # 終了コード: 0=成功・メニューから終了 / 1=異常
 
-# fio テストファイル・一時ファイルのパス（中断時のクリーンアップ用グローバル変数）
 FIO_TEST_FILE=""
 FIO_SEQ_JSON=""
 FIO_RAND_JSON=""
@@ -15,10 +13,8 @@ FIO_RAND_ERR=""
 FIO_LATENCY_ERR=""
 FIO_MERGED_JSON=""
 
-# 最新の測定結果JSON（再コピー用。初回は空）
 LATEST_JSON=""
 
-# スクリプト終了時（Ctrl-C 含む）に fio 関連ファイルを確実削除
 cleanup_on_exit() {
     [ -n "$FIO_TEST_FILE" ] && rm -f "$FIO_TEST_FILE"
     [ -n "$FIO_SEQ_JSON" ] && rm -f "$FIO_SEQ_JSON"
@@ -31,15 +27,8 @@ cleanup_on_exit() {
 }
 trap cleanup_on_exit EXIT
 
-# 共通UI関数（read_key, select_menu）を読み込み
 source "$(dirname "$0")/common.sh"
 
-# ========================================
-# fio ベンチマーク処理
-# ========================================
-
-# fio 失敗時に stderr（警告・エラー）とJSON（compact形式）を表示
-# 引数: jsonファイルパス, stderrファイルパス
 print_fio_error() {
     local json_file="$1"
     local err_file="$2"
@@ -54,8 +43,6 @@ print_fio_error() {
     echo "-----------------------"
 }
 
-# 指定種類の seq/rand/latency 用 fio パラメータを配列へ設定
-# 引数: kind(hdd/sata/nvme), mode(seq/rand/latency), filename, 結果を格納する配列名
 build_fio_args() {
     local kind="$1"
     local mode="$2"
@@ -132,17 +119,14 @@ build_fio_args() {
         args+=("$extra")
     fi
 
-    # 呼び出し元の配列へ設定
     eval "$out_var=(\"\${args[@]}\")"
 }
 
-# 対象ボリュームの seq/rand リードと低キュー深度レイテンシを測定し、1つのJSONに統合してクリップボードへコピー
 run_fio_bench() {
     local target_device="$1"
     local mount_point="$2"
     local kind="$3"
 
-    # fio と jq の存在確認
     if ! command -v fio >/dev/null 2>&1; then
         warn "fio がインストールされていません。'brew install fio' で導入してください。"
         echo "-------------------------------------"
@@ -164,7 +148,6 @@ run_fio_bench() {
     rand_err=$(mktemp)
     latency_err=$(mktemp)
 
-    # 中断時のクリーンアップ用にグローバル変数へ保持
     FIO_TEST_FILE="$test_file"
     FIO_SEQ_JSON="$seq_json"
     FIO_RAND_JSON="$rand_json"
@@ -173,7 +156,6 @@ run_fio_bench() {
     FIO_RAND_ERR="$rand_err"
     FIO_LATENCY_ERR="$latency_err"
 
-    # seq read 測定
     local seq_args=()
     build_fio_args "$kind" "seq" "$test_file" "seq_args"
     echo "$target_device でシーケンシャルリード測定を開始..."
@@ -192,7 +174,6 @@ run_fio_bench() {
         return 1
     fi
 
-    # rand read 測定
     local rand_args=()
     build_fio_args "$kind" "rand" "$test_file" "rand_args"
     echo "$target_device でランダムリード測定を開始..."
@@ -211,7 +192,6 @@ run_fio_bench() {
         return 1
     fi
 
-    # 低キュー深度ランダムリードで応答性を測定
     local latency_args=()
     build_fio_args "$kind" "latency" "$test_file" "latency_args"
     echo "$target_device で低キュー深度ランダムリードのレイテンシ測定を開始..."
@@ -230,7 +210,7 @@ run_fio_bench() {
         return 1
     fi
 
-    # seq/rand を1つのJSONに統合（jq の成否を確実に判定するため一時ファイルへ出力）
+    # jq の成否を確実に判定するため一時ファイルへ出力
     local merged_json
     merged_json=$(mktemp)
     FIO_MERGED_JSON="$merged_json"
@@ -256,7 +236,6 @@ run_fio_bench() {
         FIO_MERGED_JSON=""
         return 1
     fi
-    # 統合JSONを最新結果として保持（再コピー用）
     LATEST_JSON=$(cat "$merged_json")
     rm -f "$test_file" "$seq_json" "$rand_json" "$latency_json" "$seq_err" "$rand_err" "$latency_err" "$merged_json"
     FIO_TEST_FILE=""
@@ -273,11 +252,6 @@ run_fio_bench() {
     return 0
 }
 
-# ========================================
-# メイン処理
-# ========================================
-
-# fio と jq の存在確認（起動時）
 if ! command -v fio >/dev/null 2>&1; then
     die "fio がインストールされていません。'brew install fio' で導入してください。"
 fi
@@ -286,9 +260,8 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 while true; do
-    # マウントされているボリューム一覧を取得（nobrowse付きのシステムボリュームは除外）
-    # mount出力は「/dev/diskX on /mount path (opts)」形式。マウントポイントに空白が含まれうるため
-    # 「 on 」と「 (」を区切りにdevとマウントポイントを抽出する
+    # mount出力は「/dev/diskX on /mount path (opts)」。マウントポイントに空白が
+    # 含まれうるため「 on 」と「 (」を区切りにdevとマウントポイントを抽出する
     vol_list=()
     mp_list=()
     while IFS=$'\t' read -r dev mp; do
@@ -332,7 +305,6 @@ while true; do
         continue
     fi
 
-    # 最新のJSONを再コピー
     if [ "$cursor" -eq 1 ]; then
         if [ -z "$LATEST_JSON" ]; then
             echo "コピーできる測定結果がありません。先にベンチマークを実行してください。"
@@ -348,7 +320,6 @@ while true; do
     target_device="${vol_list[$((cursor - 2))]}"
     target_mount="${mp_list[$((cursor - 2))]}"
 
-    # ストレージ種類選択: HDD / SATA SSD / NVMe SSD / 戻る
     kind_options=("HDD" "SATA SSD" "NVMe SSD" "戻る")
     select_menu "=== $target_device のストレージ種類を選択 ===" "${kind_options[@]}"
     kind_choice=$?

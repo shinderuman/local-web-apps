@@ -9,10 +9,6 @@ const {
     stripSynopsisForExport
 } = require('../js/item-logic.js');
 
-// ============================================================
-// calcNextSortOrder: 新規アイテムのsortOrderを計算
-// ============================================================
-
 test('calcNextSortOrder: 末尾追加時は既存の最大sortOrder+1', () => {
     const items = [{ sortOrder: 0 }, { sortOrder: 1 }, { sortOrder: 2 }];
     assert.strictEqual(calcNextSortOrder(items, false), 3);
@@ -36,10 +32,6 @@ test('calcNextSortOrder: 空配列の場合は末尾追加で0', () => {
 test('calcNextSortOrder: 空配列の場合は先頭追加で0', () => {
     assert.strictEqual(calcNextSortOrder([], true), 0);
 });
-
-// ============================================================
-// shiftSortOrders: 先頭追加時に既存アイテムのsortOrderを+1
-// ============================================================
 
 test('shiftSortOrders: 各アイテムのsortOrderを+1する', () => {
     const items = [
@@ -66,10 +58,6 @@ test('shiftSortOrders: 元配列は変更しない（非破壊）', () => {
     shiftSortOrders(items);
     assert.strictEqual(items[0].sortOrder, 0);
 });
-
-// ============================================================
-// buildNewItem: 新規アイテムオブジェクトを構築
-// ============================================================
 
 test('buildNewItem: 全フィールドを含む新規アイテムを構築', () => {
     const result = buildNewItem(
@@ -108,10 +96,6 @@ test('buildNewItem: createdAtは第2引数で指定', () => {
     );
     assert.strictEqual(result.createdAt, 9999);
 });
-
-// ============================================================
-// sortItems: アイテム配列をソート
-// ============================================================
 
 test('sortItems: 手動順（sortOrder昇順）', () => {
     const items = [{ sortOrder: 2 }, { sortOrder: 0 }, { sortOrder: 1 }];
@@ -209,10 +193,6 @@ test('sortItems: volume指定でもparseVolumeFn未渡し時はソートしな�
     );
 });
 
-// ============================================================
-// isValidItemInput: アイテム入力値のバリデーション
-// ============================================================
-
 test('isValidItemInput: 全て有効ならtrue', () => {
     assert.strictEqual(
         isValidItemInput('1', '2', 'タイトル', 'https://example.com'),
@@ -252,10 +232,6 @@ test('isValidItemInput: ウィンドウ値が非数ならfalse', () => {
 test('isValidItemInput: グループ値が非数ならfalse', () => {
     assert.strictEqual(isValidItemInput('1', 'xyz', 'タイトル', 'url'), false);
 });
-
-// ============================================================
-// stripSynopsisForExport: エクスポート時にsynopsisを除外
-// ============================================================
 
 test('stripSynopsisForExport: synopsisフィールドを除外', () => {
     const item = {

@@ -2,7 +2,6 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const { buildStorageSummaryMarkdown } = require('../js/summary-logic.js');
 
-// app.js と同じ TYPE_LABELS 定義（テスト用に複製）
 const TYPE_LABELS = {
     nvme: 'NVMe',
     'sata-ssd': 'SATA SSD',
@@ -12,10 +11,6 @@ const TYPE_LABELS = {
     emmc: 'eMMC',
     unknown: '不明'
 };
-
-// ============================================================
-// ストレージ一覧サマリ
-// ============================================================
 
 test('buildStorageSummaryMarkdown: 種別ごとに見出しと件数を出力する', () => {
     const records = [

@@ -1,24 +1,16 @@
-// ============================================================
-// 定数
-// ============================================================
-
-// localStorage の保存キー
 const STORAGE_KEYS = {
     HORSES: 'horse_data_ordered_v7',
     GAME_YEAR: 'game_year_v3',
     SCHEDULE: 'schedule_checkbox_states_v1'
 };
 
-// section表示状態の保存キー接尾辞（{sectionId}_visible）
 const VISIBLE_SUFFIX = '_visible';
 
-// ソート状態
 const sortState = {
     key: 'order',
     asc: true
 };
 
-// 年代別の史実馬マスターデータ（生年: [馬名...])
 const masterHorseData = {
     1963: ['スピードシンボリ', 'ワカクモ'],
     1964: [
@@ -185,17 +177,9 @@ const masterHorseData = {
     ]
 };
 
-// ============================================================
-// 状態変数（ミュータブル）
-// ============================================================
-
-let horses = []; // 系統データ本体
-let currentGameYear = 1968; // ゲーム内現在年
+let horses = [];
+let currentGameYear = 1968;
 let sortableInstance = null;
-
-// ============================================================
-// モジュール関数のインポート
-// ============================================================
 
 const {
     isStallion,
@@ -214,18 +198,12 @@ const {
     isManualSort
 } = window.HORSE_LOGIC;
 
-// ============================================================
-// 初期化
-// ============================================================
-
-// エントリポイント: データ読込とイベント登録を行う
 const init = () => {
     initSortable();
     loadData();
     initEvents();
 };
 
-// 保存データ・ゲーム内年・section表示状態を復元し描画
 const loadData = () => {
     const saved = localStorage.getItem(STORAGE_KEYS.HORSES);
     if (saved) horses = JSON.parse(saved);
@@ -246,7 +224,6 @@ const loadData = () => {
     loadCheckboxes();
 };
 
-// 静的HTML要素のイベントを登録（インラインonclick廃止に伴う集約登録）
 const initEvents = () => {
     registerToggleButtons();
     registerGameYearInput();
@@ -256,39 +233,33 @@ const initEvents = () => {
     registerSortHeader();
 };
 
-// トグルボタン: data-target のsection表示を切替
 const registerToggleButtons = () => {
     document.querySelectorAll('.toggle-btn').forEach((btn) => {
         btn.addEventListener('click', () => toggleElement(btn.dataset.target));
     });
 };
 
-// ゲーム内年入力: 変更でリスト再描画
 const registerGameYearInput = () => {
     document
         .getElementById('currentGameYear')
         .addEventListener('input', (e) => updateGameYear(e.target.value));
 };
 
-// スケジュールのcheckbox: 変更を委譲で一括保存
 const registerScheduleCheckboxes = () => {
     document
         .getElementById('scheduleSection')
         .addEventListener('change', saveCheckboxes);
 };
 
-// ファイル読込/保存の2ボタン
 const registerIoButtons = () => {
     document.getElementById('loadFileBtn').addEventListener('click', loadFile);
     document.getElementById('saveFileBtn').addEventListener('click', saveFile);
 };
 
-// 追加ボタン
 const registerAddButton = () => {
     document.getElementById('addBtn').addEventListener('click', addData);
 };
 
-// テーブルヘッダ: data-sort の列でソート
 const registerSortHeader = () => {
     document
         .querySelector('#horseTable thead')
@@ -299,11 +270,6 @@ const registerSortHeader = () => {
         });
 };
 
-// ============================================================
-// セクション表示切替
-// ============================================================
-
-// 指定sectionの表示/非表示を切替し状態を保存
 const toggleElement = (id) => {
     const el = document.getElementById(id);
     const isVisible = el.style.display === 'block';
@@ -311,17 +277,11 @@ const toggleElement = (id) => {
     localStorage.setItem(id + VISIBLE_SUFFIX, !isVisible);
 };
 
-// ============================================================
-// データ操作
-// ============================================================
-
-// データを保存して再描画
 const saveAndRender = () => {
     localStorage.setItem(STORAGE_KEYS.HORSES, JSON.stringify(horses));
     render();
 };
 
-// 新規系統を追加
 const addData = () => {
     const name = document.getElementById('newName').value.trim();
     const year = document.getElementById('newYear').value.trim();
@@ -339,13 +299,11 @@ const addData = () => {
     saveAndRender();
 };
 
-// 指定IDの系統を削除
 const deleteData = (id) => {
     horses = removeHorse(horses, id);
     saveAndRender();
 };
 
-// 指定キーでソート（同キー再クリックで昇降切替）
 const sortData = (key) => {
     Object.assign(sortState, getNextSortState(sortState, key));
     horses = sortHorses(horses, sortState.key, sortState.asc);
@@ -353,7 +311,6 @@ const sortData = (key) => {
     render();
 };
 
-// 現役/種牡馬のトグル（閾値以上は固定でトグル不可）
 const toggleRunner = (id) => {
     const updated = toggleHorseRunner(horses, id, currentGameYear);
     if (updated === horses) return;
@@ -361,7 +318,6 @@ const toggleRunner = (id) => {
     saveAndRender();
 };
 
-// ゲーム内年を更新して関連表示を再描画
 const updateGameYear = (val) => {
     currentGameYear = parseInt(val, 10) || 0;
     localStorage.setItem(STORAGE_KEYS.GAME_YEAR, currentGameYear);
@@ -369,11 +325,6 @@ const updateGameYear = (val) => {
     renderFilteredHorseList();
 };
 
-// ============================================================
-// 編集
-// ============================================================
-
-// セルをクリックしてインライン編集を開始
 const startEdit = (id, key, element) => {
     const horse = horses.find((h) => h.id === id);
     if (!horse) return;
@@ -408,11 +359,6 @@ const startEdit = (id, key, element) => {
     };
 };
 
-// ============================================================
-// レンダリング
-// ============================================================
-
-// テーブル本体を描画
 const render = () => {
     const tbody = document.getElementById('horseTableBody');
     tbody.innerHTML = '';
@@ -437,7 +383,6 @@ const render = () => {
     });
 };
 
-// 年代別馬リストを描画（ゲーム内年-1以降の史実馬）
 const renderFilteredHorseList = () => {
     const targetContainer = document.getElementById('filteredHorseList');
     targetContainer.innerHTML = '';
@@ -469,7 +414,6 @@ const renderFilteredHorseList = () => {
     });
 };
 
-// ドラッグ用のハンドルセル（≡）を生成
 const createDragHandleCell = () => {
     const td = document.createElement('td');
     td.className = 'handle';
@@ -477,7 +421,6 @@ const createDragHandleCell = () => {
     return td;
 };
 
-// 順序表示セルを生成（クリック不可）
 const createOrderCell = (order) => {
     const td = document.createElement('td');
     td.style.color = '#666';
@@ -487,7 +430,6 @@ const createOrderCell = (order) => {
     return td;
 };
 
-// 系統名セルを生成（クリックでトグル）
 const createNameCell = (name) => {
     const td = document.createElement('td');
     td.className = 'name-cell';
@@ -495,7 +437,6 @@ const createNameCell = (name) => {
     return td;
 };
 
-// 年齢セルを生成（クリックでトグル）
 const createAgeCell = (age) => {
     const td = document.createElement('td');
     td.className = 'age-cell';
@@ -503,7 +444,6 @@ const createAgeCell = (age) => {
     return td;
 };
 
-// 編集可能セルを生成。複数の他牧場馬名は改行要素で安全に表示する
 const createEditableCell = (id, key, value) => {
     const td = document.createElement('td');
     td.className =
@@ -520,7 +460,6 @@ const createEditableCell = (id, key, value) => {
     return td;
 };
 
-// 削除ボタンセルを生成
 const createDeleteCell = (id) => {
     const td = document.createElement('td');
     const btn = document.createElement('button');
@@ -531,7 +470,6 @@ const createDeleteCell = (id) => {
     return td;
 };
 
-// 行のドラッグ＆ドロップと、編集セル以外のクリック（現役/種牡馬トグル）を登録
 const attachRowEvents = (tr, id) => {
     tr.querySelectorAll('td:not(.editable)').forEach((td) => {
         if (td.querySelector('button')) return;
@@ -540,11 +478,6 @@ const attachRowEvents = (tr, id) => {
     });
 };
 
-// ============================================================
-// チェックボックス状態の保存・復元
-// ============================================================
-
-// スケジュールの全checkbox状態を保存
 const saveCheckboxes = () => {
     const checkboxes = document.querySelectorAll(
         '#scheduleSection input[type="checkbox"]'
@@ -556,7 +489,6 @@ const saveCheckboxes = () => {
     localStorage.setItem(STORAGE_KEYS.SCHEDULE, JSON.stringify(state));
 };
 
-// 保存済みのcheckbox状態を復元
 const loadCheckboxes = () => {
     const saved = localStorage.getItem(STORAGE_KEYS.SCHEDULE);
     if (!saved) return;
@@ -567,11 +499,6 @@ const loadCheckboxes = () => {
     });
 };
 
-// ============================================================
-// ファイル入出力
-// ============================================================
-
-// ファイルからJSONを読込
 const loadFile = async () => {
     try {
         const [handle] = await window.showOpenFilePicker({
@@ -609,7 +536,6 @@ const loadFile = async () => {
     }
 };
 
-// ファイルにJSONを保存
 const saveFile = async () => {
     try {
         const handle = await window.showSaveFilePicker({
@@ -631,11 +557,6 @@ const saveFile = async () => {
     }
 };
 
-// ============================================================
-// ドラッグ＆ドロップ並び替え（SortableJS）
-// ============================================================
-
-// ソート中はD&Dを無効化（order昇順＝手動順のときのみ許可）
 const isManualOrder = () => {
     return isManualSort(sortState);
 };
@@ -646,7 +567,6 @@ const updateDragEnabled = () => {
     }
 };
 
-// tbodyをSortable化。≡ハンドルでのみドラッグ開始
 const initSortable = () => {
     const tbody = document.getElementById('horseTableBody');
     sortableInstance = Sortable.create(tbody, {
@@ -659,9 +579,5 @@ const initSortable = () => {
         }
     });
 };
-
-// ============================================================
-// エントリポイント
-// ============================================================
 
 init();

@@ -1,22 +1,14 @@
 #!/bin/bash
 
 # smart-vault.sh — 外付けディスクの S.M.A.R.T. 情報を取得し JSON をクリップボードへコピー
-# 詳細は README.md を参照。
 # 導入: brew install smartmontools
 # 終了コード: 0=成功・メニューから終了 / 1=異常
 
-# 共通UI関数（read_key, select_menu）を読み込み
 source "$(dirname "$0")/common.sh"
 
-# ========================================
-# smartctl 処理
-# ========================================
-
-# 対象デバイスの S.M.A.R.T. 情報を取得し JSON をクリップボードへコピー
 run_smartctl() {
     local target_device="$1"
 
-    # smartctl の存在確認
     if ! command -v smartctl >/dev/null 2>&1; then
         warn "smartctl がインストールされていません。'brew install smartmontools' で導入してください。"
         echo "-------------------------------------"
@@ -26,7 +18,6 @@ run_smartctl() {
 
     echo "$target_device の S.M.A.R.T. 情報を取得中..."
 
-    # 一時ファイルの作成
     local tmp_file
     tmp_file=$(mktemp)
     local success=false
@@ -43,7 +34,7 @@ run_smartctl() {
             smartctl -a -d "$type" --json "$target_device" > "$tmp_file" 2>&1
         fi
 
-        # serial_number または user_capacity が取得できていれば成功と判定
+        # serial_number または user_capacity が取得できていれば成功
         if [ -s "$tmp_file" ] && grep -qE '"serial_number"|"user_capacity"' "$tmp_file"; then
             cat "$tmp_file" | pbcopy
             success=true
@@ -58,7 +49,6 @@ run_smartctl() {
         fi
     done
 
-    # 一時ファイルの削除
     rm -f "$tmp_file"
 
     if [ "$success" = true ]; then
@@ -69,10 +59,6 @@ run_smartctl() {
     echo "-------------------------------------"
     echo ""
 }
-
-# ========================================
-# メイン処理
-# ========================================
 
 while true; do
     dev_list=($(diskutil list physical | grep -E "^\/dev\/disk[0-9]+" | awk '{print $1}'))

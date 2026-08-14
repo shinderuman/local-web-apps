@@ -33,7 +33,6 @@ h1 {
     color: #718096;
 }
 
-/* 操作パネル（登録フォーム常駐） */
 .control-panel {
     background-color: #fff;
     padding: 20px;
@@ -95,7 +94,6 @@ h1 {
     gap: 8px;
 }
 
-/* 画面中央下部に浮かび上がるトースト通知システム */
 .toast-notification {
     position: fixed;
     bottom: 30px;
@@ -264,12 +262,10 @@ tr.item-row.dragging {
     background-color: #ebf8ff;
 }
 
-/* 商品名セル */
 .name-cell {
     font-weight: 500;
 }
 
-/* 最安値（緑）・最高値（赤）の色強調 */
 .price-min {
     color: #38a169;
     font-weight: bold;
@@ -284,7 +280,6 @@ tr.item-row.dragging {
     color: #a0aec0;
 }
 
-/* 最安値の店名: 緑太字で強調（履歴テーブル内の値段セルはサイズ抑えめ） */
 .min-store {
     color: #38a169;
     font-weight: bold;
@@ -294,18 +289,15 @@ tr.item-row.dragging {
     font-size: 15px;
 }
 
-/* 購入日セル: 控えめなグレー（参考情報） */
 .date-cell {
     color: #718096;
     white-space: nowrap;
 }
 
-/* 購入店一覧: 控えめなグレー */
 .stores-cell {
     color: #718096;
 }
 
-/* 行削除ボタン */
 .delete-cell {
     text-align: center;
     width: 36px;
@@ -329,7 +321,6 @@ tr.item-row.dragging {
     color: #e53e3e;
 }
 
-/* 詳細（履歴一覧）行 */
 .details-row {
     background-color: #fafbfd;
 }
@@ -343,7 +334,6 @@ tr.item-row.dragging {
     color: #4a5568;
     margin-bottom: 10px;
 }
-/* 履歴テーブルのメモセル: 改行保持 */
 .history-memo {
     white-space: pre-wrap;
     color: #4a5568;
@@ -377,14 +367,12 @@ tr.item-row.dragging {
     display: none !important;
 }
 
-/* 0件時のメッセージ */
 .empty-message {
     color: #a0aec0;
     padding: 30px;
     text-align: center;
 }
 
-/* 履歴編集モーダル */
 .modal-overlay {
     position: fixed;
     inset: 0;

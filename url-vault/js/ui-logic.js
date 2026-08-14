@@ -1,12 +1,12 @@
-// UI状態のシリアライズ/デシリアライズ純粋関数（ブラウザ/Node両方で利用）
+// UI状態のシリアライズ/デシリアライズ純粋関数
+// ブラウザ: window.UI_LOGIC にエクスポート
+// Node: module.exports にエクスポート
 
 ((root, factory) => {
-    // UI状態オブジェクトをJSON文字列にシリアライズ
     const serializeUIState = (state) => {
         return JSON.stringify(state);
     };
 
-    // JSON文字列からUI状態を復元。無効JSONや空文字はnull
     const deserializeUIState = (json) => {
         if (!json) return null;
         try {

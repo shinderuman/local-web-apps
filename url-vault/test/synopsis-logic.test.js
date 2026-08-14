@@ -9,15 +9,10 @@ const {
     formatSynopsisResponses
 } = require('../js/synopsis-logic.js');
 
-// parseVolumeはtitle-parser.jsに依存するため、テスト用にモック
 const mockParseVolume = (title) => {
     const m = title.match(/[（(]([0-9]+)[）)]/);
     return m ? parseInt(m[1], 10) : 1;
 };
-
-// ============================================================
-// buildRakutenUrl
-// ============================================================
 
 test('buildRakutenUrl: クエリを含むURLを構築', () => {
     const url = buildRakutenUrl('app123', 'key456', '漫画タイトル');
@@ -32,10 +27,6 @@ test('buildRakutenUrl: クエリはURLエンコードされる', () => {
     const url = buildRakutenUrl('app', 'key', 'タイトル 1');
     assert.ok(url.includes(encodeURIComponent('タイトル 1')));
 });
-
-// ============================================================
-// buildVolumeMap
-// ============================================================
 
 test('buildVolumeMap: 各巻をvolumeキーで整理', () => {
     const items = [
@@ -67,10 +58,6 @@ test('buildVolumeMap: 同巻は最初の1件のみ', () => {
     const map = buildVolumeMap(items, mockParseVolume);
     assert.strictEqual(map[1].caption, '1つ目');
 });
-
-// ============================================================
-// selectTargetVolumes
-// ============================================================
 
 test('selectTargetVolumes: 5巻起点→3,4,5', () => {
     const map = {
@@ -116,10 +103,6 @@ test('selectTargetVolumes: 全て存在しない場合は空配列', () => {
     assert.deepStrictEqual(result, []);
 });
 
-// ============================================================
-// tokenizeQuery
-// ============================================================
-
 test('tokenizeQuery: 空白と記号で分割', () => {
     const result = tokenizeQuery('作品名 1巻 (コミックス)');
     assert.deepStrictEqual(result, ['作品名', '1巻', '(コミックス)']);
@@ -134,10 +117,6 @@ test('tokenizeQuery: 空トークンは除外', () => {
     const result = tokenizeQuery('  タイトル  ');
     assert.deepStrictEqual(result, ['タイトル']);
 });
-
-// ============================================================
-// shortenQuery
-// ============================================================
 
 test('shortenQuery: 指定長で前方を結合', () => {
     const tokens = ['タイトル', 'サブ', '追加'];
@@ -154,10 +133,6 @@ test('shortenQuery: 長さ0の場合は空文字', () => {
     assert.strictEqual(shortenQuery(tokens, 0), '');
 });
 
-// ============================================================
-// formatSynopsisResponses
-// ============================================================
-
 test('formatSynopsisResponses: 空配列は空文字', () => {
     assert.strictEqual(formatSynopsisResponses([]), '');
 });
@@ -173,7 +148,6 @@ test('formatSynopsisResponses: 1件はインデント付きJSON', () => {
     ]);
     assert.ok(text.includes('"query": "タイトル"'));
     assert.ok(text.includes('"count": 0'));
-    // 2スペースインデントを含む
     assert.ok(text.includes('\n  "query"'));
 });
 

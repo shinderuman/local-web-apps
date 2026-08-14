@@ -1,7 +1,8 @@
-// 期間指定のシリアライズ/デシリアライズ純粋関数（ブラウザ/Node両方で利用）
+// 期間指定のシリアライズ/デシリアライズ純粋関数
+// ブラウザ: window.PERIOD_LOGIC にエクスポート
+// Node: module.exports にエクスポート
 
 ((root, factory) => {
-    // YYYY-MM 形式として有効な月文字列かを判定する
     const isValidMonth = (value) => {
         if (typeof value !== 'string') {
             return false;
@@ -17,12 +18,10 @@
         return month >= 1 && month <= 12;
     };
 
-    // 期間指定オブジェクトをJSON文字列にシリアライズ
     const serializePeriod = (period) => {
         return JSON.stringify(period);
     };
 
-    // JSON文字列から期間指定を復元。無効JSONや空文字はnull
     const deserializePeriod = (json, fallbackMonth) => {
         if (!json) {
             return null;

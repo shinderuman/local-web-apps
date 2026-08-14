@@ -25,7 +25,7 @@
 - DOM操作・イベント・共有状態・localStorage に依存する関数は `app.js` に置く
 - 純粋関数だが関連する `js/*-logic.js` がまだないものは、`app.js` の初期化系セクション（`initApp` / `refreshDataView` など）の直後に「純粋関数（関連する *-logic.js ができたら移設）」セクションを設け、そこに一箇所にまとめて置く
 - 新たに該当する `js/*-logic.js` を作成・拡張する際は、同セクションから該当関数を移設する（移設忘れを防ぐため、セクションの存在を前提とする）
-- モジュールは IIFE + UMD 構造（`module.exports` / `window.XXX_LOGIC` の両エクスポート）。先頭3行コメント、各関数上に1行コメント
+- モジュールは IIFE + UMD 構造（`module.exports` / `window.XXX_LOGIC` の両エクスポート）。先頭3行のモジュール宣言コメント（モジュール内容 / `ブラウザ: ...` / `Node: ...`）のみ付け、関数ごとのコメントは付けない（コメント方針はユーザーレベル CLAUDE.md に従う）
 - `app.js` は `const { ... } = window.XXX_LOGIC` で必要な関数のみ分割代入
 - `index.html` で純粋関数モジュールを `app.js` より先に読み込む
 - 依存する純粋関数は引数で注入（require順への依存を避ける）
