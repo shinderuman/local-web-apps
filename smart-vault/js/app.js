@@ -58,22 +58,6 @@ const USAGE_DEFAULT = 'unused';
 // クリックトグルの循環順
 const USAGE_CYCLE = ['unused', 'in-use', 'near-dead'];
 
-// 列順: メーカー(0) 容量(1) モデル名(2) S/N(3) 分類(4) 状態(5=Score) 残り寿命(6) 総書込量(7) 通電時間(8) 用途(9) メモ(10)
-const SORT_INDEX_MAP = {
-    vendor: 0,
-    size_bytes: 1,
-    model: 2,
-    serial: 3,
-    customType: 4,
-    severityScore: 5,
-    lifePercent: 6,
-    tbw_val: 7,
-    hours_val: 8,
-    seqBw: 6,
-    randIops: 7,
-    randClat: 8
-};
-
 const BACKUP_FILENAME = 'smart-storage.json';
 
 // 理由文字列中のキーが出現したらツールチップ化
@@ -436,19 +420,6 @@ const manualTypeFromFilter = () => {
     return f && f !== 'all' ? f : 'unknown';
 };
 
-const addManualRecordAfter = (id) => {
-    const idx = db.findIndex((item) => item.id === id);
-    const newRecord = createManualRecord(manualTypeFromFilter());
-    if (idx === -1) {
-        db.push(newRecord);
-    } else {
-        db.splice(idx + 1, 0, newRecord);
-    }
-    saveDb();
-    renderTable();
-    focusSizeCell(newRecord.id);
-};
-
 const addManualRecordToEnd = () => {
     const newRecord = createManualRecord(manualTypeFromFilter());
     db.push(newRecord);
@@ -595,7 +566,6 @@ const applyFilter = (type, btn) => {
     renderTable();
 };
 
-// th位置: 6=残り寿命, 7=総書込量, 8=通電時間
 const SMART_HEADERS = [
     { text: '残り寿命', sort: 'lifePercent' },
     { text: '総書込量', sort: 'tbw_val' },
@@ -608,14 +578,19 @@ const BENCH_HEADERS = [
 ];
 
 const updateHeaderView = () => {
-    const ths = document.querySelectorAll('.storage-list thead th');
+    const swapKeys = new Set(
+        [...SMART_HEADERS, ...BENCH_HEADERS].map((h) => h.sort)
+    );
+    const ths = [...document.querySelectorAll('.storage-list thead th')].filter(
+        (th) => swapKeys.has(th.dataset.sort)
+    );
     const headers =
         viewState.viewMode === 'bench' ? BENCH_HEADERS : SMART_HEADERS;
-    [6, 7, 8].forEach((pos, i) => {
-        const th = ths[pos];
+    headers.forEach((header, i) => {
+        const th = ths[i];
         if (!th) return;
-        th.innerText = headers[i].text;
-        th.setAttribute('data-sort', headers[i].sort);
+        th.innerText = header.text;
+        th.setAttribute('data-sort', header.sort);
     });
 };
 
@@ -894,13 +869,13 @@ const getDisplayItems = () => {
 };
 
 const updateSortIndicators = () => {
-    const ths = document.querySelectorAll('th');
-    ths.forEach((th) => (th.className = ''));
+    document
+        .querySelectorAll('.storage-list thead th')
+        .forEach((th) => (th.className = ''));
     if (!viewState.sortField) return;
-    const thIdx = SORT_INDEX_MAP[viewState.sortField];
-    if (thIdx === undefined) return;
-    ths[thIdx].className =
-        viewState.sortOrder === 'asc' ? 'sort-asc' : 'sort-desc';
+    const th = document.querySelector(`th[data-sort="${viewState.sortField}"]`);
+    if (!th) return;
+    th.className = viewState.sortOrder === 'asc' ? 'sort-asc' : 'sort-desc';
 };
 
 const createEditableCell = (text, onEdit) => {
@@ -1206,16 +1181,6 @@ const createRow = (item) => {
 
     tr.appendChild(createMemoCell(item));
 
-    const tdInsert = document.createElement('td');
-    tdInsert.className = 'insert-cell';
-    const insertBtn = document.createElement('button');
-    insertBtn.className = 'btn-insert';
-    insertBtn.title = 'この下に行を追加';
-    insertBtn.innerText = '＋';
-    insertBtn.addEventListener('click', () => addManualRecordAfter(item.id));
-    tdInsert.appendChild(insertBtn);
-    tr.appendChild(tdInsert);
-
     // 行クリックで詳細トグル、Cmd/Ctrl+クリックで選択トグル
     // 通常クリック時の選択解除は document のクリックハンドラで一元処理
     tr.addEventListener('click', (e) => {
@@ -1361,7 +1326,7 @@ const createDetailsRow = (item) => {
     tr.id = `details-${item.id}`;
 
     const td = document.createElement('td');
-    td.colSpan = 11;
+    td.colSpan = document.querySelectorAll('.storage-list thead th').length;
 
     const container = document.createElement('div');
     container.className = 'details-container';
@@ -1408,18 +1373,12 @@ const createDetailsRow = (item) => {
 const createEmptyRow = () => {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 11;
+    td.colSpan = document.querySelectorAll('.storage-list thead th').length;
     td.style.cssText = 'text-align:center; color:#a0aec0; padding:30px;';
 
     const msg = document.createElement('span');
     msg.innerText = '該当するディスクがありません。';
     td.appendChild(msg);
-
-    const btn = document.createElement('button');
-    btn.className = 'btn-add-empty';
-    btn.innerText = '＋ 新規追加';
-    btn.addEventListener('click', () => addManualRecordToEnd());
-    td.appendChild(btn);
 
     tr.appendChild(td);
     return tr;
@@ -1515,6 +1474,9 @@ const bindStaticEvents = () => {
         }
     });
 
+    document
+        .getElementById('addManualBtn')
+        .addEventListener('click', addManualRecordToEnd);
     document
         .getElementById('rebuildBtn')
         .addEventListener('click', rebuildDatabaseFromRaw);

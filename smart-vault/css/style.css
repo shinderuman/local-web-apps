@@ -585,46 +585,6 @@ tr.unknown-type-row.row-updated {
     display: none !important;
 }
 
-.insert-cell {
-    text-align: center;
-    width: 36px;
-    padding: 4px 2px;
-}
-.btn-insert {
-    background-color: transparent;
-    color: #a0aec0;
-    border: none;
-    width: 22px;
-    height: 22px;
-    padding: 0;
-    font-size: 15px;
-    font-weight: normal;
-    line-height: 1;
-    border-radius: 4px;
-    cursor: pointer;
-}
-.btn-insert:hover {
-    background-color: #edf2f7;
-    color: #718096;
-}
-
-.btn-add-empty {
-    background-color: transparent;
-    color: #a0aec0;
-    border: none;
-    height: auto;
-    padding: 0;
-    margin-left: 10px;
-    font-size: 13px;
-    font-weight: normal;
-    text-decoration: underline;
-    cursor: pointer;
-}
-.btn-add-empty:hover {
-    background-color: transparent;
-    color: #718096;
-}
-
 /* 選択中行のハイライト（hover・unknown-type-row より優先するため !important） */
 tr.item-row.row-selected {
     background-color: #ebf8ff !important;
