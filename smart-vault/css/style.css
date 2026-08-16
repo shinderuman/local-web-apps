@@ -333,10 +333,6 @@ tr.item-row:hover {
 tr.unknown-type-row:hover {
     background-color: #fed7d7 !important;
 }
-tr.item-row.dragging {
-    opacity: 0.4;
-    background-color: #ebf8ff;
-}
 
 tr.unknown-type-row {
     background-color: #fff5f5 !important;
@@ -402,27 +398,6 @@ tr.unknown-type-row.row-updated {
     background-color: #fff;
 }
 
-.status-badge {
-    display: inline-block;
-    padding: 4px 8px;
-    font-size: 13px;
-    font-weight: bold;
-    border-radius: 4px;
-    text-align: center;
-}
-.status-passed {
-    background-color: #c6f6d5;
-    color: #22543d;
-}
-.status-failed {
-    background-color: #fed7d7;
-    color: #742a2a;
-}
-.status-unknown {
-    background-color: #edf2f7;
-    color: #4a5568;
-}
-
 .level-badge {
     display: inline-block;
     padding: 4px 8px;
@@ -485,11 +460,6 @@ tr.unknown-type-row.row-updated {
     color: #742a2a;
 }
 
-.bad-count {
-    color: #e53e3e;
-    font-weight: bold;
-}
-
 .size-cell {
     font-weight: bold;
     color: #2b6cb0;
@@ -549,18 +519,6 @@ tr.unknown-type-row.row-updated {
     flex-wrap: wrap;
     gap: 15px 40px;
     margin-bottom: 10px;
-}
-.raw-json {
-    background-color: #2d3748;
-    color: #fff;
-    padding: 12px;
-    border-radius: 4px;
-    font-family: monospace;
-    font-size: 13px;
-    max-height: 250px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    position: relative;
 }
 
 .btn-copy-json {

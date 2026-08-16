@@ -232,34 +232,11 @@ th:hover {
     background-color: #edf2f7;
 }
 
-th.sort-asc::after {
-    content: ' ▲';
-    position: absolute;
-    right: 6px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 11px;
-    color: #3182ce;
-}
-th.sort-desc::after {
-    content: ' ▼';
-    position: absolute;
-    right: 6px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 11px;
-    color: #3182ce;
-}
-
 tr.item-row {
     cursor: pointer;
 }
 tr.item-row:hover {
     background-color: #edf2f7;
-}
-tr.item-row.dragging {
-    opacity: 0.4;
-    background-color: #ebf8ff;
 }
 
 .name-cell {
