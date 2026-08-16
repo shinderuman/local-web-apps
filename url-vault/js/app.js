@@ -84,7 +84,8 @@ const {
     buildNewItem,
     sortItems,
     isValidItemInput,
-    stripSynopsisForExport
+    stripSynopsisForExport,
+    formatCreatedAtJst
 } = window.ITEM_LOGIC;
 const {
     isKindleUrl,
@@ -724,6 +725,14 @@ const updateSynopsis = async (itemId, title, url, explicitVolume) => {
     return { ok: true };
 };
 
+const appendSynopsisCreatedAt = (item, bodyEl) => {
+    if (!item.createdAt) return;
+    const meta = document.createElement('p');
+    meta.className = 'synopsis-meta';
+    meta.textContent = `登録日時: ${formatCreatedAtJst(item.createdAt)}`;
+    bodyEl.appendChild(meta);
+};
+
 const renderSynopsisContent = (item, bodyEl) => {
     if (!hasSynopsis(item)) {
         const empty = document.createElement('p');
@@ -892,6 +901,7 @@ const showSynopsisPanel = (item, editedState) => {
 
     titleEl.textContent = item.title;
     bodyEl.innerHTML = '';
+    appendSynopsisCreatedAt(item, bodyEl);
     renderSynopsisContent(item, bodyEl);
     renderSynopsisForm(item, bodyEl, editedState);
 
@@ -1460,12 +1470,6 @@ const createCardElement = (item) => {
     card.oncontextmenu = (e) => {
         if (editState.isEditMode) return;
         e.preventDefault();
-        if (!isKindleUrl(item.url)) {
-            showToast('このカードはあらすじ非対応（Kindleドメインのみ）', {
-                error: true
-            });
-            return;
-        }
         showSynopsisPanel(item);
     };
 

@@ -525,6 +525,12 @@ button:hover {
     color: #ddd;
     white-space: pre-wrap;
 }
+.synopsis-meta {
+    font-size: 11px;
+    color: #888;
+    margin: 0 0 12px 0;
+    text-align: right;
+}
 .synopsis-empty {
     color: #666;
     font-size: 13px;

@@ -58,6 +58,20 @@
         return true;
     };
 
+    const formatCreatedAtJst = (timestamp) => {
+        const formatted = new Intl.DateTimeFormat('ja-JP', {
+            timeZone: 'Asia/Tokyo',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        }).format(new Date(timestamp));
+        return `${formatted} JST`;
+    };
+
     const stripSynopsisForExport = (item) => {
         const rest = { ...item };
         delete rest.synopsis;
@@ -70,7 +84,8 @@
         buildNewItem,
         sortItems,
         isValidItemInput,
-        stripSynopsisForExport
+        stripSynopsisForExport,
+        formatCreatedAtJst
     };
 
     factory(root, ITEM_LOGIC);

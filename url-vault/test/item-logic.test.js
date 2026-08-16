@@ -6,7 +6,8 @@ const {
     buildNewItem,
     sortItems,
     isValidItemInput,
-    stripSynopsisForExport
+    stripSynopsisForExport,
+    formatCreatedAtJst
 } = require('../js/item-logic.js');
 
 test('calcNextSortOrder: 末尾追加時は既存の最大sortOrder+1', () => {
@@ -231,6 +232,16 @@ test('isValidItemInput: ウィンドウ値が非数ならfalse', () => {
 
 test('isValidItemInput: グループ値が非数ならfalse', () => {
     assert.strictEqual(isValidItemInput('1', 'xyz', 'タイトル', 'url'), false);
+});
+
+test('formatCreatedAtJst: タイムスタンプをJST日時文字列に変換', () => {
+    const ts = Date.UTC(2026, 7, 16, 20, 5, 9);
+    assert.strictEqual(formatCreatedAtJst(ts), '2026/08/17 05:05:09 JST');
+});
+
+test('formatCreatedAtJst: UTC日付をまたいでJSTの翌日になる', () => {
+    const ts = Date.UTC(2026, 0, 1, 15, 30, 45);
+    assert.strictEqual(formatCreatedAtJst(ts), '2026/01/02 00:30:45 JST');
 });
 
 test('stripSynopsisForExport: synopsisフィールドを除外', () => {
