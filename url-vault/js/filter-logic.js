@@ -14,6 +14,9 @@ const KINDLE_URL_PATTERN = /^https?:\/\/read\.amazon\.co\.jp\//;
     const isTrashSelected = (windowId, trashWindowId) =>
         windowId === trashWindowId;
 
+    const filterItemsByWindowId = (items, windowId) =>
+        items.filter((item) => item.windowId === windowId);
+
     const filterVisibleItems = (
         allItems,
         windowId,
@@ -23,11 +26,11 @@ const KINDLE_URL_PATTERN = /^https?:\/\/read\.amazon\.co\.jp\//;
     ) => {
         let items = allItems;
         if (windowId === trashWindowId) {
-            items = items.filter((item) => item.windowId === trashWindowId);
+            items = filterItemsByWindowId(items, trashWindowId);
         } else {
             items = items.filter((item) => item.windowId !== trashWindowId);
             if (windowId !== null) {
-                items = items.filter((item) => item.windowId === windowId);
+                items = filterItemsByWindowId(items, windowId);
             }
         }
         if (groupId !== null) {
@@ -83,6 +86,7 @@ const KINDLE_URL_PATTERN = /^https?:\/\/read\.amazon\.co\.jp\//;
         isKindleUrl,
         hasSynopsis,
         isTrashSelected,
+        filterItemsByWindowId,
         filterVisibleItems,
         updateGroupMemory,
         getRememberedGroup,

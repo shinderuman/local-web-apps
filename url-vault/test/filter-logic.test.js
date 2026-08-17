@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const {
     filterVisibleItems,
+    filterItemsByWindowId,
     isKindleUrl,
     hasSynopsis,
     isTrashSelected,
@@ -77,6 +78,24 @@ const ALL_ITEMS = [
         title: 'ゴミ箱アイテム'
     }
 ];
+
+test('filterItemsByWindowId: 指定windowIdのアイテムのみ抽出', () => {
+    const items = [
+        { id: 1, windowId: 1 },
+        { id: 2, windowId: 99 },
+        { id: 3, windowId: 1 }
+    ];
+    const result = filterItemsByWindowId(items, 1);
+    assert.deepStrictEqual(
+        result.map((i) => i.id),
+        [1, 3]
+    );
+});
+
+test('filterItemsByWindowId: 該当なしは空配列', () => {
+    const items = [{ id: 1, windowId: 1 }];
+    assert.deepStrictEqual(filterItemsByWindowId(items, 99), []);
+});
 
 test('filterVisibleItems: すべて選択（windowId=null）は通常アイテムのみ', () => {
     const result = filterVisibleItems(

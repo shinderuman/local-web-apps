@@ -90,6 +90,7 @@ const {
 const {
     isKindleUrl,
     hasSynopsis,
+    filterItemsByWindowId,
     filterVisibleItems,
     updateGroupMemory,
     getRememberedGroup,
@@ -1366,8 +1367,9 @@ const deleteGroup = (id, name) => {
 const emptyTrash = () => {
     const tx = db.transaction(['items'], 'readonly');
     tx.objectStore('items').getAll().onsuccess = (e) => {
-        const trashItems = e.target.result.filter(
-            (item) => item.windowId === TRASH.WINDOW_ID
+        const trashItems = filterItemsByWindowId(
+            e.target.result,
+            TRASH.WINDOW_ID
         );
         if (trashItems.length === 0) {
             showToast('ゴミ箱は空です');
@@ -1393,13 +1395,20 @@ const emptyTrash = () => {
 const moveToTrash = (itemId) => {
     const tx = db.transaction(['items'], 'readwrite');
     const store = tx.objectStore('items');
-    store.get(itemId).onsuccess = (e) => {
-        const data = e.target.result;
-        if (data) {
-            data.windowId = TRASH.WINDOW_ID;
-            data.groupId = TRASH.GROUP_ID;
-            store.put(data);
-        }
+    store.getAll().onsuccess = (e) => {
+        const trashItems = filterItemsByWindowId(
+            e.target.result,
+            TRASH.WINDOW_ID
+        );
+        store.get(itemId).onsuccess = (e2) => {
+            const data = e2.target.result;
+            if (data) {
+                data.windowId = TRASH.WINDOW_ID;
+                data.groupId = TRASH.GROUP_ID;
+                data.sortOrder = calcNextSortOrder(trashItems, false);
+                store.put(data);
+            }
+        };
     };
     tx.oncomplete = () => renderList();
 };
