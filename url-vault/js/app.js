@@ -19,7 +19,6 @@ const IMAGE = {
 const TIMING = {
     TOAST_DURATION: 3000,
     TOAST_HIDE_ANIM: 200,
-    PANEL_ANIM: 180,
     SYNOPSIS: {
         FETCH_INTERVAL: 1200,
         RETRY_INTERVAL: 1200
@@ -67,7 +66,6 @@ const editState = {
 
 const uiState = {
     synopsisPanelItemId: null,
-    focusedItemId: null,
     toastTimer: null,
     toastVisible: false,
     blurEnabled: false
@@ -151,6 +149,8 @@ const loadToggleStates = () => {
         leftPanel.classList.add('hidden');
     if (sessionStorage.getItem('navContainerHidden') === 'true')
         navContainer.classList.add('hidden');
+    if (sessionStorage.getItem('synopsisPanelHidden') === 'true')
+        document.getElementById('synopsisPanel').classList.add('hidden');
 
     updateAddPositionBtn();
     updateDupCheckBtn();
@@ -742,7 +742,7 @@ const renderSynopsisContent = (item, bodyEl) => {
             empty.textContent = 'あらすじが取得されていません';
         } else {
             empty.textContent =
-                'あらすじが取得されていません（Kindleドメインのみ取得可能）';
+                'このカードは対象外です（Kindleドメインのみ対応）';
         }
         bodyEl.appendChild(empty);
         return;
@@ -886,50 +886,31 @@ const clearCardFocus = (stateKey, className) => {
 };
 
 const showSynopsisPanel = (item, editedState) => {
-    const panel = document.getElementById('synopsisPanel');
     const titleEl = document.getElementById('synopsisPanelTitle');
     const bodyEl = document.getElementById('synopsisPanelBody');
 
     if (!editedState && uiState.synopsisPanelItemId === item.id) {
-        hideSynopsisPanel();
+        clearSynopsisPanelSelection();
         return;
     }
     uiState.synopsisPanelItemId = item.id;
 
-    clearCardFocus('focusedItemId', 'card-focused');
     setCardFocus('synopsisPanelItemId', item.id, 'synopsis-active');
-    const activeCard = document.querySelector(`.card[data-id="${item.id}"]`);
 
     titleEl.textContent = item.title;
     bodyEl.innerHTML = '';
     appendSynopsisCreatedAt(item, bodyEl);
     renderSynopsisContent(item, bodyEl);
     renderSynopsisForm(item, bodyEl, editedState);
-
-    panel.style.display = 'flex';
-    panel.classList.remove('synopsis-panel-open');
-    void panel.offsetWidth;
-    panel.classList.add('synopsis-panel-open');
-
-    // パネル展開で一覧幅が縮み対象カードが押し出されるのを補正
-    if (activeCard)
-        activeCard.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 };
 
-const hideSynopsisPanel = () => {
-    const panel = document.getElementById('synopsisPanel');
+const clearSynopsisPanelSelection = () => {
     const bodyEl = document.getElementById('synopsisPanelBody');
     const titleEl = document.getElementById('synopsisPanelTitle');
     clearCardFocus('synopsisPanelItemId', 'synopsis-active');
-    panel.classList.remove('synopsis-panel-open');
-    panel.classList.add('synopsis-panel-close');
-    setTimeout(() => {
-        panel.classList.remove('synopsis-panel-close');
-        panel.style.display = 'none';
-        titleEl.textContent = 'あらすじ';
-        bodyEl.innerHTML =
-            '<p class="synopsis-empty">カードを右クリックするとあらすじを表示します</p>';
-    }, TIMING.PANEL_ANIM);
+    titleEl.textContent = 'カード詳細';
+    bodyEl.innerHTML =
+        '<p class="synopsis-empty">カードをクリックすると詳細を表示します</p>';
 };
 
 const showToast = (msg, opts = {}) => {
@@ -1123,7 +1104,7 @@ const applyFilterChange = (windowId, groupId) => {
             groupId
         );
     }
-    hideSynopsisPanel();
+    clearSynopsisPanelSelection();
     saveUIState();
     renderFilters();
     renderList({ resetScroll: true });
@@ -1455,9 +1436,6 @@ const createCardElement = (item) => {
     if (uiState.synopsisPanelItemId === item.id) {
         card.classList.add('synopsis-active');
     }
-    if (uiState.focusedItemId === item.id) {
-        card.classList.add('card-focused');
-    }
     if (hasSynopsis(item)) {
         card.classList.add('has-synopsis');
     } else if (isKindleUrl(item.url)) {
@@ -1473,7 +1451,7 @@ const createCardElement = (item) => {
             startItemEdit(item);
             return;
         }
-        setCardFocus('focusedItemId', item.id, 'card-focused');
+        showSynopsisPanel(item);
         window.open(item.url, '_blank', 'noopener,noreferrer');
     };
     card.oncontextmenu = (e) => {
@@ -1700,6 +1678,15 @@ document.getElementById('toggleLeftBtn').addEventListener('click', () => {
     );
 });
 
+document.getElementById('toggleRightBtn').addEventListener('click', () => {
+    const synopsisPanel = document.getElementById('synopsisPanel');
+    synopsisPanel.classList.toggle('hidden');
+    sessionStorage.setItem(
+        'synopsisPanelHidden',
+        synopsisPanel.classList.contains('hidden')
+    );
+});
+
 document.getElementById('toggleNavBtn').addEventListener('click', () => {
     const navContainer = document.getElementById('navContainer');
     navContainer.classList.toggle('hidden');
@@ -1825,17 +1812,10 @@ document
 document.getElementById('emptyTrashBtn').addEventListener('click', emptyTrash);
 
 document
-    .getElementById('synopsisPanelClose')
-    .addEventListener('click', hideSynopsisPanel);
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') hideSynopsisPanel();
-});
-
-document
     .querySelector('.list-section-wrapper')
     .addEventListener('click', (e) => {
         if (e.target.closest('.card')) return;
-        clearCardFocus('focusedItemId', 'card-focused');
+        clearSynopsisPanelSelection();
     });
 
 document

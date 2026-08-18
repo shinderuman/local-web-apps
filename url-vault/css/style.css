@@ -410,11 +410,6 @@ button:hover {
     border-color: #d4a373;
     box-shadow: 0 0 8px rgba(212, 163, 115, 0.4);
 }
-/* カードクリック時のフォーカスカード（読了後の削除対象を見失わないため） */
-.card.card-focused {
-    border-color: #e53935;
-    box-shadow: 0 0 10px rgba(229, 57, 53, 0.6);
-}
 .card.has-synopsis::after {
     content: '📖';
     position: absolute;
@@ -453,11 +448,12 @@ button:hover {
     background-color: #1e1e1e;
     border: 1px solid #2d2d2d;
     border-radius: 6px;
-    display: none;
+    display: flex;
     flex-direction: column;
     overflow: hidden;
 }
-.synopsis-panel[style*='display: flex'] {
+.synopsis-panel.hidden {
+    display: none !important;
 }
 .synopsis-panel-header {
     display: flex;
@@ -472,18 +468,6 @@ button:hover {
     font-size: 13px;
     color: #007acc;
     word-break: break-all;
-}
-.synopsis-panel-close {
-    background: none;
-    border: none;
-    color: #888;
-    font-size: 20px;
-    cursor: pointer;
-    padding: 0 4px;
-    flex-shrink: 0;
-}
-.synopsis-panel-close:hover {
-    color: #fff;
 }
 .synopsis-panel-body {
     padding: 12px;
@@ -642,33 +626,6 @@ button:hover {
     }
     to {
         transform: translateX(40px);
-        opacity: 0;
-    }
-}
-
-.synopsis-panel-open {
-    animation: synopsis-slide-in 0.18s ease-out;
-}
-@keyframes synopsis-slide-in {
-    from {
-        transform: translateX(20px);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-.synopsis-panel-close {
-    animation: synopsis-slide-out 0.18s ease-in forwards;
-}
-@keyframes synopsis-slide-out {
-    from {
-        transform: translateX(0);
-        opacity: 1;
-    }
-    to {
-        transform: translateX(20px);
         opacity: 0;
     }
 }
