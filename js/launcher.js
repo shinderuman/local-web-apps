@@ -35,6 +35,7 @@ const renderApps = (apps) => {
     for (const app of apps) {
         const link = document.createElement('a');
         link.href = app.path;
+        link.target = '_blank';
         link.className = 'app-link';
         const title = document.createElement('span');
         title.className = 'app-title';
