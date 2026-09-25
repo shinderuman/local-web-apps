@@ -68,11 +68,18 @@ const uiState = {
     synopsisPanelItemId: null,
     toastTimer: null,
     toastVisible: false,
-    blurEnabled: false
+    blurEnabled: false,
+    rightPaneHidden: false,
+    rightPaneMode: 'synopsis'
 };
 
 const synopsisState = {
     errorResponsesByItem: {}
+};
+
+const asinState = {
+    windowId: null,
+    uncheckedGroupIds: new Set()
 };
 
 const { parseVolume, parseBaseTitle } = window.TITLE_PARSER;
@@ -105,6 +112,7 @@ const {
     formatSynopsisResponses
 } = window.SYNOPSIS_LOGIC;
 const { serializeUIState, deserializeUIState } = window.UI_LOGIC;
+const { selectAsinItems, extractAsins } = window.ASIN_LOGIC;
 
 const initApp = () => {
     loadUIState();
@@ -142,6 +150,37 @@ const updateAddPositionBtn = () => {
     btn.style.borderColor = editState.addPositionTop ? '' : '#444';
 };
 
+const updateRightPaneVisibility = () => {
+    const visible = !uiState.rightPaneHidden;
+    document
+        .getElementById('synopsisPanel')
+        .classList.toggle(
+            'hidden',
+            !(visible && uiState.rightPaneMode === 'synopsis')
+        );
+    document
+        .getElementById('asinPanel')
+        .classList.toggle(
+            'hidden',
+            !(visible && uiState.rightPaneMode === 'asin')
+        );
+};
+
+const switchRightPaneMode = (mode) => {
+    if (uiState.rightPaneMode === mode) return;
+    uiState.rightPaneMode = mode;
+    sessionStorage.setItem('rightPaneMode', mode);
+    updateRightPaneVisibility();
+    updateAsinModeBtn();
+};
+
+const updateAsinModeBtn = () => {
+    const btn = document.getElementById('toggleAsinModeBtn');
+    const active = uiState.rightPaneMode === 'asin';
+    btn.style.backgroundColor = active ? '#007acc' : '';
+    btn.style.color = active ? '#fff' : '';
+};
+
 const loadToggleStates = () => {
     const leftPanel = document.getElementById('leftPanel');
     const navContainer = document.getElementById('navContainer');
@@ -149,8 +188,14 @@ const loadToggleStates = () => {
         leftPanel.classList.add('hidden');
     if (sessionStorage.getItem('navContainerHidden') === 'true')
         navContainer.classList.add('hidden');
-    if (sessionStorage.getItem('synopsisPanelHidden') === 'true')
-        document.getElementById('synopsisPanel').classList.add('hidden');
+    uiState.rightPaneHidden =
+        sessionStorage.getItem('synopsisPanelHidden') === 'true';
+    uiState.rightPaneMode =
+        sessionStorage.getItem('rightPaneMode') === 'asin'
+            ? 'asin'
+            : 'synopsis';
+    updateRightPaneVisibility();
+    updateAsinModeBtn();
 
     updateAddPositionBtn();
     updateDupCheckBtn();
@@ -889,7 +934,14 @@ const showSynopsisPanel = (item, editedState) => {
     const titleEl = document.getElementById('synopsisPanelTitle');
     const bodyEl = document.getElementById('synopsisPanelBody');
 
-    if (!editedState && uiState.synopsisPanelItemId === item.id) {
+    const switchedFromAsin = uiState.rightPaneMode === 'asin';
+    switchRightPaneMode('synopsis');
+
+    if (
+        !switchedFromAsin &&
+        !editedState &&
+        uiState.synopsisPanelItemId === item.id
+    ) {
         clearSynopsisPanelSelection();
         return;
     }
@@ -1184,6 +1236,7 @@ const renderFilters = () => {
         }
         renderGroupFilters(tx);
         syncItemSelects();
+        renderAsinPanel(tx, windows);
     };
 };
 
@@ -1231,6 +1284,98 @@ const renderGroupFilters = (tx) => {
             }
             groupRow.appendChild(btn);
         });
+    };
+};
+
+const renderAsinPanel = (tx, windows) => {
+    const myId = filterState.renderId;
+    const windowNameEl = document.getElementById('asinWindowName');
+    const executeBtn = document.getElementById('executeAsinExportBtn');
+
+    if (filterState.selectedWindowId === null) {
+        windowNameEl.textContent = 'ウィンドウを選択してください';
+        document.getElementById('asinGroupList').innerHTML = '';
+        executeBtn.disabled = true;
+        return;
+    }
+    if (filterState.selectedWindowId === TRASH.WINDOW_ID) {
+        windowNameEl.textContent = 'ゴミ箱ウィンドウは対象外です';
+        document.getElementById('asinGroupList').innerHTML = '';
+        executeBtn.disabled = true;
+        return;
+    }
+
+    if (asinState.windowId !== filterState.selectedWindowId) {
+        asinState.windowId = filterState.selectedWindowId;
+        asinState.uncheckedGroupIds.clear();
+    }
+
+    const windowName = windows.find(
+        (w) => w.id === filterState.selectedWindowId
+    )?.name;
+    windowNameEl.textContent = `対象ウィンドウ: ${windowName}`;
+    executeBtn.disabled = false;
+
+    tx.objectStore('groups').getAll().onsuccess = (e) => {
+        if (myId !== filterState.renderId) return;
+        const groups = e.target.result.filter(
+            (g) => g.windowId === filterState.selectedWindowId
+        );
+        renderAsinGroupList(groups);
+    };
+};
+
+const renderAsinGroupList = (groups) => {
+    const groupListEl = document.getElementById('asinGroupList');
+    groupListEl.innerHTML = '';
+    groups.forEach((g) => {
+        const label = document.createElement('label');
+        label.className = 'asin-group-item';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = g.id;
+        cb.checked = !asinState.uncheckedGroupIds.has(g.id);
+        cb.onchange = () => {
+            if (cb.checked) asinState.uncheckedGroupIds.delete(g.id);
+            else asinState.uncheckedGroupIds.add(g.id);
+        };
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(g.name));
+        groupListEl.appendChild(label);
+    });
+};
+
+const executeAsinExport = () => {
+    const windowId = filterState.selectedWindowId;
+    if (windowId === null || windowId === TRASH.WINDOW_ID) return;
+
+    const groupIds = [
+        ...document.querySelectorAll(
+            '#asinGroupList input[type="checkbox"]:checked'
+        )
+    ].map((cb) => parseInt(cb.value, 10));
+    if (groupIds.length === 0) {
+        showToast('グループを1つ以上選択してください', { error: true });
+        return;
+    }
+
+    db
+        .transaction(['items'], 'readonly')
+        .objectStore('items')
+        .getAll().onsuccess = (e) => {
+        const selected = selectAsinItems(e.target.result, windowId, groupIds);
+        const asins = extractAsins(selected);
+        const json = JSON.stringify(asins);
+        document.getElementById('asinOutput').value = json;
+        navigator.clipboard.writeText(json).then(
+            () => showToast(`ASIN ${asins.length}件をコピーしました`),
+            (err) => {
+                console.error('クリップボードへのコピーに失敗しました', err);
+                showToast(`ASIN ${asins.length}件を抽出（コピー失敗）`, {
+                    error: true
+                });
+            }
+        );
     };
 };
 
@@ -1679,13 +1824,41 @@ document.getElementById('toggleLeftBtn').addEventListener('click', () => {
 });
 
 document.getElementById('toggleRightBtn').addEventListener('click', () => {
-    const synopsisPanel = document.getElementById('synopsisPanel');
-    synopsisPanel.classList.toggle('hidden');
-    sessionStorage.setItem(
-        'synopsisPanelHidden',
-        synopsisPanel.classList.contains('hidden')
-    );
+    uiState.rightPaneHidden = !uiState.rightPaneHidden;
+    sessionStorage.setItem('synopsisPanelHidden', uiState.rightPaneHidden);
+    updateRightPaneVisibility();
 });
+
+document.getElementById('toggleAsinModeBtn').addEventListener('click', () => {
+    const nextMode = uiState.rightPaneMode === 'asin' ? 'synopsis' : 'asin';
+    if (nextMode === 'asin' && uiState.rightPaneHidden) {
+        uiState.rightPaneHidden = false;
+        sessionStorage.setItem('synopsisPanelHidden', false);
+    }
+    switchRightPaneMode(nextMode);
+});
+
+document.getElementById('asinSelectAllBtn').addEventListener('click', () => {
+    asinState.uncheckedGroupIds.clear();
+    document
+        .querySelectorAll('#asinGroupList input[type="checkbox"]')
+        .forEach((cb) => {
+            cb.checked = true;
+        });
+});
+
+document.getElementById('asinDeselectAllBtn').addEventListener('click', () => {
+    document
+        .querySelectorAll('#asinGroupList input[type="checkbox"]')
+        .forEach((cb) => {
+            asinState.uncheckedGroupIds.add(parseInt(cb.value, 10));
+            cb.checked = false;
+        });
+});
+
+document
+    .getElementById('executeAsinExportBtn')
+    .addEventListener('click', executeAsinExport);
 
 document.getElementById('toggleNavBtn').addEventListener('click', () => {
     const navContainer = document.getElementById('navContainer');

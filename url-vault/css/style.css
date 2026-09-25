@@ -586,6 +586,56 @@ button:hover {
     overflow-y: auto;
 }
 
+.asin-window-name {
+    font-size: 11px;
+    color: #888;
+    margin: 0 0 8px 0;
+}
+.asin-group-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+.asin-group-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #ddd;
+    cursor: pointer;
+}
+.asin-group-item input {
+    cursor: pointer;
+}
+.asin-btn-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.asin-export-btn {
+    width: 100%;
+    margin-bottom: 8px;
+}
+.asin-export-btn:disabled {
+    background-color: #444;
+    color: #888;
+    cursor: default;
+}
+.asin-output {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 120px;
+    padding: 6px;
+    background-color: #1e1e1e;
+    border: 1px solid #444;
+    color: #ccc;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: monospace;
+    resize: vertical;
+}
+
 .synopsis-toast {
     position: fixed;
     top: 12px;

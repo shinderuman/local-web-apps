@@ -16,6 +16,7 @@ URLをサムネイル付きカードとして管理・整理するタブマネ�
 - **2行ペースト対応** — タイトルとURLの2行テキストを一度に貼り付け
 - **画像ペースト自動保存** — タイトル・URL入力済みの状態で画像を貼ると自動保存
 - **あらすじ取得（漫画）** — Kindleドメインの漫画アイテムは楽天ブックスAPIからあらすじを自動取得（保存時および一括取得）
+- **ASIN一括出力** — 選択中ウィンドウの複数グループからKindleのASINを抽出し、JSON配列でクリップボードにコピー
 - **ダークテーマUI** — 高密度カードグリッドで最大表示領域を確保
 
 ## 使い方
@@ -62,6 +63,13 @@ URLをサムネイル付きカードとして管理・整理するタブマネ�
 - あらすじ取得済みのカードは右下に 📖 マーク表示
 - **注意**: あらすじはデータ容量肥大化を避けるため**エクスポート対象外**。インポート後は再取得が必要
 
+### ASIN一括出力
+
+- 上部「📋 ASIN出力」で右ペインをカード詳細とASIN出力で切り替え（カードをクリックするとカード詳細に戻る）
+- 対象ウィンドウは現在選択中のウィンドウ（「すべて」・ゴミ箱選択中は実行不可）
+- グループはチェックボックスで複数選択（初期状態は全チェック）
+- 「ASIN抽出してコピー」でASINのJSON配列をテキストエリアに出力し、クリップボードにコピー
+
 ### 設定（認証情報）
 
 あらすじ取得機能は楽天APIの認証情報が必要です。
@@ -85,20 +93,31 @@ url-vault/
 ├── css/style.css           — スタイル
 ├── js/app.js               — ロジック
 ├── js/title-parser.js      — タイトル解析（巻数・作品名抽出）
+├── js/item-logic.js        — アイテム操作（sortOrder計算・並び替え・入力検証）
+├── js/filter-logic.js      — フィルタ・重複チェック・ゴミ箱判定
+├── js/asin-logic.js        — ASIN一括出力（ASIN抽出・絞り込み）
+├── js/synopsis-logic.js    — あらすじ取得（クエリ構築・レスポンス整形）
+├── js/ui-logic.js          — UI状態のシリアライズ
+├── js/lib/sortable.min.js  — SortableJS（ドラッグ＆ドロップ）
 ├── config.js               — 認証情報（git管理外・要作成）
 ├── config.sample.js        — 認証情報テンプレート
 └── test/                   — Node組み込みテスト（依存追加なし）
     ├── title-parser.test.js
-    └── real-titles.test.js (+ real-titles.json, real-titles.expected.json)
+    ├── item-logic.test.js
+    ├── filter-logic.test.js
+    ├── asin-logic.test.js
+    ├── synopsis-logic.test.js
+    ├── ui-logic.test.js
+    └── real-titles.test.js (+ real-titles.json)
 ```
 
 ### テスト実行
 
-タイトル解析（巻数・作品名の抽出）は実データ182件でスナップショットテストを保持しています。
+純粋関数モジュール（title-parser / item-logic / filter-logic / asin-logic / synopsis-logic / ui-logic）と、タイトル解析の実データスナップショット（real-titles）のテストを保持しています。
 
 ```bash
 cd url-vault
-node --test test/title-parser.test.js test/real-titles.test.js
+node --test "test/*.test.js"
 ```
 
 ## ライセンス（サードパーティ）
