@@ -54,7 +54,8 @@ const filterState = {
     selectedGroupByWindow: {},
     dupCheckEnabled: false,
     dupCheckLength: 6,
-    noSynopsisOnly: false
+    noSynopsisOnly: false,
+    visibleItems: []
 };
 
 const editState = {
@@ -1379,6 +1380,18 @@ const executeAsinExport = () => {
     };
 };
 
+const openRandomVisibleItem = () => {
+    const items = filterState.visibleItems;
+    if (items.length === 0) {
+        showToast('表示中のアイテムがありません', { error: true });
+        return;
+    }
+    const item = items[Math.floor(Math.random() * items.length)];
+    showSynopsisPanel(item);
+    const card = document.querySelector(`.card[data-id="${item.id}"]`);
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
 const startEditFilter = (id, storeName, currentName, btnElement) => {
     let finished = false;
     const input = document.createElement('input');
@@ -1661,6 +1674,7 @@ const renderList = ({ resetScroll = false } = {}) => {
             );
         }
 
+        filterState.visibleItems = items;
         reconcileList(listSection, items);
         updateDragEnabled();
 
@@ -1859,6 +1873,10 @@ document.getElementById('asinDeselectAllBtn').addEventListener('click', () => {
 document
     .getElementById('executeAsinExportBtn')
     .addEventListener('click', executeAsinExport);
+
+document
+    .getElementById('randomOpenBtn')
+    .addEventListener('click', openRandomVisibleItem);
 
 document.getElementById('toggleNavBtn').addEventListener('click', () => {
     const navContainer = document.getElementById('navContainer');
