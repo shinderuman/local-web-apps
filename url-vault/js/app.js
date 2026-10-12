@@ -112,7 +112,11 @@ const {
     shortenQuery,
     formatSynopsisResponses
 } = window.SYNOPSIS_LOGIC;
-const { serializeUIState, deserializeUIState } = window.UI_LOGIC;
+const {
+    serializeUIState,
+    deserializeUIState,
+    shouldClearSynopsisSelection
+} = window.UI_LOGIC;
 const { selectAsinItems, extractAsins } = window.ASIN_LOGIC;
 
 const initApp = () => {
@@ -931,7 +935,11 @@ const clearCardFocus = (stateKey, className) => {
         .forEach((c) => c.classList.remove(className));
 };
 
-const showSynopsisPanel = (item, editedState) => {
+const showSynopsisPanel = (
+    item,
+    editedState,
+    { toggleOnRepeat = false } = {}
+) => {
     const titleEl = document.getElementById('synopsisPanelTitle');
     const bodyEl = document.getElementById('synopsisPanelBody');
 
@@ -941,7 +949,11 @@ const showSynopsisPanel = (item, editedState) => {
     if (
         !switchedFromAsin &&
         !editedState &&
-        uiState.synopsisPanelItemId === item.id
+        shouldClearSynopsisSelection(
+            uiState.synopsisPanelItemId,
+            item.id,
+            toggleOnRepeat
+        )
     ) {
         clearSynopsisPanelSelection();
         return;
@@ -1615,7 +1627,7 @@ const createCardElement = (item) => {
     card.oncontextmenu = (e) => {
         if (editState.isEditMode) return;
         e.preventDefault();
-        showSynopsisPanel(item);
+        showSynopsisPanel(item, undefined, { toggleOnRepeat: true });
     };
 
     card.appendChild(createDeleteButton(item.id));

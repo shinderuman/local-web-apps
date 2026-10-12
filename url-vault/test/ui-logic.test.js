@@ -1,6 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { serializeUIState, deserializeUIState } = require('../js/ui-logic.js');
+const {
+    serializeUIState,
+    deserializeUIState,
+    shouldClearSynopsisSelection
+} = require('../js/ui-logic.js');
 
 test('serializeUIState: 状態オブジェクトをJSON文字列化', () => {
     const state = {
@@ -83,4 +87,15 @@ test('deserializeUIState: 無効JSONならnull', () => {
 test('deserializeUIState: 空文字ならnull', () => {
     const state = deserializeUIState('');
     assert.strictEqual(state, null);
+});
+
+test('shouldClearSynopsisSelection: 左クリックでは同じカードの選択を維持', () => {
+    assert.strictEqual(shouldClearSynopsisSelection(1, 1, false), false);
+    assert.strictEqual(shouldClearSynopsisSelection(1, 2, false), false);
+});
+
+test('shouldClearSynopsisSelection: 右クリックでは同じカードのみ選択解除', () => {
+    assert.strictEqual(shouldClearSynopsisSelection(null, 1, true), false);
+    assert.strictEqual(shouldClearSynopsisSelection(1, 2, true), false);
+    assert.strictEqual(shouldClearSynopsisSelection(1, 1, true), true);
 });

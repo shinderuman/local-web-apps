@@ -27,9 +27,19 @@
         }
     };
 
+    // 同じカードの明示的な再トグル操作だけで選択を解除する
+    const shouldClearSynopsisSelection = (
+        currentItemId,
+        nextItemId,
+        toggleOnRepeat
+    ) => {
+        return toggleOnRepeat && currentItemId === nextItemId;
+    };
+
     const UI_LOGIC = {
         serializeUIState,
-        deserializeUIState
+        deserializeUIState,
+        shouldClearSynopsisSelection
     };
 
     factory(root, UI_LOGIC);
