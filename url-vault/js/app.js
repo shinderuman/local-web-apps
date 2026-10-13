@@ -112,11 +112,8 @@ const {
     shortenQuery,
     formatSynopsisResponses
 } = window.SYNOPSIS_LOGIC;
-const {
-    serializeUIState,
-    deserializeUIState,
-    shouldClearSynopsisSelection
-} = window.UI_LOGIC;
+const { serializeUIState, deserializeUIState, shouldClearSynopsisSelection } =
+    window.UI_LOGIC;
 const { selectAsinItems, extractAsins } = window.ASIN_LOGIC;
 
 const initApp = () => {
@@ -909,12 +906,14 @@ const renderSynopsisForm = (item, bodyEl, editedState) => {
     renderSynopsisErrorResponse(errorResponse, jsonContainer);
 
     const refetchBtn = createRefetchButton(item, titleInput, volInput);
+    const deleteBtn = createDeleteButton(item.id, 'btn-danger', '🗑 削除');
 
     const volRow = document.createElement('div');
     volRow.className = 'synopsis-vol-row';
     volRow.appendChild(volLabel);
     volRow.appendChild(volInput);
     volRow.appendChild(refetchBtn);
+    volRow.appendChild(deleteBtn);
     formWrap.appendChild(volRow);
     formWrap.appendChild(jsonContainer);
 
@@ -1544,6 +1543,9 @@ const emptyTrash = () => {
 };
 
 const moveToTrash = (itemId) => {
+    if (uiState.synopsisPanelItemId === itemId) {
+        clearSynopsisPanelSelection();
+    }
     const tx = db.transaction(['items'], 'readwrite');
     const store = tx.objectStore('items');
     store.getAll().onsuccess = (e) => {
@@ -1564,10 +1566,10 @@ const moveToTrash = (itemId) => {
     tx.oncomplete = () => renderList();
 };
 
-const createDeleteButton = (itemId) => {
+const createDeleteButton = (itemId, className, label) => {
     const btn = document.createElement('button');
-    btn.className = 'delete-icon-btn';
-    btn.textContent = '×';
+    btn.className = className;
+    btn.textContent = label;
     btn.onclick = () => moveToTrash(itemId);
     return btn;
 };
@@ -1630,7 +1632,7 @@ const createCardElement = (item) => {
         showSynopsisPanel(item, undefined, { toggleOnRepeat: true });
     };
 
-    card.appendChild(createDeleteButton(item.id));
+    card.appendChild(createDeleteButton(item.id, 'delete-icon-btn', '×'));
     card.appendChild(createCardImage(item));
     card.appendChild(createCardContent(item));
     return card;
